@@ -1,0 +1,25 @@
+name: Validate search API
+
+on:
+  push:
+    paths:
+      - 'server/**'
+      - 'render.yaml'
+      - '.github/workflows/test-api.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: node --check src/index.js
+      - run: node --check src/search.js
+      - run: node --check src/providers.js
