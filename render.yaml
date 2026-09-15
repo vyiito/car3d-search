@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: car3d-search-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    envVars:
+      - key: CORS_ORIGIN
+        value: https://vyiito.github.io
+      - key: SEARCH_CONCURRENCY
+        value: 5
+      - key: CACHE_TTL_MS
+        value: 600000
