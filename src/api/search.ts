@@ -10,7 +10,10 @@ export interface GlobalSearchResult {
   price: number | null
   isFree: boolean | null
   downloadable: boolean | null
+  downloadUrl: string | null
   author: string | null
+  description: string | null
+  fileSize: string | null
   score: number
 }
 
@@ -38,7 +41,7 @@ export interface GlobalSearchResponse {
 const API_BASE = (import.meta.env.VITE_SEARCH_API_URL || 'https://car3d-search-api.onrender.com').replace(/\/$/, '')
 
 export async function globalSearch(query: string, signal?: AbortSignal): Promise<GlobalSearchResponse> {
-  const url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}&perSource=20`
+  const url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}&perSource=40`
   const response = await fetch(url, { signal })
   if (!response.ok) throw new Error(`API ${response.status}`)
   return response.json()
