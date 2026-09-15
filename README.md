@@ -2,36 +2,59 @@
 
 Metabuscador especializado em modelos 3D de carros e veículos.
 
-## MVP
+## Arquitetura atual
 
-- Busca local por nome, marca, veículo e fonte
-- Filtro de modelos gratuitos
-- Filtro por formato
-- Filtro por uso (games, impressão 3D e render)
-- Catálogo inicial de providers
-- Estrutura pronta para evoluir para integrações reais
-- Deploy preparado para GitHub Pages
+- Frontend: React + Vite publicado no GitHub Pages
+- Busca global: API Node/Express em `server/`
+- Agregador: consulta todos os providers em paralelo, normaliza e deduplica resultados
+- Providers cadastrados: RigModels, Free3D, 3D Rush, Brasil Simulator Mods, OverTake.gg, Assetto Mods, ModDB, Assetto Hub, ETS2.lt, VOSAN, Sketchfab, CGTrader, Done3D, 3DSky, Free3D.io e Vertex Warehouse
+- Sketchfab usa a API pública de busca
+- Outras fontes começam com extração HTML tolerante a layouts diferentes e fallback para busca direta
 
-> Os modelos exibidos no MVP são dados demonstrativos. As integrações reais serão adicionadas provider por provider.
-
-## Desenvolvimento
+## Frontend
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Build
+## API
 
 ```bash
-npm run build
+cd server
+npm install
+npm run dev
 ```
 
-## Próximos passos
+Endpoints:
 
-1. Validar e ampliar a base de sites.
-2. Criar a interface comum `SearchProvider`.
-3. Implementar o primeiro provider real.
-4. Criar normalização de marca/modelo/geração/ano.
-5. Adicionar deduplicação.
-6. Migrar os dados para PostgreSQL/Supabase quando necessário.
+```text
+GET /health
+GET /api/providers
+GET /api/search?q=BMW%20E36&perSource=20
+```
+
+## Deploy da API
+
+O repositório inclui `render.yaml` para criar o serviço `car3d-search-api` no Render.
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/vyiito/car3d-search)
+
+O frontend usa por padrão:
+
+```text
+https://car3d-search-api.onrender.com
+```
+
+Você também pode definir `VITE_SEARCH_API_URL` durante o build para usar outro backend.
+
+## Como a busca funciona
+
+1. O usuário digita um veículo.
+2. O frontend chama `/api/search`.
+3. O backend dispara a consulta para todas as fontes cadastradas em paralelo.
+4. Cada resultado é convertido para um formato comum: título, imagem, fonte, URL, formatos, preço e disponibilidade.
+5. Resultados duplicados são removidos e a lista é ordenada por relevância.
+6. O frontend mostra também o status de cada fonte, inclusive quando uma delas bloqueia ou falha.
+
+Algumas fontes usam JavaScript, autenticação, API própria ou mecanismos anti-bot. Esses providers precisam de adapters específicos para atingir cobertura máxima; o agregador foi estruturado para isso sem alterar o frontend.
