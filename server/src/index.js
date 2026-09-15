@@ -14,7 +14,7 @@ app.use(cors({ origin: [allowedOrigin, 'http://localhost:5173'], methods: ['GET'
 app.use(express.json({ limit: '32kb' }))
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'car3d-search-api', providers: providers.length })
+  res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length })
 })
 
 app.get('/api/providers', (_req, res) => {
@@ -30,7 +30,7 @@ app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 120)
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
 
-  const perSource = Math.max(1, Math.min(Number(req.query.perSource || 12), 30))
+  const perSource = Math.max(1, Math.min(Number(req.query.perSource || 20), 50))
   const cacheKey = `${q.toLowerCase()}|${perSource}`
   const cached = cache.get(cacheKey)
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
@@ -52,5 +52,5 @@ app.get('/api/search', async (req, res) => {
 })
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Car3D Search API listening on 0.0.0.0:${port}`)
+  console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`)
 })
