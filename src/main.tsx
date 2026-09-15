@@ -1,15 +1,32 @@
 import React, { useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Search, SlidersHorizontal, Box, ExternalLink, CarFront, Database, Globe2, ChevronDown } from 'lucide-react'
+import {
+  Search,
+  SlidersHorizontal,
+  Box,
+  ExternalLink,
+  CarFront,
+  Database,
+  Globe2,
+  ChevronDown,
+  ImageOff,
+  Sparkles,
+  Gamepad2,
+  Shapes,
+  ArrowUpRight,
+} from 'lucide-react'
 import { models } from './data/models'
 import { providers } from './data/providers'
 import './styles.css'
+
+type KindFilter = 'Todos' | '3D Model' | 'Game Mod'
 
 function App() {
   const [query, setQuery] = useState('')
   const [freeOnly, setFreeOnly] = useState(false)
   const [format, setFormat] = useState('Todos')
   const [usage, setUsage] = useState('Todos')
+  const [kind, setKind] = useState<KindFilter>('Todos')
 
   const formats = ['Todos', ...Array.from(new Set(models.flatMap(m => m.formats))).sort()]
 
@@ -21,9 +38,12 @@ function App() {
       const matchesFree = !freeOnly || model.isFree
       const matchesFormat = format === 'Todos' || model.formats.includes(format)
       const matchesUse = usage === 'Todos' || model.use.includes(usage as 'game' | 'print' | 'render')
-      return matchesQuery && matchesFree && matchesFormat && matchesUse
+      const matchesKind = kind === 'Todos' || model.sourceType === kind
+      return matchesQuery && matchesFree && matchesFormat && matchesUse && matchesKind
     })
-  }, [query, freeOnly, format, usage])
+  }, [query, freeOnly, format, usage, kind])
+
+  const runSearch = () => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' })
 
   return (
     <main>
@@ -34,32 +54,52 @@ function App() {
         </a>
         <nav>
           <a href="#search">Buscar</a>
+          <a href="#results">Explorar</a>
           <a href="#sources">Fontes</a>
-          <a href="https://github.com/vyiito/car3d-search" target="_blank" rel="noreferrer">GitHub</a>
+          <a className="githubLink" href="https://github.com/vyiito/car3d-search" target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={13}/></a>
         </nav>
       </header>
 
       <section className="hero" id="search">
-        <div className="eyebrow"><Globe2 size={15}/> Um buscador. Várias bibliotecas 3D.</div>
-        <h1>Encontre o modelo 3D<br/><span>do veículo que você procura.</span></h1>
-        <p>Pesquise carros, motos e outros veículos em múltiplas plataformas, compare formatos e encontre modelos gratuitos ou pagos.</p>
+        <div className="eyebrow"><Sparkles size={14}/> Metabuscador de veículos 3D</div>
+        <h1>Um lugar para encontrar<br/><span>qualquer veículo em 3D.</span></h1>
+        <p>Pesquise em bibliotecas de modelos 3D e sites de mods ao mesmo tempo. Compare fontes, formatos, preço e encontre o arquivo ideal para Blender, games ou impressão.</p>
 
         <div className="searchBox">
           <Search size={23}/>
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Ex: Subaru Forester STI SG9, BMW E36, Lancer Evo IX..." />
-          <button onClick={() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' })}>Buscar</button>
+          <input
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && runSearch()}
+            placeholder="Subaru Forester STI SG9, BMW E36, Lancer Evo IX..."
+          />
+          <button onClick={runSearch}>Buscar</button>
         </div>
 
         <div className="quickSearches">
-          <span>Populares:</span>
-          {['BMW E36', 'Forester SG9', 'Lancer Evo', 'Skyline R34'].map(term => <button key={term} onClick={() => setQuery(term)}>{term}</button>)}
+          <span>Buscas rápidas</span>
+          {['BMW E36', 'Forester SG9', 'Lancer Evo', 'Skyline R34'].map(term => (
+            <button key={term} onClick={() => { setQuery(term); setTimeout(runSearch, 50) }}>{term}</button>
+          ))}
         </div>
       </section>
 
       <section className="stats">
-        <div><strong>{models.length}</strong><span>modelos no MVP</span></div>
         <div><strong>{providers.length}</strong><span>fontes mapeadas</span></div>
-        <div><strong>{formats.length - 1}</strong><span>formatos indexados</span></div>
+        <div><strong>{providers.filter(p => p.sourceType === '3d-models').length}</strong><span>bibliotecas 3D</span></div>
+        <div><strong>{providers.filter(p => p.sourceType === 'game-mods').length}</strong><span>fontes de mods</span></div>
+        <div><strong>{formats.length - 1}</strong><span>formatos no protótipo</span></div>
+      </section>
+
+      <section className="catalogToolbar">
+        <div className="kindTabs">
+          {(['Todos', '3D Model', 'Game Mod'] as KindFilter[]).map(item => (
+            <button key={item} className={kind === item ? 'active' : ''} onClick={() => setKind(item)}>
+              {item === '3D Model' && <Shapes size={15}/>} {item === 'Game Mod' && <Gamepad2 size={15}/>} {item}
+            </button>
+          ))}
+        </div>
+        <span className="demoNotice">Resultados demonstrativos · integração real dos providers é a próxima etapa</span>
       </section>
 
       <section className="content" id="results">
@@ -69,37 +109,61 @@ function App() {
           <label>Formato</label>
           <div className="selectWrap"><select value={format} onChange={e => setFormat(e.target.value)}>{formats.map(f => <option key={f}>{f}</option>)}</select><ChevronDown size={15}/></div>
           <label>Uso</label>
-          <div className="selectWrap"><select value={usage} onChange={e => setUsage(e.target.value)}><option>Todos</option><option value="game">Game Ready</option><option value="print">Impressão 3D</option><option value="render">Render</option></select><ChevronDown size={15}/></div>
+          <div className="selectWrap"><select value={usage} onChange={e => setUsage(e.target.value)}><option>Todos</option><option value="game">Game Ready / Mod</option><option value="print">Impressão 3D</option><option value="render">Render</option></select><ChevronDown size={15}/></div>
+          <button className="clearFilters" onClick={() => { setFreeOnly(false); setFormat('Todos'); setUsage('Todos'); setKind('Todos'); setQuery('') }}>Limpar filtros</button>
         </aside>
 
         <div className="results">
-          <div className="resultsHeader"><div><h2>Modelos encontrados</h2><p>{filtered.length} resultado(s) neste protótipo</p></div></div>
+          <div className="resultsHeader">
+            <div><h2>{query ? `Resultados para “${query}”` : 'Veículos em destaque'}</h2><p>{filtered.length} resultado(s) neste protótipo</p></div>
+          </div>
+
           <div className="grid">
             {filtered.map(model => (
               <article className="card" key={model.id}>
-                <div className="thumb"><CarFront size={70}/><span>{model.brand}</span></div>
+                <a className="thumb" href={model.sourceUrl} target="_blank" rel="noreferrer" aria-label={`Abrir ${model.title}`}>
+                  <img src={model.imageUrl} alt={model.title} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.add('show') }}/>
+                  <span className="imageFallback"><ImageOff size={30}/><small>Imagem indisponível</small></span>
+                  <span className="thumbShade" />
+                  <span className="typeBadge">{model.sourceType === 'Game Mod' ? <Gamepad2 size={12}/> : <Shapes size={12}/>} {model.sourceType}</span>
+                  <span className={model.isFree ? 'priceBadge free' : 'priceBadge'}>{model.isFree ? 'GRÁTIS' : `$${model.price}`}</span>
+                  <span className="yearBadge">{model.year}</span>
+                </a>
                 <div className="cardBody">
-                  <div className="sourceRow"><span>{model.source}</span><span className={model.isFree ? 'price free' : 'price'}>{model.isFree ? 'GRÁTIS' : `$${model.price}`}</span></div>
+                  <div className="sourceRow"><span>{model.source}</span><span>{model.quality}</span></div>
                   <h3>{model.title}</h3>
-                  <div className="meta">{model.year && <span>{model.year}</span>}<span>{model.quality}</span></div>
+                  <p className="vehicleMeta">{model.brand} · {model.vehicle}</p>
                   <div className="chips">{model.formats.map(f => <span key={f}>{f}</span>)}</div>
-                  <a href={model.sourceUrl} target="_blank" rel="noreferrer">Ver na fonte <ExternalLink size={15}/></a>
+                  <div className="cardFooter">
+                    <a className="credit" href={model.imageCreditUrl} target="_blank" rel="noreferrer">Imagem: Commons</a>
+                    <a className="sourceButton" href={model.sourceUrl} target="_blank" rel="noreferrer">Ver na fonte <ExternalLink size={14}/></a>
+                  </div>
                 </div>
               </article>
             ))}
           </div>
-          {!filtered.length && <div className="empty"><Box size={40}/><h3>Nenhum modelo encontrado</h3><p>Tente outro termo ou remova alguns filtros.</p></div>}
+
+          {!filtered.length && <div className="empty"><Box size={40}/><h3>Nenhum modelo encontrado</h3><p>Tente outro veículo ou remova alguns filtros.</p></div>}
         </div>
       </section>
 
       <section className="sources" id="sources">
-        <div className="sectionHeading"><Database size={21}/><div><h2>Fontes mapeadas</h2><p>A base será construída e validada progressivamente.</p></div></div>
+        <div className="sectionHeading">
+          <div className="headingIcon"><Database size={20}/></div>
+          <div><h2>12 fontes já mapeadas</h2><p>A base que estamos montando para o motor de busca.</p></div>
+        </div>
         <div className="providerGrid">
-          {providers.map(provider => <a key={provider.id} href={provider.url} target="_blank" rel="noreferrer"><strong>{provider.name}</strong><span>{provider.freeModels ? 'Grátis' : ''}{provider.freeModels && provider.paidModels ? ' + ' : ''}{provider.paidModels ? 'Pago' : ''}</span><small>{provider.status === 'planned' ? 'Integração planejada' : provider.status}</small></a>)}
+          {providers.map(provider => (
+            <a key={provider.id} href={provider.searchUrl || provider.url} target="_blank" rel="noreferrer">
+              <div className="providerIcon">{provider.sourceType === 'game-mods' ? <Gamepad2 size={17}/> : provider.sourceType === '3d-models' ? <Shapes size={17}/> : <Globe2 size={17}/>}</div>
+              <div className="providerText"><strong>{provider.name}</strong><span>{provider.categories.slice(0, 3).join(' · ')}</span></div>
+              <div className="providerMeta"><b>P{provider.priority}</b><small>{provider.freeModels ? 'FREE' : ''}{provider.paidModels ? ' + PRO' : ''}</small></div>
+            </a>
+          ))}
         </div>
       </section>
 
-      <footer>Car3D Search · MVP inicial · Base construída colaborativamente</footer>
+      <footer><span>Car3D Search</span> · construindo um metabuscador de modelos 3D automotivos</footer>
     </main>
   )
 }
