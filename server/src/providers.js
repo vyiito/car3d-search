@@ -1,0 +1,18 @@
+export const providers = [
+  { id: 'rigmodels', name: 'RigModels', type: '3d-models', baseUrl: 'https://rigmodels.com', buildUrl: q => `https://rigmodels.com/index.php?searchkeyword=${encodeURIComponent(q)}` },
+  { id: 'free3d', name: 'Free3D', type: '3d-models', baseUrl: 'https://free3d.com', buildUrl: q => `https://free3d.com/3d-models/${encodeURIComponent(q.trim().replace(/\s+/g, '-'))}` },
+  { id: '3drush', name: '3D Rush', type: '3d-models', baseUrl: 'https://3drush.com', buildUrl: q => `https://3drush.com/?s=${encodeURIComponent(q)}` },
+  { id: 'brasil-simulator-mods', name: 'Brasil Simulator Mods', type: 'game-mods', baseUrl: 'https://brasilsimulatormods.com', buildUrl: q => `https://brasilsimulatormods.com/?s=${encodeURIComponent(q)}` },
+  { id: 'overtake', name: 'OverTake.gg', type: 'game-mods', baseUrl: 'https://www.overtake.gg', buildUrl: q => `https://www.overtake.gg/search/?q=${encodeURIComponent(q)}` },
+  { id: 'assettomods', name: 'Assetto Mods', type: 'game-mods', baseUrl: 'https://assettomods.com', buildUrl: q => `https://assettomods.com/?s=${encodeURIComponent(q)}` },
+  { id: 'moddb', name: 'ModDB', type: 'game-mods', baseUrl: 'https://www.moddb.com', buildUrl: q => `https://www.moddb.com/search?q=${encodeURIComponent(q)}` },
+  { id: 'assettohub', name: 'Assetto Hub', type: 'game-mods', baseUrl: 'https://www.assettohub.com', buildUrl: q => `https://www.assettohub.com/?s=${encodeURIComponent(q)}` },
+  { id: 'ets2lt', name: 'ETS2.lt', type: 'game-mods', baseUrl: 'https://ets2.lt', buildUrl: q => `https://ets2.lt/en/?s=${encodeURIComponent(q)}` },
+  { id: 'vosan', name: 'VOSAN', type: 'game-mods', baseUrl: 'https://vosan.co', buildUrl: q => `https://vosan.co/explore?search=${encodeURIComponent(q)}` },
+  { id: 'sketchfab', name: 'Sketchfab', type: '3d-models', baseUrl: 'https://sketchfab.com', adapter: 'sketchfab', buildUrl: q => `https://sketchfab.com/search?type=models&q=${encodeURIComponent(q)}&features=downloadable` },
+  { id: 'cgtrader', name: 'CGTrader', type: '3d-models', baseUrl: 'https://www.cgtrader.com', buildUrl: q => `https://www.cgtrader.com/3d-models?keywords=${encodeURIComponent(q)}` },
+  { id: 'done3d', name: 'Done3D', type: '3d-models', baseUrl: 'https://done3d.com', buildUrl: q => `https://done3d.com/?s=${encodeURIComponent(q)}` },
+  { id: '3dsky', name: '3DSky', type: '3d-models', baseUrl: 'https://3dsky.org', buildUrl: q => `https://3dsky.org/3dmodels?search=${encodeURIComponent(q)}` },
+  { id: 'free3dio', name: 'Free3D.io', type: '3d-models', baseUrl: 'https://free3d.io', buildUrl: q => `https://free3d.io/?q=${encodeURIComponent(q)}` },
+  { id: 'vertex-warehouse', name: 'Vertex Warehouse', type: '3d-models', baseUrl: 'https://www.vertex-warehouse.com', buildUrl: q => `https://www.vertex-warehouse.com/search?q=${encodeURIComponent(q)}` },
+]
