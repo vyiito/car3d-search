@@ -15,4 +15,6 @@ export const providers = [
   { id: '3dsky', name: '3DSky', type: '3d-models', baseUrl: 'https://3dsky.org', buildUrl: q => `https://3dsky.org/3dmodels?search=${encodeURIComponent(q)}` },
   { id: 'free3dio', name: 'Free3D.io', type: '3d-models', baseUrl: 'https://free3d.io', buildUrl: q => `https://free3d.io/?q=${encodeURIComponent(q)}` },
   { id: 'vertex-warehouse', name: 'Vertex Warehouse', type: '3d-models', baseUrl: 'https://www.vertex-warehouse.com', buildUrl: q => `https://www.vertex-warehouse.com/search?q=${encodeURIComponent(q)}` },
+  { id: 'mediafire-rr3', name: 'MediaFire · Real Racing 3', type: '3d-models', baseUrl: 'https://www.mediafire.com', adapter: 'collection', collectionUrl: 'https://www.mediafire.com/folder/w7e2zubiwwr38/Real_Racing_3', buildUrl: () => 'https://www.mediafire.com/folder/w7e2zubiwwr38/Real_Racing_3' },
+  { id: 'open3dlab', name: 'Open3DLab', type: '3d-models', baseUrl: 'https://open3dlab.com', adapter: 'collection', collectionUrl: 'https://open3dlab.com/list/dd0e6ac2-5965-456d-8c4d-b06a81c64782/', extraCollectionUrls: ['https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/'], buildUrl: () => 'https://open3dlab.com/list/dd0e6ac2-5965-456d-8c4d-b06a81c64782/' },
 ]
