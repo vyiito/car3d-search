@@ -16,10 +16,26 @@ import {
   ArrowUpRight,
 } from 'lucide-react'
 import { models } from './data/models'
-import { providers } from './data/providers'
+import { providers, type Provider } from './data/providers'
 import './styles.css'
 
 type KindFilter = 'Todos' | '3D Model' | 'Game Mod'
+
+function providerSearchUrl(provider: Provider, term: string) {
+  const clean = term.trim()
+  if (!clean) return provider.searchUrl || provider.url
+
+  if (provider.searchUrl?.includes('{query}')) {
+    return provider.searchUrl.replace('{query}', encodeURIComponent(clean))
+  }
+
+  try {
+    const host = new URL(provider.url).hostname.replace(/^www\./, '')
+    return `https://www.google.com/search?q=${encodeURIComponent(`site:${host} ${clean}`)}`
+  } catch {
+    return provider.searchUrl || provider.url
+  }
+}
 
 function App() {
   const [query, setQuery] = useState('')
@@ -27,6 +43,7 @@ function App() {
   const [format, setFormat] = useState('Todos')
   const [usage, setUsage] = useState('Todos')
   const [kind, setKind] = useState<KindFilter>('Todos')
+  const [searchFocused, setSearchFocused] = useState(false)
 
   const formats = ['Todos', ...Array.from(new Set(models.flatMap(m => m.formats))).sort()]
 
@@ -43,7 +60,18 @@ function App() {
     })
   }, [query, freeOnly, format, usage, kind])
 
-  const runSearch = () => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' })
+  const suggestions = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return []
+    return models
+      .filter(model => `${model.title} ${model.brand} ${model.vehicle}`.toLowerCase().includes(q))
+      .slice(0, 5)
+  }, [query])
+
+  const runSearch = () => {
+    setSearchFocused(false)
+    document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   return (
     <main>
@@ -65,15 +93,49 @@ function App() {
         <h1>Um lugar para encontrar<br/><span>qualquer veículo em 3D.</span></h1>
         <p>Pesquise em bibliotecas de modelos 3D e sites de mods ao mesmo tempo. Compare fontes, formatos, preço e encontre o arquivo ideal para Blender, games ou impressão.</p>
 
-        <div className="searchBox">
-          <Search size={23}/>
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && runSearch()}
-            placeholder="Subaru Forester STI SG9, BMW E36, Lancer Evo IX..."
-          />
-          <button onClick={runSearch}>Buscar</button>
+        <div className="searchArea">
+          <div className="searchBox">
+            <Search size={23}/>
+            <input
+              value={query}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && runSearch()}
+              placeholder="Subaru Forester STI SG9, BMW E36, Lancer Evo IX..."
+            />
+            <button onClick={runSearch}>Buscar</button>
+          </div>
+
+          {searchFocused && query.trim() && (
+            <div className="searchSuggestions">
+              {suggestions.length > 0 ? (
+                <>
+                  <div className="suggestionLabel">Modelos do protótipo</div>
+                  {suggestions.map(model => (
+                    <button
+                      className="suggestionItem"
+                      key={model.id}
+                      onMouseDown={() => {
+                        setQuery(model.title)
+                        setTimeout(runSearch, 10)
+                      }}
+                    >
+                      <span className="suggestionThumb"><img src={model.imageUrl} alt="" /></span>
+                      <span className="suggestionText"><strong>{model.title}</strong><small>{model.source} · {model.formats.join(', ')}</small></span>
+                      <ArrowUpRight size={15}/>
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <div className="noLocalSuggestion">
+                  <Search size={18}/>
+                  <div><strong>Nenhum item local ainda</strong><small>Mas você pode buscar “{query}” nas {providers.length} fontes mapeadas abaixo.</small></div>
+                </div>
+              )}
+              <button className="searchAllSuggestion" onMouseDown={runSearch}><Globe2 size={16}/> Buscar “{query}” nas fontes mapeadas</button>
+            </div>
+          )}
         </div>
 
         <div className="quickSearches">
@@ -99,7 +161,7 @@ function App() {
             </button>
           ))}
         </div>
-        <span className="demoNotice">Resultados demonstrativos · integração real dos providers é a próxima etapa</span>
+        <span className="demoNotice">Protótipo visual + busca nas fontes · indexação automática será conectada no backend</span>
       </section>
 
       <section className="content" id="results">
@@ -115,42 +177,62 @@ function App() {
 
         <div className="results">
           <div className="resultsHeader">
-            <div><h2>{query ? `Resultados para “${query}”` : 'Veículos em destaque'}</h2><p>{filtered.length} resultado(s) neste protótipo</p></div>
+            <div><h2>{query ? `Resultados para “${query}”` : 'Veículos em destaque'}</h2><p>{filtered.length} resultado(s) locais · {query.trim() ? `${providers.length} fontes disponíveis para pesquisar` : 'digite um veículo para pesquisar'}</p></div>
           </div>
 
-          <div className="grid">
-            {filtered.map(model => (
-              <article className="card" key={model.id}>
-                <a className="thumb" href={model.sourceUrl} target="_blank" rel="noreferrer" aria-label={`Abrir ${model.title}`}>
-                  <img src={model.imageUrl} alt={model.title} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.add('show') }}/>
-                  <span className="imageFallback"><ImageOff size={30}/><small>Imagem indisponível</small></span>
-                  <span className="thumbShade" />
-                  <span className="typeBadge">{model.sourceType === 'Game Mod' ? <Gamepad2 size={12}/> : <Shapes size={12}/>} {model.sourceType}</span>
-                  <span className={model.isFree ? 'priceBadge free' : 'priceBadge'}>{model.isFree ? 'GRÁTIS' : `$${model.price}`}</span>
-                  <span className="yearBadge">{model.year}</span>
-                </a>
-                <div className="cardBody">
-                  <div className="sourceRow"><span>{model.source}</span><span>{model.quality}</span></div>
-                  <h3>{model.title}</h3>
-                  <p className="vehicleMeta">{model.brand} · {model.vehicle}</p>
-                  <div className="chips">{model.formats.map(f => <span key={f}>{f}</span>)}</div>
-                  <div className="cardFooter">
-                    <a className="credit" href={model.imageCreditUrl} target="_blank" rel="noreferrer">Imagem: Commons</a>
-                    <a className="sourceButton" href={model.sourceUrl} target="_blank" rel="noreferrer">Ver na fonte <ExternalLink size={14}/></a>
+          {filtered.length > 0 && (
+            <div className="grid">
+              {filtered.map(model => (
+                <article className="card" key={model.id}>
+                  <a className="thumb" href={model.sourceUrl} target="_blank" rel="noreferrer" aria-label={`Abrir ${model.title}`}>
+                    <img src={model.imageUrl} alt={model.title} loading="lazy" onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.add('show') }}/>
+                    <span className="imageFallback"><ImageOff size={30}/><small>Imagem indisponível</small></span>
+                    <span className="thumbShade" />
+                    <span className="typeBadge">{model.sourceType === 'Game Mod' ? <Gamepad2 size={12}/> : <Shapes size={12}/>} {model.sourceType}</span>
+                    <span className={model.isFree ? 'priceBadge free' : 'priceBadge'}>{model.isFree ? 'GRÁTIS' : `$${model.price}`}</span>
+                    <span className="yearBadge">{model.year}</span>
+                  </a>
+                  <div className="cardBody">
+                    <div className="sourceRow"><span>{model.source}</span><span>{model.quality}</span></div>
+                    <h3>{model.title}</h3>
+                    <p className="vehicleMeta">{model.brand} · {model.vehicle}</p>
+                    <div className="chips">{model.formats.map(f => <span key={f}>{f}</span>)}</div>
+                    <div className="cardFooter">
+                      <a className="credit" href={model.imageCreditUrl} target="_blank" rel="noreferrer">Imagem: Commons</a>
+                      <a className="sourceButton" href={model.sourceUrl} target="_blank" rel="noreferrer">Ver na fonte <ExternalLink size={14}/></a>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
+                </article>
+              ))}
+            </div>
+          )}
 
-          {!filtered.length && <div className="empty"><Box size={40}/><h3>Nenhum modelo encontrado</h3><p>Tente outro veículo ou remova alguns filtros.</p></div>}
+          {query.trim() && (
+            <section className="providerSearchSection">
+              <div className="providerSearchHeading">
+                <div><Globe2 size={18}/><strong>Pesquisar “{query}” nas fontes</strong></div>
+                <span>Abre a busca específica ou uma busca restrita ao site.</span>
+              </div>
+              <div className="providerSearchGrid">
+                {providers.map(provider => (
+                  <a key={provider.id} href={providerSearchUrl(provider, query)} target="_blank" rel="noreferrer">
+                    <span className="providerSearchIcon">{provider.sourceType === 'game-mods' ? <Gamepad2 size={17}/> : <Shapes size={17}/>}</span>
+                    <span><strong>{provider.name}</strong><small>{provider.sourceType === 'game-mods' ? 'Mods de veículos' : 'Modelos 3D'}</small></span>
+                    <ArrowUpRight size={16}/>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {!filtered.length && !query.trim() && <div className="empty"><Box size={40}/><h3>Nenhum modelo encontrado</h3><p>Tente outro veículo ou remova alguns filtros.</p></div>}
         </div>
       </section>
 
       <section className="sources" id="sources">
         <div className="sectionHeading">
           <div className="headingIcon"><Database size={20}/></div>
-          <div><h2>12 fontes já mapeadas</h2><p>A base que estamos montando para o motor de busca.</p></div>
+          <div><h2>{providers.length} fontes já mapeadas</h2><p>A base que estamos montando para o motor de busca.</p></div>
         </div>
         <div className="providerGrid">
           {providers.map(provider => (
