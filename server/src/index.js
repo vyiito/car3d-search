@@ -13,6 +13,7 @@ import { search3DBaza, searchWireWheels } from './catalog-adapters.js'
 import { searchCGMoodV2, searchZifir, search3ddd } from './remaining-adapters.js'
 import { searchRenderHubClean, search3dCarClean } from './commerce-adapters.js'
 import { searchCGTraderMarketV2 } from './cgtrader-adapter.js'
+import { searchReferencePack, buildReferenceZip } from './reference-adapter.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -51,7 +52,7 @@ function normalizeMarketResult(result) {
 }
 function safeAdapter(fn, label) { return fn().catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : `${label} search failed` })) }
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, marketMode: 'free+paid', detailsResolver: true, directDownloadGate: true, paginatedSearch: true, gameFacets: true, nativeAdapters: ALL_NATIVE_IDS }))
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, marketMode: 'free+paid', detailsResolver: true, directDownloadGate: true, paginatedSearch: true, gameFacets: true, referencePacks: true, nativeAdapters: ALL_NATIVE_IDS }))
 app.get('/api/providers', (_req, res) => res.json(providers.map(provider => ({ id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, browseUrl: provider.browseUrl || provider.baseUrl, freeCatalog: Boolean(provider.freeCatalog), defaultGame: provider.defaultGame || null, pagination: Boolean(provider.pagination), nativeAdapter: ALL_NATIVE_IDS.includes(provider.id) }))))
 
 app.get('/api/search', async (req, res) => {
@@ -97,6 +98,41 @@ app.get('/api/details', async (req, res) => {
   try { const payload = await cachedDetails(sourceId, sourceUrl); res.json({ ...payload, cached: detailsCache.has(`${sourceId}|${sourceUrl}`) }) }
   catch (error) { const message = error instanceof Error ? error.message : 'Details lookup failed.'; const status = /outside provider host|Unknown provider|required/i.test(message) ? 400 : 502; res.status(status).json({ error: message }) }
 })
+
+app.get('/api/references', async (req, res) => {
+  const title = String(req.query.title || '').trim().slice(0, 160)
+  const brand = String(req.query.brand || '').trim().slice(0, 80)
+  const yearRaw = Number(req.query.year || 0)
+  const year = Number.isInteger(yearRaw) && yearRaw >= 1900 && yearRaw <= 2035 ? yearRaw : null
+  const perAngle = Math.max(2, Math.min(Number(req.query.perAngle || 4), 6))
+  if (title.length < 2) return res.status(400).json({ error: 'title is required.' })
+  try {
+    const payload = await searchReferencePack({ title, brand, year }, { perAngle })
+    res.set('Cache-Control', 'private, max-age=300')
+    res.json(payload)
+  } catch (error) {
+    res.status(502).json({ error: error instanceof Error ? error.message : 'Reference search failed.' })
+  }
+})
+
+app.get('/api/reference-pack.zip', async (req, res) => {
+  const packId = String(req.query.packId || '').trim().slice(0, 80)
+  const ids = String(req.query.ids || '').split(',').map(value => value.trim()).filter(Boolean).slice(0, 20)
+  if (!packId) return res.status(400).send('packId is required.')
+  try {
+    const zip = await buildReferenceZip(packId, ids)
+    res.set('Content-Type', 'application/zip')
+    res.set('Content-Disposition', `attachment; filename="${zip.filename.replace(/"/g, '')}"`)
+    res.set('Content-Length', String(zip.buffer.length))
+    res.set('Cache-Control', 'no-store')
+    res.send(zip.buffer)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Reference pack build failed.'
+    const status = /expired|not found/i.test(message) ? 410 : /No redistributable/i.test(message) ? 400 : 502
+    res.status(status).send(message)
+  }
+})
+
 app.get('/api/download', async (req, res) => {
   const sourceId = String(req.query.sourceId || '').trim().slice(0, 80), sourceUrl = String(req.query.url || '').trim().slice(0, 2000)
   if (!sourceId || !sourceUrl) return res.status(400).send('Invalid download request.')
