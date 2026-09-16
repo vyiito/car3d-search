@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Search, SlidersHorizontal, ExternalLink, CarFront, Database, Globe2, ChevronDown, ImageOff, Sparkles, Gamepad2, Shapes, ArrowUpRight, LoaderCircle, CircleCheck, CircleX } from 'lucide-react'
+import {
+  Search, SlidersHorizontal, ExternalLink, CarFront, Database, Globe2, ChevronDown,
+  ImageOff, Sparkles, Gamepad2, Shapes, ArrowUpRight, LoaderCircle, CircleCheck,
+  CircleX, X, Download, HardDrive, UserRound, FileText, Link2,
+} from 'lucide-react'
 import { models } from './data/models'
 import { providers, type Provider } from './data/providers'
 import { globalSearch, type GlobalSearchResult, type SourceSearchStatus } from './api/search'
@@ -20,6 +24,71 @@ function providerSearchUrl(provider: Provider, term: string) {
   }
 }
 
+function ResultModal({ result, onClose }: { result: GlobalSearchResult; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.body.style.overflow = previous
+    }
+  }, [onClose])
+
+  return (
+    <div className="modalOverlay" onMouseDown={onClose} role="presentation">
+      <section className="resultModal" role="dialog" aria-modal="true" aria-label={result.title} onMouseDown={event => event.stopPropagation()}>
+        <button className="modalClose" onClick={onClose} aria-label="Fechar"><X size={19}/></button>
+
+        <div className="modalMedia">
+          {result.imageUrl ? <img src={result.imageUrl} alt={result.title}/> : <div className="modalImageFallback"><ImageOff size={38}/><span>Imagem não disponível</span></div>}
+          <div className="modalMediaShade"/>
+          <span className="modalSourceBadge">{result.source}</span>
+          <span className={result.isFree === true ? 'modalPriceBadge free' : 'modalPriceBadge'}>
+            {result.isFree === true ? 'GRÁTIS' : result.price != null ? `$${result.price}` : 'PREÇO NA FONTE'}
+          </span>
+        </div>
+
+        <div className="modalContent">
+          <div className="modalKicker">{result.sourceType === 'game-mods' ? <Gamepad2 size={14}/> : <Shapes size={14}/>} {result.sourceType === 'game-mods' ? 'GAME MOD' : '3D MODEL'}</div>
+          <h2>{result.title}</h2>
+          {result.description && <p className="modalDescription">{result.description}</p>}
+
+          <div className="modalInfoGrid">
+            <div><UserRound size={16}/><span>Autor</span><strong>{result.author || 'Não informado'}</strong></div>
+            <div><HardDrive size={16}/><span>Tamanho</span><strong>{result.fileSize || 'Na fonte'}</strong></div>
+            <div><FileText size={16}/><span>Formatos</span><strong>{result.formats.length ? result.formats.join(', ') : 'Na fonte'}</strong></div>
+            <div><Link2 size={16}/><span>Fonte</span><strong>{result.source}</strong></div>
+          </div>
+
+          <div className="modalFormats">
+            {result.formats.map(format => <span key={format}>{format}</span>)}
+            {result.downloadable && <span className="downloadableChip">DOWNLOAD DISPONÍVEL</span>}
+          </div>
+
+          <div className="modalActions">
+            {result.downloadUrl ? (
+              <a className="primaryAction" href={result.downloadUrl} target="_blank" rel="noreferrer" download>
+                <Download size={17}/> Baixar arquivo
+              </a>
+            ) : (
+              <button className="primaryAction disabled" disabled title="Esta fonte não expôs um link direto de download">
+                <Download size={17}/> Download direto indisponível
+              </button>
+            )}
+            <a className="secondaryAction" href={result.sourceUrl} target="_blank" rel="noreferrer">
+              <ExternalLink size={17}/> Ver no site
+            </a>
+          </div>
+
+          <p className="modalNote">O VJ 3D Search não hospeda os arquivos. O download direto só é exibido quando a própria fonte fornece uma URL pública de arquivo.</p>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function App() {
   const [query, setQuery] = useState('')
   const [submittedQuery, setSubmittedQuery] = useState('')
@@ -31,6 +100,7 @@ function App() {
   const [sourceStatuses, setSourceStatuses] = useState<SourceSearchStatus[]>([])
   const [loading, setLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
+  const [selectedResult, setSelectedResult] = useState<GlobalSearchResult | null>(null)
 
   const featured: GlobalSearchResult[] = useMemo(() => models.map(model => ({
     id: model.id,
@@ -44,7 +114,10 @@ function App() {
     price: model.price,
     isFree: model.isFree,
     downloadable: null,
+    downloadUrl: null,
     author: null,
+    description: null,
+    fileSize: null,
     score: 0,
   })), [])
 
@@ -75,7 +148,7 @@ function App() {
         if (error?.name === 'AbortError') return
         setRemoteResults([])
         setSourceStatuses([])
-        setApiError('O agregador ainda não está online. As 16 fontes continuam disponíveis abaixo para busca direta.')
+        setApiError(`O agregador não respondeu. As ${providers.length} fontes continuam disponíveis abaixo para busca direta.`)
       })
       .finally(() => setLoading(false))
     return () => controller.abort()
@@ -106,14 +179,14 @@ function App() {
   return (
     <main>
       <header className="topbar">
-        <a className="brand" href="#"><span className="brandMark"><CarFront size={22}/></span><span>Car3D<span>Search</span></span></a>
+        <a className="brand" href="#"><span className="brandMark"><CarFront size={22}/></span><span>VJ <span>3D Search</span></span></a>
         <nav><a href="#search">Buscar</a><a href="#results">Resultados</a><a href="#sources">Fontes</a><a className="githubLink" href="https://github.com/vyiito/car3d-search" target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={13}/></a></nav>
       </header>
 
       <section className="hero" id="search">
         <div className="eyebrow"><Sparkles size={14}/> Busca simultânea em {providers.length} fontes</div>
         <h1>Pesquise uma vez.<br/><span>Veja resultados de todas as bases.</span></h1>
-        <p>O Car3D Search consulta bibliotecas 3D, marketplaces e sites de mods, normaliza os resultados e reúne tudo em uma única lista.</p>
+        <p>O VJ 3D Search consulta bibliotecas 3D, marketplaces, coleções e sites de mods, normaliza os resultados e reúne tudo em uma única lista.</p>
         <div className="searchArea">
           <div className="searchBox">
             <Search size={23}/>
@@ -152,20 +225,20 @@ function App() {
         </aside>
 
         <div className="results">
-          <div className="resultsHeader"><div><h2>{submittedQuery ? `Resultados para “${submittedQuery}”` : 'Veículos em destaque'}</h2><p>{loading ? `Buscando nas ${providers.length} bases...` : `${filteredResults.length} opção(ões) exibida(s)`}</p></div></div>
+          <div className="resultsHeader"><div><h2>{submittedQuery ? `Resultados para “${submittedQuery}”` : 'Veículos em destaque'}</h2><p>{loading ? `Buscando nas ${providers.length} bases...` : `${filteredResults.length} opção(ões) exibida(s) · clique em um card para ver detalhes`}</p></div></div>
 
           {loading && <div className="globalLoading"><LoaderCircle className="spin" size={26}/><strong>Consultando todas as bases</strong><span>Algumas fontes podem responder mais devagar que outras.</span></div>}
           {apiError && <div className="apiWarning"><CircleX size={18}/><span>{apiError}</span></div>}
 
           {!loading && filteredResults.length > 0 && <div className="grid">{filteredResults.map(result => (
-            <article className="card" key={result.id}>
-              <a className="thumb" href={result.sourceUrl} target="_blank" rel="noreferrer">
+            <article className="card clickableCard" key={result.id} onClick={() => setSelectedResult(result)} tabIndex={0} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelectedResult(result) }}>
+              <div className="thumb">
                 {result.imageUrl ? <img src={result.imageUrl} alt={result.title} loading="lazy" onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextElementSibling?.classList.add('show') }}/>: null}
                 <span className={`imageFallback ${result.imageUrl ? '' : 'show'}`}><ImageOff size={30}/><small>Sem thumbnail</small></span><span className="thumbShade"/>
                 <span className="typeBadge">{result.sourceType === 'game-mods' ? <Gamepad2 size={12}/> : <Shapes size={12}/>} {result.sourceType === 'game-mods' ? 'GAME MOD' : '3D MODEL'}</span>
                 <span className={result.isFree === true ? 'priceBadge free' : 'priceBadge'}>{result.isFree === true ? 'GRÁTIS' : result.price != null ? `$${result.price}` : 'VER FONTE'}</span>
-              </a>
-              <div className="cardBody"><div className="sourceRow"><span>{result.source}</span>{result.downloadable && <span>DOWNLOAD</span>}</div><h3>{result.title}</h3>{result.author && <p className="vehicleMeta">por {result.author}</p>}<div className="chips">{result.formats.length ? result.formats.map(f => <span key={f}>{f}</span>) : <span>FORMATO NA FONTE</span>}</div><div className="cardFooter"><span className="credit">{result.source}</span><a className="sourceButton" href={result.sourceUrl} target="_blank" rel="noreferrer">Abrir resultado <ExternalLink size={14}/></a></div></div>
+              </div>
+              <div className="cardBody"><div className="sourceRow"><span>{result.source}</span>{(result.downloadable || result.downloadUrl) && <span>DOWNLOAD</span>}</div><h3>{result.title}</h3>{result.author && <p className="vehicleMeta">por {result.author}</p>}<div className="chips">{result.formats.length ? result.formats.map(f => <span key={f}>{f}</span>) : <span>FORMATO NA FONTE</span>}</div><div className="cardFooter"><span className="credit">Clique para detalhes</span><button className="sourceButton detailsButton" onClick={event => { event.stopPropagation(); setSelectedResult(result) }}>Ver detalhes <ArrowUpRight size={14}/></button></div></div>
             </article>
           ))}</div>}
 
@@ -176,7 +249,9 @@ function App() {
       </section>
 
       <section className="sources" id="sources"><div className="sectionHeading"><div className="headingIcon"><Database size={20}/></div><div><h2>{providers.length} fontes cadastradas</h2><p>Todas entram no fan-out da busca global.</p></div></div><div className="providerGrid">{providers.map(provider => <a key={provider.id} href={provider.searchUrl || provider.url} target="_blank" rel="noreferrer"><div className="providerIcon">{provider.sourceType === 'game-mods' ? <Gamepad2 size={17}/> : <Shapes size={17}/>}</div><div className="providerText"><strong>{provider.name}</strong><span>{provider.categories.slice(0,3).join(' · ')}</span></div><div className="providerMeta"><b>P{provider.priority}</b><small>{provider.freeModels ? 'FREE' : ''}{provider.paidModels ? ' + PRO' : ''}</small></div></a>)}</div></section>
-      <footer><span>Car3D Search</span> · uma busca, todas as bases</footer>
+      <footer><span>VJ 3D Search</span> · uma busca, todas as bases</footer>
+
+      {selectedResult && <ResultModal result={selectedResult} onClose={() => setSelectedResult(null)}/>} 
     </main>
   )
 }
