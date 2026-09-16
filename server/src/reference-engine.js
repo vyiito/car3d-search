@@ -18,8 +18,8 @@ const KNOWN_BRANDS = [
 ]
 const NON_REAL_REFERENCE_PATTERNS = [
   /\b(?:lego|lego technic|technic|bricklink|brickset|moc|brick built|brick-built)\b/i,
-  /\b(?:toy|toys|die[- ]?cast|diecast|hot wheels|matchbox|miniature|minicar|scale model|model car|model kit|plastic model|slot car)\b/i,
-  /\b(?:rc car|radio[- ]controlled|remote[- ]controlled|papercraft|paper model)\b/i,
+  /\b(?:toy|toys|die[- ]?cast|diecast|hot\s*wheels|hotwheels|matchbox|tomica|tamiya|kyosho|maisto|bburago|burago|autoart|miniature|minicar|scale model|model car|model kit|plastic model|slot car)\b/i,
+  /\b(?:r\s*\/\s*c|r-c|rc car|radio[- ]controlled|remote[- ]controlled|remote control|drifting package light|papercraft|paper model)\b/i,
   /\b(?:3d render|3d rendering|cgi|computer generated|illustration|vector art|drawing|concept art)\b/i,
   /\b(?:game screenshot|in[- ]game|screenshot|forza horizon|forza motorsport|gran turismo|assetto corsa|need for speed|beamng|gta v|gta 5|roblox)\b/i,
 ]
@@ -29,6 +29,7 @@ const HEAVY_VEHICLE_EVIDENCE_RE = /\b(?:semi[- ]?truck|tractor[- ]?trailer|lorry
 const CAR_TO_NONCAR_EVIDENCE_RE = /\b(?:pickup|pick-up|truck|lorry|van|minivan|bus|coach)\b/i
 const TRIM_CODE_RE = /^(?:z06|zr1|gt[2-9][a-z0-9]*|rs[2-9][a-z0-9]*|m[2-9][a-z0-9]*|srt\d+)$/i
 const DISTINCT_VARIANT_RE = /\b(?:concept|prototype|pickup|pick-up|truck|estate|wagon|touring|coupe|coupé|cabriolet|convertible|roadster|targa|spyder|spider|super trofeo|black series|safety car|polizia|police|tcr|race car|racing car)\b/gi
+const EXCLUSIVE_TRIM_RE = /\b(?:gsl[- ]?se|spec\s*c|gts|gt3|gt2|turbo(?:\s*s)?|grand\s+sport|stingray|type\s+r|type\s+s|civic\s+si|v[- ]?spec|nismo|black\s+series|competition|csl|shelby|mach\s*1|hellcat|scat\s+pack)\b/gi
 const MULTI_VEHICLE_JOIN_RE = /\s(?:&|and|vs\.?|versus)\s/i
 
 const clean = value => String(value || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim()
@@ -163,7 +164,8 @@ function generationAliases(code) {
     mk3: ['mk3','mk iii','a70','ma70','jza70'], a70: ['a70','ma70','jza70','mk3','mk iii'],
     r34: ['r34','bnr34','er34'], r33: ['r33','bcnr33','er33'], r32: ['r32','bnr32','hcr32'],
     e46: ['e46'], e36: ['e36'], e92: ['e92'], e90: ['e90'], f80: ['f80'], g80: ['g80'],
-    fd3s: ['fd3s','fd'], na1: ['na1'], na2: ['na2'], gc8: ['gc8'], jza70: ['jza70','a70','mk3','mk iii'],
+    fd3s: ['fd3s','fd'], fc3s: ['fc3s','fc'], sa22c: ['sa22c','sa'], fb3s: ['fb3s','fb'],
+    na1: ['na1'], na2: ['na2'], gc8: ['gc8'], gd: ['gd'], grb: ['grb'], va: ['va'], vb: ['vb'], jza70: ['jza70','a70','mk3','mk iii'],
   }
   return aliases[key] || [code]
 }
@@ -200,14 +202,11 @@ function variantEvidenceVerified(identity, evidence) {
   if (!required.length) return true
   return required.every(token => relaxedTokenMatch(evidence, token))
 }
-function strictIdentityVerified(identity, normalizedEvidence, years) {
-  const exactYear = Boolean(identity.yearTrusted && identity.year && years.includes(identity.year))
-  const groups = generationEvidenceGroups(identity), matched = groups.map(group => groupMatchesEvidence(group, normalizedEvidence))
-  if (groups.length) {
-    const requiredGroups = exactYear ? matched.slice(1) : matched
-    if (!requiredGroups.every(Boolean)) return false
-  }
-  return variantEvidenceVerified(identity, normalizedEvidence)
+function explicitGenerationVerified(identity, evidence, years) {
+  const groups = generationEvidenceGroups(identity)
+  if (!groups.length) return true
+  if (identity.yearTrusted && identity.year && years.includes(identity.year)) return true
+  return groups.every(group => groupMatchesEvidence(group, evidence))
 }
 function imageIdentityEvidence(image) {
   const title = clean(image?.title || ''), gallery = clean(image?.galleryTitle || '')
@@ -218,6 +217,11 @@ function imageIdentityEvidence(image) {
 function unexpectedVariantConflict(identity, evidence) {
   const wanted = norm(identity.modelDisplay)
   const found = uniq([...clean(evidence).matchAll(DISTINCT_VARIANT_RE)].map(match => norm(match[0])))
+  return found.find(variant => !containsPhrase(wanted, variant)) || null
+}
+function exclusiveTrimConflict(identity, evidence) {
+  const wanted = norm(identity.modelDisplay)
+  const found = uniq([...clean(evidence).matchAll(EXCLUSIVE_TRIM_RE)].map(match => norm(match[0])))
   return found.find(variant => !containsPhrase(wanted, variant)) || null
 }
 function multiVehicleConflict(identity, evidence) {
@@ -236,12 +240,15 @@ export function scoreReferenceIdentity(identity, image) {
   if (multiVehicleConflict(identity, coreEvidence)) return { ok: false, score: 0, reason: 'multi-vehicle-reference' }
   const unexpectedVariant = unexpectedVariantConflict(identity, coreEvidence)
   if (unexpectedVariant) return { ok: false, score: 0, reason: 'unexpected-variant' }
+  const trimConflict = exclusiveTrimConflict(identity, coreEvidence)
+  if (trimConflict) return { ok: false, score: 0, reason: 'trim-conflict' }
   if (!identity.primaryModel || !anchorMatches(identity.primaryModel, normalized)) return { ok: false, score: 0, reason: 'model-mismatch' }
   if (brandConflict(identity, normalized)) return { ok: false, score: 0, reason: 'brand-conflict' }
   if (samePrefixGenerationConflict(generationCodesForIdentity(identity), tokenise(normalized))) return { ok: false, score: 0, reason: 'generation-conflict' }
   const years = [...normalized.matchAll(/\b(19[3-9]\d|20[0-3]\d)\b/g)].map(match => Number(match[1]))
   if (identity.yearTrusted && identity.year && years.length && !years.includes(identity.year)) return { ok: false, score: 0, reason: 'year-conflict' }
-  if (!strictIdentityVerified(identity, normalized, years)) return { ok: false, score: 0, reason: 'variant-unverified' }
+  if (!explicitGenerationVerified(identity, normalized, years)) return { ok: false, score: 0, reason: 'generation-unverified' }
+  if (!variantEvidenceVerified(identity, normalized)) return { ok: false, score: 0, reason: 'variant-unverified' }
   let score = 5
   if (identity.brand && containsPhrase(normalized, identity.brand)) score += 3
   score += Math.min(3, identity.supporting.filter(token => anchorMatches(token, normalized)).length)
@@ -268,7 +275,7 @@ function filterImages(images, identity) {
   return (images || []).map(image => ({ image, match: scoreReferenceIdentity(identity, image) })).filter(row => row.match.ok)
     .sort((a, b) => (b.match.score - a.match.score) || ((b.image.identityScore || 0) - (a.image.identityScore || 0)))
     .filter(row => { const key = norm(row.image.imageUrl || row.image.sourcePage || row.image.id); if (!key || seen.has(key)) return false; seen.add(key); return true })
-    .map(row => ({ ...row.image, identityScore: Math.max(row.image.identityScore || 0, row.match.score), identityEngine: 'generic-v6-strict' }))
+    .map(row => ({ ...row.image, identityScore: Math.max(row.image.identityScore || 0, row.match.score), identityEngine: 'generic-v7-exact' }))
 }
 
 function sourceGroups(images) {
@@ -301,7 +308,7 @@ function mergePack(pack, specialized, identity) {
     ...pack, canonicalVehicle: identity.display, query: identity.canonical, year: identity.yearTrusted ? identity.year : null, images,
     downloadableCount: images.filter(image => image.downloadAllowed).length, angleCoverage: uniq(images.map(image => image.angle).filter(Boolean)), webSearch: cleanWebLinks(identity),
     sourceGroups: sourceGroups(images), sourceStatus: specialized?.sourceStatus || [], primarySet: primarySet(images), modelingCoverage: modelingCoverage(images),
-    identity: { brand: identity.brand, brandSource: identity.brandSource, model: identity.modelDisplay, year: identity.yearTrusted ? identity.year : null, yearSource: identity.yearSource, generationCodes: identity.generationCodes, vehicleClass: identity.vehicleClass, vehicleKind: identity.vehicleKind, engine: 'generic-v6-strict' },
+    identity: { brand: identity.brand, brandSource: identity.brandSource, model: identity.modelDisplay, year: identity.yearTrusted ? identity.year : null, yearSource: identity.yearSource, generationCodes: identity.generationCodes, vehicleClass: identity.vehicleClass, vehicleKind: identity.vehicleKind, engine: 'generic-v7-exact' },
   }
 }
 
