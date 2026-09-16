@@ -34,9 +34,9 @@ jobs:
 
           const cases = [
             { title:'2018 Honda Civic Type R FK8', brand:'Honda', year:2018, vehicleClass:'Car', forbidden:/\b(?:pickup truck|insight|fk2|fk7|fc1|civic si|accord|integra|2012 honda civic)\b/i },
-            { title:'1999 Nissan Skyline GT-R R34', brand:'Nissan', year:1999, vehicleClass:'Car', forbidden:/\b(?:1997|r32|r33|r35|v36|hv37|crossover|350z|370z)\b/i },
+            { title:'1999 Nissan Skyline GT-R R34', brand:'Nissan', year:1999, vehicleClass:'Car', forbidden:/\b(?:1997|r32|r33|r35|v36|hv37|crossover|350z|370z|tomica|hot\s*wheels|hotwheels|r\s*\/\s*c|drifting package)\b/i },
             { title:'1993 Mazda RX-7 FD3S', brand:'Mazda', year:1993, vehicleClass:'Car', forbidden:/\b(?:1994|gsl-se|fc3s|rx-8|rx8|miata|mx-5|mx5)\b/i },
-            { title:'2021 Porsche 911 992 Carrera S', brand:'Porsche', year:2021, vehicleClass:'Car', forbidden:/\b(?:2020|2022|turbo|targa|gt3|gt2|991|997|996|718|cayman|taycan|panamera)\b/i },
+            { title:'2021 Porsche 911 992 Carrera S', brand:'Porsche', year:2021, vehicleClass:'Car', forbidden:/\b(?:2020|2022|turbo|targa|gts|gt3|gt2|991|997|996|718|cayman|taycan|panamera)\b/i },
             { title:'2012 Mercedes-Benz C63 AMG W204', brand:'Mercedes-Benz', year:2012, vehicleClass:'Car', forbidden:/\b(?:estate|black series|safety car|c63 s|w205|w206|e63|s63|cla45|a45)\b/i },
             { title:'2021 Audi RS6 C8', brand:'Audi', year:2021, vehicleClass:'Car', forbidden:/\b(?:c7|rs3|rs4|rs5|rs7|a6 allroad)\b/i },
             { title:'2015 Lamborghini Huracan', brand:'Lamborghini', year:2015, vehicleClass:'Car', forbidden:/\b(?:aventador|gallardo|urus|revuelto|murcielago|super trofeo|polizia|spyder|2017)\b/i },
@@ -50,19 +50,13 @@ jobs:
           const leaks = []
           for (const asset of cases) {
             const pack = await searchReferencePack(asset, { perAngle: 2 })
-            const rows = pack.images.map(image => ({
-              source:image.source,
-              title:image.title,
-              gallery:image.galleryTitle || null,
-              page:image.sourcePage,
-              angle:image.angle,
-            }))
+            const rows = pack.images.map(image => ({ source:image.source, title:image.title, gallery:image.galleryTitle || null, page:image.sourcePage, angle:image.angle }))
             const bad = rows.filter(row => asset.forbidden.test(`${row.title} ${row.gallery || ''} ${row.page || ''}`))
             total += rows.length
             specialized += pack.images.filter(image => image.sourceKind === 'specialized').length
             console.log('\n###', asset.title)
             console.log(JSON.stringify({ canonical:pack.canonicalVehicle, engine:pack.identity?.engine, images:rows.length, specialized:pack.images.filter(i=>i.sourceKind==='specialized').length, primarySet:pack.primarySet, bad, rows }, null, 2))
-            if (pack.identity?.engine !== 'generic-v6-strict') leaks.push({ asset:asset.title, bad:[{ title:`unexpected engine ${pack.identity?.engine}` }] })
+            if (pack.identity?.engine !== 'generic-v7-exact') leaks.push({ asset:asset.title, bad:[{ title:`unexpected engine ${pack.identity?.engine}` }] })
             if (bad.length) leaks.push({ asset:asset.title, bad })
           }
           console.log(JSON.stringify({ total, specialized, leakCases:leaks.length }, null, 2))
@@ -73,6 +67,7 @@ jobs:
           EOF
 
       - name: Price parser audit by source
+        if: always()
         run: |
           node --input-type=module <<'EOF'
           import { progressiveSearch } from './src/progressive-search.js'
