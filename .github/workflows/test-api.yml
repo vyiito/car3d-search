@@ -68,7 +68,19 @@ jobs:
             }
           }
           EOF
+      - name: Reference pack + ZIP diagnostic
+        continue-on-error: true
+        run: |
+          node --input-type=module <<'EOF'
+          import { searchReferencePack, buildReferenceZip } from './src/reference-adapter.js'
+          const pack = await searchReferencePack({ title: 'Toyota Supra MK4', brand: 'Toyota', year: 1998 }, { perAngle: 2 })
+          const selected = pack.images.filter(image => image.downloadAllowed).slice(0, 3).map(image => image.id)
+          let zip = null
+          if (selected.length) zip = await buildReferenceZip(pack.packId, selected)
+          console.log(JSON.stringify({ query: pack.query, images: pack.images.length, downloadable: pack.downloadableCount, angles: pack.angleCoverage, zipBytes: zip?.buffer?.length || 0, zipIncluded: zip?.included || 0, zipName: zip?.filename || null }, null, 2))
+          EOF
       - name: Commerce adapter diagnostics
+        continue-on-error: true
         run: |
           node --input-type=module <<'EOF'
           import { searchCGTraderMarketV2 } from './src/cgtrader-adapter.js'
@@ -87,12 +99,4 @@ jobs:
           if (!cg.results.length || !paid) process.exit(1)
           if (renderBad) process.exit(1)
           if (!nsx) process.exit(1)
-          EOF
-      - name: Reference pack diagnostic
-        continue-on-error: true
-        run: |
-          node --input-type=module <<'EOF'
-          import { searchReferencePack } from './src/reference-adapter.js'
-          const pack = await searchReferencePack({ title: 'Toyota Supra MK4', brand: 'Toyota', year: 1998 }, { perAngle: 2 })
-          console.log(JSON.stringify({ query: pack.query, images: pack.images.length, downloadable: pack.downloadableCount, angles: pack.angleCoverage }, null, 2))
           EOF
