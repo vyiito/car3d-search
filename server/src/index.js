@@ -10,6 +10,7 @@ import { searchOvertake } from './overtake-adapter.js'
 import { searchVertexNative } from './vertex-adapter.js'
 import { searchNativeMarketSources, nativeMarketAdapters } from './market-adapters.js'
 import { search3DBaza, searchWireWheels } from './catalog-adapters.js'
+import { searchCGMoodV2, searchZifir, searchRenderHub, search3ddd, search3dCar } from './remaining-adapters.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -19,7 +20,7 @@ const detailsCache = new Map()
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 10 * 60 * 1000)
 const DETAILS_CACHE_TTL_MS = Number(process.env.DETAILS_CACHE_TTL_MS || 30 * 60 * 1000)
 const MARKET_NATIVE_IDS = Object.keys(nativeMarketAdapters)
-const EXTRA_NATIVE_IDS = ['3d-baza','wire-wheels-club']
+const EXTRA_NATIVE_IDS = ['3d-baza','wire-wheels-club','zifir3d','renderhub','3ddd-ru','3dcar-ru']
 const ALL_NATIVE_IDS = ['vertex-warehouse','brasil-simulator-mods','3dsky','vosan','overtake',...MARKET_NATIVE_IDS,...EXTRA_NATIVE_IDS]
 
 app.disable('x-powered-by')
@@ -51,6 +52,10 @@ function normalizeMarketResult(result) {
   return { ...result, price, isFree }
 }
 
+function safeAdapter(fn, label) {
+  return fn().catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : `${label} search failed` }))
+}
+
 app.get('/health', (_req, res) => res.json({
   ok: true,
   service: 'vj-3d-search-api',
@@ -79,45 +84,46 @@ app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 120)
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
   const perSource = Math.max(1, Math.min(Number(req.query.perSource || 60), 80))
-  const cacheKey = `market-v9|${q.toLowerCase()}|${perSource}`
+  const cacheKey = `market-v10|${q.toLowerCase()}|${perSource}`
   const cached = cache.get(cacheKey)
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return res.json({ ...cached.payload, cached: true })
 
   try {
-    const [rawPayload, brasil, sky, vosan, overtake, vertex, nativeMarkets, baza, wire] = await Promise.all([
+    const [rawPayload, brasil, sky, vosan, overtake, vertex, nativeMarketsRaw, baza, wire, cgmood, zifir, renderhub, ddd, carGallery] = await Promise.all([
       searchAll(q, { perSource }),
-      searchBrasilSimulatorMods(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'BSM search failed' })),
-      search3DSky(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : '3DSky search failed' })),
-      searchVosan(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'VOSAN search failed' })),
-      searchOvertake(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'OverTake search failed' })),
-      searchVertexNative(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'Vertex search failed' })),
+      safeAdapter(() => searchBrasilSimulatorMods(q, perSource), 'BSM'),
+      safeAdapter(() => search3DSky(q, perSource), '3DSky'),
+      safeAdapter(() => searchVosan(q, perSource), 'VOSAN'),
+      safeAdapter(() => searchOvertake(q, perSource), 'OverTake'),
+      safeAdapter(() => searchVertexNative(q, perSource), 'Vertex'),
       searchNativeMarketSources(q, perSource),
-      search3DBaza(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : '3D-Baza search failed' })),
-      searchWireWheels(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'Wire Wheels search failed' })),
+      safeAdapter(() => search3DBaza(q, perSource), '3D-Baza'),
+      safeAdapter(() => searchWireWheels(q, perSource), 'Wire Wheels'),
+      safeAdapter(() => searchCGMoodV2(q, perSource), 'CGMood'),
+      safeAdapter(() => searchZifir(q, perSource), 'ZIFIR'),
+      safeAdapter(() => searchRenderHub(q, perSource), 'RenderHub'),
+      safeAdapter(() => search3ddd(q, perSource), '3ddd'),
+      safeAdapter(() => search3dCar(q, perSource), '3DCar'),
     ])
 
+    const nativeMarkets = nativeMarketsRaw.filter(item => item.sourceId !== 'cgmood')
     const nativeMap = new Map(nativeMarkets.map(item => [item.sourceId, item]))
+    const explicit = new Map([
+      ['brasil-simulator-mods', brasil], ['3dsky', sky], ['vosan', vosan], ['overtake', overtake], ['vertex-warehouse', vertex],
+      ['3d-baza', baza], ['wire-wheels-club', wire], ['cgmood', cgmood], ['zifir3d', zifir], ['renderhub', renderhub], ['3ddd-ru', ddd], ['3dcar-ru', carGallery],
+    ])
     const replacedIds = new Set(ALL_NATIVE_IDS)
+
     rawPayload.results = [
       ...rawPayload.results.filter(result => !replacedIds.has(result.sourceId)),
-      ...brasil.results,
-      ...sky.results,
-      ...vosan.results,
-      ...overtake.results,
-      ...vertex.results,
+      ...brasil.results, ...sky.results, ...vosan.results, ...overtake.results, ...vertex.results,
       ...nativeMarkets.flatMap(item => item.results || []),
-      ...baza.results,
-      ...wire.results,
+      ...baza.results, ...wire.results, ...cgmood.results, ...zifir.results, ...renderhub.results, ...ddd.results, ...carGallery.results,
     ].map(normalizeMarketResult)
 
     rawPayload.sources = rawPayload.sources.map(source => {
-      if (source.provider === 'brasil-simulator-mods') return { ...source, status: brasil.error ? 'error' : 'ok', count: brasil.results.length, pagesFetched: brasil.pagesFetched, error: brasil.error }
-      if (source.provider === '3dsky') return { ...source, status: sky.error ? 'error' : 'ok', count: sky.results.length, pagesFetched: sky.pagesFetched, error: sky.error }
-      if (source.provider === 'vosan') return { ...source, status: vosan.error ? 'error' : 'ok', count: vosan.results.length, pagesFetched: vosan.pagesFetched, error: vosan.error }
-      if (source.provider === 'overtake') return { ...source, status: overtake.error ? 'error' : 'ok', count: overtake.results.length, pagesFetched: overtake.pagesFetched, error: overtake.error }
-      if (source.provider === 'vertex-warehouse') return { ...source, status: vertex.error ? 'error' : 'ok', count: vertex.results.length, pagesFetched: vertex.pagesFetched, error: vertex.error }
-      if (source.provider === '3d-baza') return { ...source, status: baza.error ? 'error' : 'ok', count: baza.results.length, pagesFetched: baza.pagesFetched, error: baza.error }
-      if (source.provider === 'wire-wheels-club') return { ...source, status: wire.error ? 'error' : 'ok', count: wire.results.length, pagesFetched: wire.pagesFetched, error: wire.error }
+      const custom = explicit.get(source.provider)
+      if (custom) return { ...source, status: custom.error ? 'error' : 'ok', count: custom.results.length, pagesFetched: custom.pagesFetched, error: custom.error }
       const native = nativeMap.get(source.provider)
       if (native) return { ...source, status: native.status, count: native.results.length, pagesFetched: native.pagesFetched, durationMs: native.durationMs, error: native.error }
       return source
@@ -167,6 +173,4 @@ app.get('/api/download', async (req, res) => {
   }
 })
 
-app.listen(port, '0.0.0.0', () => {
-  console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`)
-})
+app.listen(port, '0.0.0.0', () => console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`))
