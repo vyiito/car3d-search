@@ -1,0 +1,81 @@
+name: Reference image reachability
+
+on:
+  push:
+    paths:
+      - '.github/workflows/reference-image-reachability.yml'
+  workflow_dispatch:
+
+jobs:
+  verify-images:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Verify live reference image URLs
+        run: |
+          node --input-type=module <<'EOF'
+          import { searchReferencePack } from './src/reference-engine.js'
+
+          const cases = [
+            { title: 'Toyota Supra MK4 1998', brand: 'Toyota', year: 1998, vehicleClass: 'Car' },
+            { title: 'BMW M3 E46 2004', brand: 'BMW', year: 2004, vehicleClass: 'Car' },
+            { title: 'Ford Mustang Fastback 1965', brand: 'Ford', year: 1965, vehicleClass: 'Car' },
+            { title: 'Suzuki Across', brand: 'Suzuki', vehicleClass: 'Car' },
+          ]
+
+          async function probe(url) {
+            if (!url) return { ok:false, reason:'missing-url' }
+            const controller = new AbortController()
+            const timer = setTimeout(() => controller.abort(), 10000)
+            try {
+              const response = await fetch(url, {
+                redirect: 'follow',
+                signal: controller.signal,
+                headers: {
+                  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153 Safari/537.36',
+                  'accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                },
+              })
+              const type = response.headers.get('content-type') || ''
+              return { ok: response.ok && /^image\//i.test(type), status: response.status, type, finalUrl: response.url }
+            } catch (error) {
+              return { ok:false, reason:error?.name || String(error) }
+            } finally {
+              clearTimeout(timer)
+            }
+          }
+
+          let failures = 0
+          for (const asset of cases) {
+            const pack = await searchReferencePack(asset, { perAngle: 2 })
+            const sample = pack.images.slice(0, 12)
+            const checked = []
+            for (const image of sample) {
+              const thumb = await probe(image.thumbnailUrl)
+              let original = null
+              if (!thumb.ok && image.imageUrl && image.imageUrl !== image.thumbnailUrl) original = await probe(image.imageUrl)
+              checked.push({
+                title: image.title,
+                source: image.source,
+                thumbnailUrl: image.thumbnailUrl,
+                imageUrl: image.imageUrl,
+                thumb,
+                original,
+                reachable: thumb.ok || Boolean(original?.ok),
+              })
+            }
+            const reachable = checked.filter(item => item.reachable).length
+            const broken = checked.filter(item => !item.reachable)
+            console.log(JSON.stringify({ asset:asset.title, returned:pack.images.length, sampled:checked.length, reachable, broken }, null, 2))
+            if (pack.images.length > 0 && reachable === 0) failures += 1
+          }
+
+          if (failures) process.exit(1)
+          EOF
