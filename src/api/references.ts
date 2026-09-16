@@ -1,11 +1,12 @@
 import type { GlobalSearchResult } from './search'
 
-export type ReferenceAngle = 'front' | 'rear' | 'side' | 'three-quarter' | 'interior' | 'details' | 'reference' | string
+export type ReferenceAngle = 'front' | 'rear' | 'side' | 'three-quarter' | 'interior' | 'wheel' | 'engine' | 'details' | 'reference' | string
 
 export interface ReferenceImage {
   id: string
   angle: ReferenceAngle
   angleLabel: string
+  angleConfidence?: 'metadata' | 'fallback' | string
   title: string
   imageUrl: string
   thumbnailUrl: string
