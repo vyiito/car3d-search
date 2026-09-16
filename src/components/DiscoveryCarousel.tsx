@@ -6,7 +6,7 @@ import {
 import { globalSearch, type GlobalSearchResult } from '../api/search'
 import '../discovery.css'
 
-type DiscoveryMode = 'Destaques' | 'Download direto' | 'Corrida' | 'Com imagem'
+type DiscoveryMode = 'Destaques' | 'Download direto' | 'Corrida' | 'Game mods'
 
 interface DiscoveryCarouselProps {
   onSelect: (result: GlobalSearchResult) => void
@@ -37,7 +37,6 @@ function curateResults(results: GlobalSearchResult[]) {
       if (chosen.length >= 18) break
     }
   }
-
   return chosen
 }
 
@@ -54,9 +53,7 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
     setError(false)
     globalSearch('car', controller.signal, 6)
       .then(data => setItems(curateResults(data.results)))
-      .catch(err => {
-        if (err?.name !== 'AbortError') setError(true)
-      })
+      .catch(err => { if (err?.name !== 'AbortError') setError(true) })
       .finally(() => setLoading(false))
     return () => controller.abort()
   }, [])
@@ -64,7 +61,7 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
   const visibleItems = useMemo(() => {
     if (mode === 'Download direto') return items.filter(item => Boolean(item.downloadUrl))
     if (mode === 'Corrida') return items.filter(item => item.vehicleClass === 'Race Car' || /race|racing|gt3|rally|drift|formula/i.test(item.title))
-    if (mode === 'Com imagem') return items.filter(item => Boolean(item.imageUrl))
+    if (mode === 'Game mods') return items.filter(item => item.sourceType === 'game-mods')
     return items
   }, [items, mode])
 
@@ -82,73 +79,56 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
     <section className="discoverySection" aria-label="Descobrir modelos 3D automotivos gratuitos">
       <div className="discoveryHead">
         <div>
-          <span className="discoveryEyebrow"><Sparkles size={13}/> DESCOBERTA GRATUITA</span>
-          <h2>Modelos automotivos gratuitos para explorar.</h2>
-          <p>Uma seleção dinâmica de veículos reais encontrados nas bases do VJ 3D Search. Apenas itens gratuitos entram nesta vitrine.</p>
+          <span className="discoveryEyebrow"><Sparkles size={13}/> DISCOVERY FEED / 01</span>
+          <h2>DESCUBRA ANTES DE BUSCAR.</h2>
+          <p>Uma vitrine viva com assets gratuitos encontrados pelo próprio agregador. Nada aqui é mock ou resultado pago.</p>
         </div>
         <div className="discoveryActions">
-          <button className="surpriseButton" onClick={surprise} disabled={!items.length}><Shuffle size={15}/> Surpreenda-me</button>
-          <button className="railButton" onClick={() => scroll(-1)} aria-label="Anterior"><ArrowLeft size={17}/></button>
-          <button className="railButton" onClick={() => scroll(1)} aria-label="Próximo"><ArrowRight size={17}/></button>
+          <button className="surpriseButton" onClick={surprise} disabled={!items.length}><Shuffle size={14}/> SURPREENDA-ME</button>
+          <button className="railButton" onClick={() => scroll(-1)} aria-label="Anterior"><ArrowLeft size={16}/></button>
+          <button className="railButton" onClick={() => scroll(1)} aria-label="Próximo"><ArrowRight size={16}/></button>
         </div>
       </div>
 
       <div className="discoveryModes">
-        {(['Destaques', 'Download direto', 'Corrida', 'Com imagem'] as DiscoveryMode[]).map(item => (
+        {(['Destaques', 'Download direto', 'Corrida', 'Game mods'] as DiscoveryMode[]).map(item => (
           <button key={item} className={mode === item ? 'active' : ''} onClick={() => setMode(item)}>{item}</button>
         ))}
-        <span className="liveIndicator"><i/> somente resultados gratuitos</span>
+        <span className="liveIndicator"><i/> LIVE / FREE ONLY</span>
       </div>
 
-      {loading && (
-        <div className="discoveryLoading">
-          <LoaderCircle className="spin" size={24}/>
-          <div><strong>Montando sua vitrine gratuita</strong><span>Buscando veículos grátis nas fontes indexadas...</span></div>
-        </div>
-      )}
-
-      {!loading && error && (
-        <div className="discoveryError">
-          <CarFront size={23}/><div><strong>A vitrine dinâmica não carregou agora.</strong><span>A busca principal continua funcionando normalmente.</span></div>
-        </div>
-      )}
-
-      {!loading && !error && visibleItems.length === 0 && (
-        <div className="discoveryError">
-          <CarFront size={23}/><div><strong>Nenhum item gratuito nesta seleção.</strong><span>Troque o filtro acima para ver outros veículos.</span></div>
-        </div>
-      )}
+      {loading && <div className="discoveryLoading"><LoaderCircle className="spin" size={23}/><div><strong>MONTANDO O FEED</strong><span>coletando previews gratuitos nas fontes indexadas...</span></div></div>}
+      {!loading && error && <div className="discoveryError"><CarFront size={22}/><div><strong>FEED INDISPONÍVEL AGORA</strong><span>A busca principal continua funcionando normalmente.</span></div></div>}
+      {!loading && !error && visibleItems.length === 0 && <div className="discoveryError"><CarFront size={22}/><div><strong>NENHUM ITEM NESTE RECORTE</strong><span>Troque o modo acima para explorar outros veículos.</span></div></div>}
 
       {!loading && visibleItems.length > 0 && (
         <div className="discoveryRail" ref={railRef}>
           {visibleItems.map((result, index) => (
             <article className="discoveryCard" key={result.id} onClick={() => onSelect(result)} tabIndex={0} onKeyDown={event => event.key === 'Enter' && onSelect(result)}>
               <div className="discoveryImage">
-                {result.imageUrl
-                  ? <img src={result.imageUrl} alt={result.title} loading="lazy"/>
-                  : <div className="discoveryFallback"><ImageOff size={28}/></div>}
+                {result.imageUrl ? <img src={result.imageUrl} alt={result.title} loading="lazy"/> : <div className="discoveryFallback"><ImageOff size={28}/></div>}
                 <div className="discoveryShade"/>
                 <span className="discoveryIndex">{String(index + 1).padStart(2, '0')}</span>
-                <span className="discoveryType"><CarFront size={11}/>{result.vehicleClass}</span>
-                <span className="discoveryPrice free">GRÁTIS</span>
-                {result.downloadUrl && <span className="discoveryDownload"><Download size={11}/> DOWNLOAD</span>}
+                <span className="discoveryType"><CarFront size={10}/>{result.vehicleClass}</span>
+                <span className="discoveryPrice free">FREE</span>
+                {result.downloadUrl && <span className="discoveryDownload"><Download size={10}/> DIRETO</span>}
               </div>
               <div className="discoveryBody">
-                <div className="discoverySource"><span>{result.source}</span><span>{result.sourceType === 'game-mods' ? 'MOD' : '3D'}</span></div>
+                <div className="discoverySource"><span>{result.source}</span><span>{result.sourceType === 'game-mods' ? 'GAME MOD' : '3D ASSET'}</span></div>
                 <h3>{result.title}</h3>
                 <p>{[result.brand, result.year, result.formats[0]].filter(Boolean).join(' · ') || 'Informações disponíveis na fonte'}</p>
                 <div className="discoveryFooter">
-                  <button onClick={event => { event.stopPropagation(); onSearch(result.title) }}><Search size={13}/> Buscar similares</button>
-                  <span>Detalhes <ArrowUpRight size={13}/></span>
+                  <button onClick={event => { event.stopPropagation(); onSearch(result.title) }}><Search size={12}/> BUSCAR SIMILARES</button>
+                  <span>ABRIR <ArrowUpRight size={12}/></span>
                 </div>
               </div>
             </article>
           ))}
           <button className="discoverMoreCard" onClick={() => onSearch('car')}>
-            <span><Search size={24}/></span>
-            <strong>Explorar modelos grátis</strong>
-            <small>Veja mais veículos gratuitos encontrados nas bases.</small>
-            <b>Pesquisar agora <ArrowUpRight size={14}/></b>
+            <span><Search size={23}/></span>
+            <strong>ABRIR O CATÁLOGO.</strong>
+            <small>Veja mais veículos gratuitos encontrados pelo agregador.</small>
+            <b>PESQUISAR AGORA <ArrowUpRight size={13}/></b>
           </button>
         </div>
       )}
