@@ -52,7 +52,7 @@ jobs:
           const noisy = canonicalizeVehicleIdentity({ title: 'Sayrx Toyota Supra MK4 Vert - Individual Cars | VOSAN', brand: 'Toyota', year: 1983, vehicleClass: 'Car' })
           console.log(JSON.stringify({ noisy }, null, 2))
           if (!/^Toyota Supra MK4/i.test(noisy.display)) process.exit(1)
-          if (/Sayrx|VOSAN|Individual Cars/i.test(noisy.display)) process.exit(1)
+          if (/Sayrx|VOSAN|Individual Cars|Vert/i.test(noisy.display)) process.exit(1)
           if (noisy.yearTrusted) process.exit(1)
           if (/1983/.test(noisy.canonical)) process.exit(1)
 
@@ -106,7 +106,7 @@ jobs:
             }, null, 2))
             if (fake.length || bikeLeak.length) process.exit(1)
             if (asset.title.startsWith('Sayrx') && (!/^Toyota Supra/i.test(pack.canonicalVehicle) || pack.year)) process.exit(1)
-            if (pack.identity?.engine !== 'generic-v5-modeling') process.exit(1)
+            if (pack.identity?.engine !== 'generic-v6-strict') process.exit(1)
             if (!pack.modelingCoverage || !Number.isFinite(pack.modelingCoverage.readiness)) process.exit(1)
             if (!Array.isArray(pack.sourceStatus) || pack.sourceStatus.length !== 4) process.exit(1)
             const linkIds = new Set((pack.webSearch || []).map(link => link.id))
