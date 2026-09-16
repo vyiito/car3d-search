@@ -8,7 +8,7 @@ interface Props { result: GlobalSearchResult }
 
 type AngleFilter = 'all' | string
 
-const angleOrder = ['front','rear','side','three-quarter','interior','details','reference']
+const angleOrder = ['front','rear','side','three-quarter','interior','wheel','engine','details','reference']
 
 function resolutionLabel(image: ReferenceImage) {
   if (!image.width || !image.height) return null
@@ -75,12 +75,12 @@ export default function ReferencePack({ result }: Props) {
         <div>
           <span className="referencePackCode">VJ REFERENCE KIT / 05</span>
           <h3>FOTOS REAIS PARA MODELAGEM</h3>
-          <p>O VJ limpa o nome do asset, tenta ano, geração, aliases e o nome simples do carro. Imagens com licença compatível podem entrar no .ZIP; o restante fica como referência.</p>
+          <p>O VJ limpa o nome do asset e classifica ângulos somente quando título/metadados dão evidência. Frente, traseira, lateral, 3/4, interior, roda e motor ficam separados; imagens ambíguas permanecem em REFERÊNCIA.</p>
         </div>
         {pack && <div className="referencePackStats"><strong>{pack.images.length}</strong><span>IMAGENS</span><strong>{pack.angleCoverage.length}</strong><span>GRUPOS</span></div>}
       </div>
 
-      {loading && <div className="referencePackLoading"><LoaderCircle className="spin" size={20}/><div><strong>IDENTIFICANDO O CARRO E BUSCANDO REFERÊNCIAS</strong><span>nome limpo · geração · aliases · Openverse · Wikimedia Commons</span></div></div>}
+      {loading && <div className="referencePackLoading"><LoaderCircle className="spin" size={20}/><div><strong>IDENTIFICANDO O CARRO E BUSCANDO REFERÊNCIAS</strong><span>nome limpo · geração · aliases · ângulos verificados · Openverse · Wikimedia Commons</span></div></div>}
 
       {!loading && error && <div className="referencePackEmpty"><ImageIcon size={26}/><div><strong>NÃO FOI POSSÍVEL CARREGAR AS REFERÊNCIAS</strong><span>A busca de assets continua funcionando normalmente.</span></div><button onClick={() => setReloadKey(value => value + 1)}><RefreshCw size={14}/> TENTAR NOVAMENTE</button></div>}
 
@@ -109,7 +109,7 @@ export default function ReferencePack({ result }: Props) {
               </button>
               <div className="referenceCardMeta">
                 <strong title={image.title}>{image.title}</strong>
-                <div><span>{image.source}</span>{resolutionLabel(image) && <span>{resolutionLabel(image)}</span>}{image.matchLevel&&<span>{image.matchLevel.toUpperCase()}</span>}</div>
+                <div><span>{image.source}</span>{resolutionLabel(image) && <span>{resolutionLabel(image)}</span>}{image.matchLevel&&<span>{image.matchLevel.toUpperCase()}</span>}{image.angleConfidence==='metadata'&&<span>ANGLE VERIFIED</span>}</div>
                 <small>{image.license}{image.licenseVersion ? ` ${image.licenseVersion}` : ''} · {image.creator}</small>
                 <a href={image.sourcePage} target="_blank" rel="noreferrer"><ExternalLink size={11}/> ABRIR ORIGINAL</a>
               </div>
