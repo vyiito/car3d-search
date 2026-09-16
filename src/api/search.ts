@@ -86,3 +86,8 @@ export async function getResultDetails(result: GlobalSearchResult, signal?: Abor
     downloadStatus: details.downloadUrl ? 'direct' : details.downloadActionUrl ? 'source' : (details.downloadStatus || result.downloadStatus || 'unavailable'),
   }
 }
+
+export function vjDirectDownloadUrl(result: GlobalSearchResult) {
+  if (!result.downloadUrl) return null
+  return `${API_BASE}/api/download?sourceId=${encodeURIComponent(result.sourceId)}&url=${encodeURIComponent(result.sourceUrl)}`
+}
