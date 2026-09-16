@@ -2,12 +2,15 @@ import express from 'express'
 import cors from 'cors'
 import { providers } from './providers.js'
 import { searchAll } from './search.js'
+import { getResultDetails } from './details.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
 const allowedOrigin = process.env.CORS_ORIGIN || 'https://vyiito.github.io'
 const cache = new Map()
+const detailsCache = new Map()
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 10 * 60 * 1000)
+const DETAILS_CACHE_TTL_MS = Number(process.env.DETAILS_CACHE_TTL_MS || 30 * 60 * 1000)
 
 app.disable('x-powered-by')
 app.use(cors({ origin: [allowedOrigin, 'http://localhost:5173'], methods: ['GET'] }))
@@ -44,8 +47,16 @@ function freeOnlyPayload(payload) {
   }
 }
 
+function trimCache(target, max = 120, remove = 20) {
+  if (target.size <= max) return
+  const oldest = [...target.entries()]
+    .sort((a, b) => a[1].createdAt - b[1].createdAt)
+    .slice(0, remove)
+  for (const [key] of oldest) target.delete(key)
+}
+
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, freeOnly: true })
+  res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, freeOnly: true, detailsResolver: true })
 })
 
 app.get('/api/providers', (_req, res) => {
@@ -72,14 +83,34 @@ app.get('/api/search', async (req, res) => {
     const rawPayload = await searchAll(q, { perSource })
     const payload = freeOnlyPayload(rawPayload)
     cache.set(cacheKey, { createdAt: Date.now(), payload })
-    if (cache.size > 100) {
-      const oldest = [...cache.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt).slice(0, 20)
-      for (const [key] of oldest) cache.delete(key)
-    }
+    trimCache(cache)
     res.json({ ...payload, cached: false })
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: 'Global search failed.' })
+  }
+})
+
+app.get('/api/details', async (req, res) => {
+  const sourceId = String(req.query.sourceId || '').trim().slice(0, 80)
+  const sourceUrl = String(req.query.url || '').trim().slice(0, 2000)
+  if (!sourceId || !sourceUrl) return res.status(400).json({ error: 'sourceId and url are required.' })
+
+  const cacheKey = `${sourceId}|${sourceUrl}`
+  const cached = detailsCache.get(cacheKey)
+  if (cached && Date.now() - cached.createdAt < DETAILS_CACHE_TTL_MS) {
+    return res.json({ ...cached.payload, cached: true })
+  }
+
+  try {
+    const payload = await getResultDetails(sourceId, sourceUrl)
+    detailsCache.set(cacheKey, { createdAt: Date.now(), payload })
+    trimCache(detailsCache, 250, 40)
+    res.json({ ...payload, cached: false })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Details lookup failed.'
+    const status = /outside provider host|Unknown provider|required/i.test(message) ? 400 : 502
+    res.status(status).json({ error: message })
   }
 })
 
