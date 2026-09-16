@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 
-const UA = 'VJ3DSearch/3.1 (+https://github.com/vyiito/car3d-search)'
+const UA = 'VJ3DSearch/3.2 (+https://github.com/vyiito/car3d-search)'
 const CACHE_TTL_MS = 30 * 60 * 1000
 const MAX_CACHE = 120
 const MAX_PACK_IMAGES = 20
@@ -8,13 +8,38 @@ const MAX_IMAGE_BYTES = 12 * 1024 * 1024
 const MAX_PACK_BYTES = 80 * 1024 * 1024
 const cache = new Map()
 
+const ANGLE_LABELS = {
+  front: 'FRONT',
+  rear: 'REAR',
+  side: 'SIDE',
+  'three-quarter': '3/4',
+  interior: 'INTERIOR',
+  wheel: 'WHEEL',
+  engine: 'ENGINE',
+  details: 'DETAILS',
+  reference: 'REFERENCE',
+}
+
 const ANGLES = [
-  { id: 'front', label: 'FRONT', terms: ['front', 'front view'] },
-  { id: 'rear', label: 'REAR', terms: ['rear', 'back'] },
-  { id: 'side', label: 'SIDE', terms: ['side', 'left side', 'profile'] },
-  { id: 'three-quarter', label: '3/4', terms: ['three quarter', '3/4'] },
-  { id: 'interior', label: 'INTERIOR', terms: ['interior', 'dashboard'] },
-  { id: 'details', label: 'DETAILS', terms: ['wheel', 'engine room', 'headlight'] },
+  { id: 'front', label: ANGLE_LABELS.front, terms: ['front view', 'front'] },
+  { id: 'rear', label: ANGLE_LABELS.rear, terms: ['rear view', 'rear'] },
+  { id: 'side', label: ANGLE_LABELS.side, terms: ['side profile', 'side view'] },
+  { id: 'three-quarter', label: ANGLE_LABELS['three-quarter'], terms: ['three quarter view', '3/4 view'] },
+  { id: 'interior', label: ANGLE_LABELS.interior, terms: ['interior dashboard', 'cockpit interior'] },
+  { id: 'wheel', label: ANGLE_LABELS.wheel, terms: ['wheel rim', 'wheel close up'] },
+  { id: 'engine', label: ANGLE_LABELS.engine, terms: ['engine bay', 'engine compartment'] },
+  { id: 'details', label: ANGLE_LABELS.details, terms: ['headlight detail', 'taillight detail'] },
+]
+
+const ANGLE_PATTERNS = [
+  ['interior', /\b(?:interior|cockpit|dashboard|dash board|cabin|instrument cluster|steering wheel|center console|centre console|seat|seats)\b/i],
+  ['wheel', /\b(?:wheel|wheels|rim|rims|alloy wheel|alloy wheels|tyre|tyres|tire|tires)\b/i],
+  ['engine', /\b(?:engine bay|engine compartment|engine room|under[- ]hood|under[- ]bonnet|motor compartment)\b/i],
+  ['details', /\b(?:headlight|headlights|headlamp|taillight|tail light|badge|emblem|mirror|door handle|brake|caliper|exhaust|spoiler|diffuser)\b/i],
+  ['three-quarter', /\b(?:three[- ]?quarter|3\s*\/\s*4|¾|front[- ]?quarter|rear[- ]?quarter)\b/i],
+  ['front', /\b(?:front view|front angle|front|frontal|nose|grille|grill)\b/i],
+  ['rear', /\b(?:rear view|rear angle|rear|back view|from behind|back end)\b/i],
+  ['side', /\b(?:side view|side profile|left side|right side|side|profile|lateral)\b/i],
 ]
 
 const REDISTRIBUTABLE_LICENSES = new Set(['cc0', 'pdm', 'by', 'by-sa'])
@@ -39,6 +64,14 @@ const clean = value => String(value || '').replace(/<[^>]*>/g, ' ').replace(/&nb
 const safeUrl = value => { try { const url = new URL(String(value || '')); return ['http:', 'https:'].includes(url.protocol) ? url.href : null } catch { return null } }
 const idFor = value => crypto.createHash('sha1').update(String(value)).digest('hex').slice(0, 18)
 const safeFilePart = value => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 90) || 'reference'
+
+function classifyReferenceAngle(evidence) {
+  const text = clean(evidence)
+  for (const [id, pattern] of ANGLE_PATTERNS) {
+    if (pattern.test(text)) return { id, label: ANGLE_LABELS[id], confidence: 'metadata' }
+  }
+  return { id: 'reference', label: ANGLE_LABELS.reference, confidence: 'fallback' }
+}
 
 function trimCache() {
   const now = Date.now()
@@ -98,7 +131,7 @@ function openverseAllowed(item) {
   return REDISTRIBUTABLE_LICENSES.has(license) && Boolean(safeUrl(item?.url)) && item?.watermarked !== true
 }
 
-async function searchOpenverse(query, angle, perAngle, matchLevel) {
+async function searchOpenverse(query, perAngle, matchLevel) {
   const url = new URL('https://api.openverse.org/v1/images/')
   url.searchParams.set('q', query)
   url.searchParams.set('page_size', String(Math.max(4, Math.min(perAngle + 4, 12))))
@@ -110,12 +143,15 @@ async function searchOpenverse(query, angle, perAngle, matchLevel) {
     const thumbnailUrl = safeUrl(item?.thumbnail) || imageUrl
     const sourcePage = safeUrl(item?.foreign_landing_url) || safeUrl(item?.detail_url) || imageUrl
     if (!imageUrl || !thumbnailUrl || !sourcePage) continue
+    const tags = Array.isArray(item?.tags) ? item.tags.map(tag => clean(tag?.name || tag)).join(' ') : ''
+    const angleMeta = classifyReferenceAngle([item?.title, item?.description, item?.alt_text, tags].map(clean).join(' '))
     const license = String(item?.license || '').toLowerCase() || 'unknown'
     const allowed = openverseAllowed(item)
     results.push({
       id: `ov-${idFor(imageUrl)}`,
-      angle: angle.id,
-      angleLabel: angle.label,
+      angle: angleMeta.id,
+      angleLabel: angleMeta.label,
+      angleConfidence: angleMeta.confidence,
       title: clean(item?.title) || query,
       imageUrl,
       thumbnailUrl,
@@ -133,7 +169,6 @@ async function searchOpenverse(query, angle, perAngle, matchLevel) {
       matchLevel,
       redistributionNote: allowed ? 'Licença aceita pelo VJ Reference Pack.' : 'Referência apenas; não entra no ZIP automático.',
     })
-    if (results.length >= perAngle) break
   }
   return results
 }
@@ -143,7 +178,7 @@ function commonsLicenseAllowed(meta = {}) {
   return COMMONS_ALLOWED.test(label)
 }
 
-async function searchCommons(query, angle, perAngle, matchLevel) {
+async function searchCommons(query, perAngle, matchLevel) {
   const url = new URL('https://commons.wikimedia.org/w/api.php')
   url.searchParams.set('action', 'query')
   url.searchParams.set('format', 'json')
@@ -165,13 +200,16 @@ async function searchCommons(query, angle, perAngle, matchLevel) {
     const sourcePage = safeUrl(info?.descriptionurl)
     if (!imageUrl || !thumbnailUrl || !sourcePage || !String(info?.mime || '').startsWith('image/')) continue
     const meta = info?.extmetadata || {}
+    const title = clean(String(page?.title || '').replace(/^File:/i, '')) || query
+    const angleMeta = classifyReferenceAngle(`${title} ${clean(meta?.ImageDescription?.value)}`)
     const license = clean(meta?.LicenseShortName?.value) || 'Wikimedia Commons'
     const allowed = commonsLicenseAllowed(meta)
     results.push({
       id: `wm-${idFor(imageUrl)}`,
-      angle: angle.id,
-      angleLabel: angle.label,
-      title: clean(String(page?.title || '').replace(/^File:/i, '')) || query,
+      angle: angleMeta.id,
+      angleLabel: angleMeta.label,
+      angleConfidence: angleMeta.confidence,
+      title,
       imageUrl,
       thumbnailUrl,
       sourcePage,
@@ -188,7 +226,6 @@ async function searchCommons(query, angle, perAngle, matchLevel) {
       matchLevel,
       redistributionNote: allowed ? 'Licença aceita pelo VJ Reference Pack.' : 'Referência apenas; licença deve ser verificada na fonte.',
     })
-    if (results.length >= perAngle) break
   }
   return results
 }
@@ -207,26 +244,25 @@ async function searchAngle(variants, angle, perAngle) {
   let collected = []
   const attempts = []
   for (const variant of variants) for (const term of angle.terms.slice(0, 2)) attempts.push({ query: `${variant.query} ${term}`, matchLevel: variant.matchLevel })
-  for (const attempt of attempts.slice(0, 5)) {
-    try { collected.push(...await searchOpenverse(attempt.query, angle, perAngle, attempt.matchLevel)) } catch {}
+  for (const attempt of attempts.slice(0, 6)) {
+    try { collected.push(...await searchOpenverse(attempt.query, perAngle + 2, attempt.matchLevel)) } catch {}
     collected = dedupe(collected)
-    if (collected.length < perAngle) {
-      try { collected.push(...await searchCommons(attempt.query, angle, perAngle - collected.length, attempt.matchLevel)) } catch {}
+    if (collected.filter(image => image.angle === angle.id).length < perAngle) {
+      try { collected.push(...await searchCommons(attempt.query, perAngle + 2, attempt.matchLevel)) } catch {}
       collected = dedupe(collected)
     }
-    if (collected.length >= perAngle) break
+    if (collected.filter(image => image.angle === angle.id).length >= perAngle) break
   }
-  return collected.slice(0, perAngle)
+  return collected.filter(image => image.angle === angle.id).slice(0, perAngle)
 }
 
 async function searchGeneral(variants, limit = 8) {
-  const angle = { id: 'reference', label: 'REFERENCE' }
   let collected = []
   for (const variant of variants.slice(0, 3)) {
-    try { collected.push(...await searchOpenverse(variant.query, angle, limit, variant.matchLevel)) } catch {}
+    try { collected.push(...await searchOpenverse(variant.query, limit, variant.matchLevel)) } catch {}
     collected = dedupe(collected)
     if (collected.length < limit) {
-      try { collected.push(...await searchCommons(variant.query, angle, limit - collected.length, variant.matchLevel)) } catch {}
+      try { collected.push(...await searchCommons(variant.query, limit - collected.length, variant.matchLevel)) } catch {}
       collected = dedupe(collected)
     }
     if (collected.length >= limit) break
@@ -241,10 +277,15 @@ export async function searchReferencePack(asset, options = {}) {
   const variants = queryVariants(baseQuery)
   const batches = await Promise.all(ANGLES.map(angle => searchAngle(variants, angle, perAngle)))
   let images = dedupe(batches.flat()).slice(0, 36)
-  if (images.length < Math.min(12, perAngle * 3)) {
-    const general = await searchGeneral(variants, Math.min(12, perAngle * 3))
+  if (images.length < Math.min(16, perAngle * 4)) {
+    const general = await searchGeneral(variants, Math.min(16, perAngle * 4))
     images = dedupe([...images, ...general]).slice(0, 36)
   }
+  images.sort((a, b) => {
+    const ai = Object.keys(ANGLE_LABELS).indexOf(a.angle)
+    const bi = Object.keys(ANGLE_LABELS).indexOf(b.angle)
+    return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi)
+  })
   const packId = crypto.randomUUID()
   const payload = {
     packId,
@@ -338,11 +379,11 @@ export async function buildReferenceZip(packId, selectedIds = []) {
       const count=(angleCounters.get(image.angle)||0)+1; angleCounters.set(image.angle,count)
       const folder=safeFilePart(image.angleLabel||image.angle).toUpperCase(), name=`${folder}/${String(count).padStart(2,'0')}_${safeFilePart(image.title)}.${fetched.extension}`
       entries.push({name,data:fetched.buffer})
-      manifest.push([name,`Title: ${image.title}`,`Angle: ${image.angleLabel}`,`Match: ${image.matchLevel||'unknown'}`,`Creator: ${image.creator}`,`License: ${image.license}${image.licenseVersion?` ${image.licenseVersion}`:''}`,`License URL: ${image.licenseUrl||'Not provided'}`,`Source page: ${image.sourcePage}`,`Original image: ${image.imageUrl}`].join('\n'))
+      manifest.push([name,`Title: ${image.title}`,`Angle: ${image.angleLabel}`,`Angle confidence: ${image.angleConfidence||'unknown'}`,`Match: ${image.matchLevel||'unknown'}`,`Creator: ${image.creator}`,`License: ${image.license}${image.licenseVersion?` ${image.licenseVersion}`:''}`,`License URL: ${image.licenseUrl||'Not provided'}`,`Source page: ${image.sourcePage}`,`Original image: ${image.imageUrl}`].join('\n'))
     }catch(error){manifest.push(`SKIPPED: ${image.title}\nReason: ${error instanceof Error?error.message:'download failed'}\nSource page: ${image.sourcePage}`)}
   }
   if(!entries.length) throw new Error('The selected source images could not be downloaded.')
-  const readme=`VJ REFERENCE PACK\nVehicle: ${pack.title}\nSearch: ${pack.query}\nGenerated: ${new Date().toISOString()}\nIncluded images: ${entries.length}\n\nThis pack contains only images the VJ classified as redistributable from their published license metadata. Always verify attribution/license requirements at the original source before publishing or redistributing your work.\n\n${manifest.join('\n\n---\n\n')}\n`
+  const readme=`VJ REFERENCE PACK\nVehicle: ${pack.title}\nSearch: ${pack.query}\nGenerated: ${new Date().toISOString()}\nIncluded images: ${entries.length}\n\nAngle folders are only assigned when the source title/description/tags contain matching evidence. Ambiguous images stay in REFERENCE. This pack contains only images the VJ classified as redistributable from their published license metadata. Always verify attribution/license requirements at the original source before publishing or redistributing your work.\n\n${manifest.join('\n\n---\n\n')}\n`
   entries.push({name:'sources.txt',data:Buffer.from(readme,'utf8')})
   return{buffer:makeZip(entries),filename:`${safeFilePart(pack.title)}_VJ_Reference_Pack.zip`,included:entries.length-1}
 }
