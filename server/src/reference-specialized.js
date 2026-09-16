@@ -1,7 +1,7 @@
 import { load } from 'cheerio'
 import crypto from 'node:crypto'
 
-const UA = 'VJ3DSearch/4.1 (+https://github.com/vyiito/car3d-search)'
+const UA = 'VJ3DSearch/4.2 (+https://github.com/vyiito/car3d-search)'
 const REQUEST_TIMEOUT_MS = 6500
 const MAX_SPECIALIZED_IMAGES = 72
 
@@ -61,11 +61,23 @@ const ANGLE_LABELS = {
   reference: 'REFERENCE',
 }
 
+const BLOCKED_IMAGE_SCOPE = 'aside,nav,header,footer,[class*="related"],[id*="related"],[class*="recommend"],[id*="recommend"],[class*="similar"],[id*="similar"],[class*="suggest"],[id*="suggest"],[class*="advert"],[id*="advert"],[class*="sponsor"],[id*="sponsor"]'
+const GALLERY_IMAGE_SCOPE = '[class*="gallery"],[id*="gallery"],[class*="photos"],[id*="photos"],[class*="photo-list"],[id*="photo-list"],[class*="slideshow"],[id*="slideshow"],[class*="slider"],[id*="slider"],[class*="carousel"],[id*="carousel"],[class*="lightbox"],[id*="lightbox"],[class*="media-grid"],[id*="media-grid"],[class*="image-grid"],[id*="image-grid"]'
+const GENERATION_EVIDENCE_RE = /\b(?:mk\s*(?:i{1,4}|v|vi{0,3}|\d+)|[efg]\d{2,3}|r\d{2,3}|(?:bnr|bcnr|er)\d{2,3}|jza\d{2,3}|a\d{2,3}|fd3s|na\d+|gc8)\b/i
+const GENERIC_IMAGE_LABEL_RE = /^(?:image|photo|picture|view|gallery|vehicle|car|front|rear|back|side|left|right|interior|exterior|dashboard|cockpit|engine|engine bay|wheel|wheels|detail|details|close up|thumbnail|full size|high resolution|hi res|original|\d+)(?:[\s_-]+(?:image|photo|picture|view|front|rear|back|side|left|right|interior|exterior|detail|details|\d+))*$/i
+
 const clean = value => String(value || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim()
 const norm = value => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[‐‑‒–—]/g, '-').replace(/[^a-z0-9-]+/g, ' ').replace(/\s+/g, ' ').trim()
 const slug = value => norm(value).replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')
 const uniqBy = (items, keyFn) => { const seen = new Set(); return items.filter(item => { const key = keyFn(item); if (!key || seen.has(key)) return false; seen.add(key); return true }) }
 const idFor = value => `special-${crypto.createHash('sha1').update(String(value)).digest('hex').slice(0, 18)}`
+const escapeRe = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+function containsPhrase(text, phrase) {
+  const parts = norm(phrase).split(/\s+/).filter(Boolean)
+  if (!parts.length) return false
+  return new RegExp(`(?:^|\\s)${parts.map(escapeRe).join('\\s+')}(?:$|\\s)`, 'i').test(norm(text))
+}
 
 function absoluteUrl(value, base) {
   try { const url = new URL(String(value || ''), base); return ['http:', 'https:'].includes(url.protocol) ? url.href : null } catch { return null }
@@ -121,7 +133,7 @@ function specializedContextVerified(identity, text) {
   const years = [...normalized.matchAll(/\b(19[3-9]\d|20[0-3]\d)\b/g)].map(match => Number(match[1]))
   const codes = generationCodesForIdentity(identity)
   if (identity?.yearTrusted && identity?.year) {
-    if (years.length) return years.some(value => Math.abs(value - identity.year) <= 1)
+    if (years.length) return years.includes(identity.year)
     if (codes.length) return hasGenerationEvidence(identity, normalized)
     return false
   }
@@ -131,13 +143,47 @@ function specializedContextVerified(identity, text) {
 
 function scoreIdentityText(identity, text) {
   const haystack = norm(text)
-  if (!identity?.primaryModel || !haystack.includes(norm(identity.primaryModel))) return 0
+  if (!identity?.primaryModel || !containsPhrase(haystack, identity.primaryModel)) return 0
   let score = 6
-  if (identity.brand && haystack.includes(norm(identity.brand))) score += 4
-  for (const token of identity.supporting || []) if (token.length > 1 && haystack.includes(norm(token))) score += 2
+  if (identity.brand && containsPhrase(haystack, identity.brand)) score += 4
+  for (const token of identity.supporting || []) if (token.length > 1 && containsPhrase(haystack, token)) score += 2
   for (const code of generationCodesForIdentity(identity)) if (hasGenerationEvidence({ ...identity, generationCodes: [code] }, haystack)) score += 3
   if (identity.yearTrusted && identity.year && new RegExp(`\b${identity.year}\b`).test(haystack)) score += 4
   return score
+}
+
+function meaningfulSupporting(identity) {
+  const generation = new Set(generationCodesForIdentity(identity).map(norm))
+  return (identity?.supporting || []).filter(token => token.length > 1 && !generation.has(norm(token)))
+}
+
+function imageSpecificIdentityVerified(identity, text) {
+  const normalized = norm(text)
+  if (scoreIdentityText(identity, normalized) < 6) return false
+  const years = [...normalized.matchAll(/\b(19[3-9]\d|20[0-3]\d)\b/g)].map(match => Number(match[1]))
+  if (identity?.yearTrusted && identity?.year && years.length && !years.includes(identity.year)) return false
+  const codes = generationCodesForIdentity(identity)
+  if (codes.length) {
+    const hasTarget = hasGenerationEvidence(identity, normalized)
+    if (GENERATION_EVIDENCE_RE.test(normalized) && !hasTarget) return false
+  } else {
+    const support = meaningfulSupporting(identity)
+    if (support.length && !support.some(token => containsPhrase(normalized, token))) return false
+  }
+  return true
+}
+
+function imageScope(image) {
+  if (image.closest(BLOCKED_IMAGE_SCOPE).length) return { blocked: true, gallery: false }
+  return { blocked: false, gallery: image.closest(GALLERY_IMAGE_SCOPE).length > 0 }
+}
+
+function canInheritPageIdentity(image, alt, anchorTitle) {
+  const scope = imageScope(image)
+  if (scope.blocked || !scope.gallery) return false
+  const labels = [clean(alt), clean(anchorTitle)].filter(Boolean)
+  if (!labels.length) return true
+  return labels.every(label => GENERIC_IMAGE_LABEL_RE.test(norm(label)))
 }
 
 function classifyAngle(text) {
@@ -155,7 +201,7 @@ function modelingGroup(angle) {
   return 'reference'
 }
 
-function providerRecord({ provider, sourcePage, imageUrl, thumbnailUrl, title, evidence, galleryTitle }) {
+function providerRecord({ provider, sourcePage, imageUrl, thumbnailUrl, title, evidence, galleryTitle, identityMode = 'direct' }) {
   const angle = classifyAngle(`${title} ${evidence}`)
   return {
     id: idFor(`${provider}|${imageUrl}|${sourcePage}`), angle: angle.id, angleLabel: angle.label, angleConfidence: angle.confidence,
@@ -164,6 +210,7 @@ function providerRecord({ provider, sourcePage, imageUrl, thumbnailUrl, title, e
     license: 'REFERENCE ONLY', licenseVersion: null, licenseUrl: null, width: null, height: null, downloadAllowed: false,
     redistributionNote: 'Reference-only source. Open the original page for usage terms and high-resolution access.',
     matchLevel: 'specialized-gallery', identityScore: 0, sourceKind: 'specialized', modelingGroup: modelingGroup(angle.id), galleryTitle: clean(galleryTitle) || null,
+    identityMode,
   }
 }
 
@@ -183,19 +230,25 @@ function extractImages(html, pageUrl, provider, identity, max = 36) {
     const thumbnail = absoluteUrl(image.attr('data-src') || image.attr('data-lazy-src') || image.attr('data-original') || image.attr('src'), pageUrl)
     const fromSrcset = largestFromSrcset(srcset, pageUrl)
     const anchor = image.closest('a')
+    const anchorTitle = clean(anchor.attr('title') || '')
     const href = absoluteUrl(anchor.attr('href'), pageUrl)
     const imageUrl = href && /\.(?:jpe?g|png|webp)(?:\?|$)/i.test(href) ? href : (fromSrcset || thumbnail)
     if (!imageUrl || !/^https?:/i.test(imageUrl)) return
     const nearby = clean(`${image.closest('figure').find('figcaption').text()} ${image.closest('li').text().slice(0, 300)} ${image.parent().text().slice(0, 260)}`)
-    const evidence = clean(`${alt} ${anchor.attr('title') || ''} ${nearby} ${imageUrl}`)
+    const evidence = clean(`${alt} ${anchorTitle} ${nearby} ${imageUrl}`)
     if (/logo|icon|avatar|sprite|flag|banner|advert|placeholder/i.test(`${evidence} ${imageUrl}`)) return
-    const identityEvidence = scoreIdentityText(identity, `${pageEvidence} ${evidence}`)
-    if (identityEvidence < 6) return
-    rows.push(providerRecord({ provider, sourcePage: pageUrl, imageUrl, thumbnailUrl: thumbnail || imageUrl, title: alt || pageTitle, evidence, galleryTitle: pageTitle }))
+    const directMatch = imageSpecificIdentityVerified(identity, evidence)
+    const inheritedMatch = !directMatch && canInheritPageIdentity(image, alt, anchorTitle)
+    if (!directMatch && !inheritedMatch) return
+    rows.push(providerRecord({ provider, sourcePage: pageUrl, imageUrl, thumbnailUrl: thumbnail || imageUrl, title: alt || pageTitle, evidence, galleryTitle: pageTitle, identityMode: directMatch ? 'direct' : 'gallery-scope' }))
   })
   const og = absoluteUrl($('meta[property="og:image"]').attr('content'), pageUrl)
-  if (og) rows.push(providerRecord({ provider, sourcePage: pageUrl, imageUrl: og, thumbnailUrl: og, title: pageTitle, evidence: pageEvidence, galleryTitle: pageTitle }))
+  if (og) rows.push(providerRecord({ provider, sourcePage: pageUrl, imageUrl: og, thumbnailUrl: og, title: pageTitle, evidence: pageEvidence, galleryTitle: pageTitle, identityMode: 'page-og' }))
   return uniqBy(rows, item => norm(item.imageUrl)).slice(0, max)
+}
+
+export function extractSpecializedImagesForTest(html, pageUrl, provider, identity, max = 36) {
+  return extractImages(html, pageUrl, provider, identity, max)
 }
 
 function rankedLinks(html, baseUrl, identity, predicate, max = 3) {
