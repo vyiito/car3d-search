@@ -1,33 +1,31 @@
-import * as cheerio from 'cheerio'
 import { searchBrasilSimulatorMods } from './brasil-adapter.js'
-const UA='VJ3DSearch/1.2 (+https://github.com/vyiito/car3d-search)'
-async function text(url,accept='text/html,*/*'){const r=await fetch(url,{headers:{'user-agent':UA,accept},redirect:'follow'});return {r,t:await r.text()}}
+const UA='VJ3DSearch/1.3 (+https://github.com/vyiito/car3d-search)'
 function compact(v){return String(v||'').replace(/\s+/g,' ')}
-function contexts(source, needles, radius=1000){const lower=source.toLowerCase(),out=[];for(const needle of needles){let from=0,count=0;while(count<7){const i=lower.indexOf(needle.toLowerCase(),from);if(i<0)break;out.push(`${needle}@${i}:${compact(source.slice(Math.max(0,i-radius),i+radius))}`);from=i+needle.length;count++}}return out}
+
+async function post3dsky(body){
+  const response=await fetch('https://3dsky.org/api/models',{method:'POST',redirect:'follow',headers:{'user-agent':UA,accept:'application/json','content-type':'application/json','accept-language':'en-US,en;q=0.9'},body:JSON.stringify(body)})
+  const data=await response.json().catch(()=>null)
+  return {response,data}
+}
 
 export async function runDynamicProviderProbe(){
   try{
     const bsm=await searchBrasilSimulatorMods('Toyota Supra',25)
-    console.log(`[bsm-native] count=${bsm.results.length} pages=${bsm.pagesFetched} sample=${bsm.results.slice(0,4).map(x=>`${x.title}|${x.imageUrl?'img':'noimg'}|${x.game||'nogame'}`).join(' || ')}`)
+    console.log(`[bsm-native] count=${bsm.results.length} pages=${bsm.pagesFetched}`)
   }catch(e){console.log(`[bsm-native] ERROR ${e instanceof Error?e.message:String(e)}`)}
 
   try{
-    const response=await fetch('https://3dsky.org/api/models',{
-      method:'POST',redirect:'follow',
-      headers:{'user-agent':UA,accept:'application/json','content-type':'application/json','accept-language':'en-US,en;q=0.9'},
-      body:JSON.stringify({query:'Toyota Supra',order:'relevance',page:1}),
-    })
-    const body=await response.text()
-    console.log(`[3dsky-post] status=${response.status} ct=${response.headers.get('content-type')||''} bytes=${body.length} snippet=${compact(body).slice(0,4200)}`)
-  }catch(e){console.log(`[3dsky-post] ERROR ${e instanceof Error?e.message:String(e)}`)}
+    const {response,data}=await post3dsky({query:'Toyota Supra',order:'relevance',page:1,types:['free']})
+    const models=data?.data?.models||[]
+    console.log(`[3dsky-free] status=${response.status} total=${data?.data?.total_value??'n/a'} page=${data?.data?.page??'n/a'} per=${data?.data?.per_page??'n/a'} count=${models.length} types=${models.map(x=>x.model_type).join(',')} sample=${models.slice(0,5).map(x=>`${x.title_en||x.title}|${x.slug}|${x.model_type}|usd=${x.price_usd}|path=${x.images?.[0]?.web_path||''}|platform=${x.properties?.platform?.titleEn||x.properties?.platform?.title||''}`).join(' || ')}`)
+  }catch(e){console.log(`[3dsky-free] ERROR ${e instanceof Error?e.message:String(e)}`)}
 
   try{
-    const {r,t:html}=await text('https://3dwarehouse.sketchup.com/search/?q=Toyota%20Supra%20car%20vehicle')
-    const $=cheerio.load(html)
-    const main=$('script[src]').map((_,e)=>{try{return new URL($(e).attr('src'),r.url).href}catch{return null}}).get().filter(Boolean).find(u=>/\/assets\/index-.*\.js/.test(u))
-    if(main){
-      const {t:js}=await text(main,'application/javascript,*/*')
-      console.log(`[3dw-main] bytes=${js.length} contexts=${contexts(js,['fetchModels','fetchSearch','/search','api.','baseURL','baseUrl','cards','offset','pageSize','searchText'],900).join(' || ')}`)
-    }
-  }catch(e){console.log(`[3dw-probe] ERROR ${e instanceof Error?e.message:String(e)}`)}
+    const response=await fetch('https://3dwarehouse.sketchup.com/build-info-f166055.json',{headers:{'user-agent':UA,accept:'application/json'}})
+    const data=await response.text()
+    console.log(`[3dw-build] status=${response.status} body=${compact(data).slice(0,1000)}`)
+    const main=await (await fetch('https://3dwarehouse.sketchup.com/assets/index-DxBaKD0H.js',{headers:{'user-agent':UA}})).text()
+    const patterns=['apiBase:', 'apiVersion:', 'apiBase=', 'apiVersion=', 'production:', 'whp-api', 'api.sketchup', '3dwarehouse-api']
+    for(const pattern of patterns){const i=main.toLowerCase().indexOf(pattern.toLowerCase());if(i>=0)console.log(`[3dw-config] ${pattern}@${i} ${compact(main.slice(Math.max(0,i-700),i+1800))}`)}
+  }catch(e){console.log(`[3dw-config] ERROR ${e instanceof Error?e.message:String(e)}`)}
 }
