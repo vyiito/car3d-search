@@ -33,16 +33,16 @@ jobs:
           import { searchReferencePack } from './src/reference-engine.js'
 
           const cases = [
-            { title:'2018 Honda Civic Type R FK8', brand:'Honda', year:2018, vehicleClass:'Car', forbidden:/\b(?:fk2|fk7|fc1|si sedan|accord|integra)\b/i },
-            { title:'1999 Nissan Skyline GT-R R34', brand:'Nissan', year:1999, vehicleClass:'Car', forbidden:/\b(?:r32|r33|r35|350z|370z)\b/i },
-            { title:'1993 Mazda RX-7 FD3S', brand:'Mazda', year:1993, vehicleClass:'Car', forbidden:/\b(?:fc3s|rx-8|rx8|miata|mx-5|mx5)\b/i },
-            { title:'2021 Porsche 911 992 Carrera S', brand:'Porsche', year:2021, vehicleClass:'Car', forbidden:/\b(?:991|997|996|718|cayman|taycan|panamera)\b/i },
-            { title:'2012 Mercedes-Benz C63 AMG W204', brand:'Mercedes-Benz', year:2012, vehicleClass:'Car', forbidden:/\b(?:w205|w206|e63|s63|cla45|a45)\b/i },
+            { title:'2018 Honda Civic Type R FK8', brand:'Honda', year:2018, vehicleClass:'Car', forbidden:/\b(?:pickup truck|insight|fk2|fk7|fc1|civic si|accord|integra|2012 honda civic)\b/i },
+            { title:'1999 Nissan Skyline GT-R R34', brand:'Nissan', year:1999, vehicleClass:'Car', forbidden:/\b(?:1997|r32|r33|r35|v36|hv37|crossover|350z|370z)\b/i },
+            { title:'1993 Mazda RX-7 FD3S', brand:'Mazda', year:1993, vehicleClass:'Car', forbidden:/\b(?:1994|gsl-se|fc3s|rx-8|rx8|miata|mx-5|mx5)\b/i },
+            { title:'2021 Porsche 911 992 Carrera S', brand:'Porsche', year:2021, vehicleClass:'Car', forbidden:/\b(?:2020|2022|turbo|targa|gt3|gt2|991|997|996|718|cayman|taycan|panamera)\b/i },
+            { title:'2012 Mercedes-Benz C63 AMG W204', brand:'Mercedes-Benz', year:2012, vehicleClass:'Car', forbidden:/\b(?:estate|black series|safety car|c63 s|w205|w206|e63|s63|cla45|a45)\b/i },
             { title:'2021 Audi RS6 C8', brand:'Audi', year:2021, vehicleClass:'Car', forbidden:/\b(?:c7|rs3|rs4|rs5|rs7|a6 allroad)\b/i },
-            { title:'2015 Lamborghini Huracan', brand:'Lamborghini', year:2015, vehicleClass:'Car', forbidden:/\b(?:aventador|gallardo|urus|revuelto|murcielago)\b/i },
+            { title:'2015 Lamborghini Huracan', brand:'Lamborghini', year:2015, vehicleClass:'Car', forbidden:/\b(?:aventador|gallardo|urus|revuelto|murcielago|super trofeo|polizia|spyder|2017)\b/i },
             { title:'2020 Ford F-150 Raptor', brand:'Ford', year:2020, vehicleClass:'Truck / Pickup', forbidden:/\b(?:mustang|bronco|ranger|maverick|f-250|f250)\b/i },
-            { title:'2016 Chevrolet Corvette C7 Z06', brand:'Chevrolet', year:2016, vehicleClass:'Car', forbidden:/\b(?:c6|c8|camaro|stingray c8)\b/i },
-            { title:'1998 Subaru Impreza WRX STI GC8', brand:'Subaru', year:1998, vehicleClass:'Car', forbidden:/\b(?:gd|grb|va|vb|brz|forester)\b/i },
+            { title:'2016 Chevrolet Corvette C7 Z06', brand:'Chevrolet', year:2016, vehicleClass:'Car', forbidden:/\b(?:stingray|grand sport|c6|c8|camaro)\b/i },
+            { title:'1998 Subaru Impreza WRX STI GC8', brand:'Subaru', year:1998, vehicleClass:'Car', forbidden:/\b(?:2\.5 rs|spec c|n2010|gd|grb|va|vb|brz|forester)\b/i },
           ]
 
           let total = 0
@@ -61,7 +61,8 @@ jobs:
             total += rows.length
             specialized += pack.images.filter(image => image.sourceKind === 'specialized').length
             console.log('\n###', asset.title)
-            console.log(JSON.stringify({ canonical:pack.canonicalVehicle, images:rows.length, specialized:pack.images.filter(i=>i.sourceKind==='specialized').length, primarySet:pack.primarySet, bad, rows }, null, 2))
+            console.log(JSON.stringify({ canonical:pack.canonicalVehicle, engine:pack.identity?.engine, images:rows.length, specialized:pack.images.filter(i=>i.sourceKind==='specialized').length, primarySet:pack.primarySet, bad, rows }, null, 2))
+            if (pack.identity?.engine !== 'generic-v6-strict') leaks.push({ asset:asset.title, bad:[{ title:`unexpected engine ${pack.identity?.engine}` }] })
             if (bad.length) leaks.push({ asset:asset.title, bad })
           }
           console.log(JSON.stringify({ total, specialized, leakCases:leaks.length }, null, 2))
@@ -104,6 +105,9 @@ jobs:
 
           const numeric = all.filter(row => typeof row.price === 'number' && row.price > 0)
           const count225 = numeric.filter(row => row.price === 225).length
+          const synthetic3ddd = all.filter(row => row.sourceId === '3ddd-ru' && row.priceLabel === 'PRO' && row.price !== null)
+          const missingAsFree = all.filter(row => row.sourceId === '3ddd-ru' && row.price === 0 && row.priceLabel === 'PRO')
           console.log('\n### PRICE SUMMARY')
-          console.log(JSON.stringify({ total:all.length, numericPaid:numeric.length, count225, samples225:numeric.filter(r=>r.price===225).slice(0,30) }, null, 2))
+          console.log(JSON.stringify({ total:all.length, numericPaid:numeric.length, count225, synthetic3ddd, missingAsFree, samples225:numeric.filter(r=>r.price===225).slice(0,30) }, null, 2))
+          if (synthetic3ddd.length || missingAsFree.length) process.exit(1)
           EOF
