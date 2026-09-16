@@ -72,25 +72,25 @@ async function cachedDetails(sourceId, sourceUrl) {
 }
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, freeOnly: true, detailsResolver: true, directDownloadGate: true })
+  res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, freeOnly: true, detailsResolver: true, directDownloadGate: true, paginatedSearch: true })
 })
 
 app.get('/api/providers', (_req, res) => {
-  res.json(providers.map(provider => ({ id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, freeCatalog: Boolean(provider.freeCatalog) })))
+  res.json(providers.map(provider => ({ id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, browseUrl: provider.browseUrl || provider.baseUrl, freeCatalog: Boolean(provider.freeCatalog), defaultGame: provider.defaultGame || null, pagination: Boolean(provider.pagination) })))
 })
 
 app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 120)
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
 
-  const perSource = Math.max(1, Math.min(Number(req.query.perSource || 20), 50))
+  const perSource = Math.max(1, Math.min(Number(req.query.perSource || 60), 80))
   const cacheKey = `free|${q.toLowerCase()}|${perSource}`
   const cached = cache.get(cacheKey)
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return res.json({ ...cached.payload, cached: true })
 
   try {
     const rawPayload = await searchAll(q, { perSource })
-    console.log(`[search] ${q} :: ${rawPayload.sources.map(source => `${source.provider}=${source.status}:${source.count}`).join(' | ')}`)
+    console.log(`[search] ${q} :: ${rawPayload.sources.map(source => `${source.provider}=${source.status}:${source.count}@${source.pagesFetched || 0}p`).join(' | ')}`)
     const payload = freeOnlyPayload(rawPayload)
     cache.set(cacheKey, { createdAt: Date.now(), payload })
     trimCache(cache)
