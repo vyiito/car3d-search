@@ -14,6 +14,9 @@ export interface GlobalSearchResult {
   author: string | null
   description: string | null
   fileSize: string | null
+  brand: string | null
+  year: number | null
+  vehicleClass: 'Car' | 'SUV' | 'Race Car' | 'Motorcycle' | 'Truck / Pickup' | 'Van' | 'Bus' | 'Utility / Tractor' | string
   score: number
 }
 
@@ -33,6 +36,7 @@ export interface GlobalSearchResponse {
   providerCount: number
   searchedProviders: number
   successfulProviders: number
+  automotiveOnly?: boolean
   results: GlobalSearchResult[]
   sources: SourceSearchStatus[]
   cached: boolean
