@@ -13,7 +13,7 @@ import { search3DBaza, searchWireWheels } from './catalog-adapters.js'
 import { searchCGMoodV2, searchZifir, search3ddd } from './remaining-adapters.js'
 import { searchRenderHubClean, search3dCarClean } from './commerce-adapters.js'
 import { searchCGTraderMarketV2 } from './cgtrader-adapter.js'
-import { searchReferencePack, buildReferenceZip } from './reference-adapter.js'
+import { searchReferencePack, buildReferenceZip } from './reference-engine.js'
 import { registerProgressiveSearchRoute } from './progressive-route.js'
 
 const app = express()
