@@ -28,6 +28,8 @@ jobs:
       - run: node --check src/3dsky-adapter.js
       - run: node --check src/vosan-adapter.js
       - run: node --check src/overtake-adapter.js
+      - run: node --check src/market-adapters.js
+      - run: node --check src/catalog-adapters.js
       - name: Vertex regression · Funco F9
         run: |
           node --input-type=module <<'EOF'
@@ -43,4 +45,19 @@ jobs:
             console.error(`Regression: expected Forza Horizon 5, got ${hit.game || 'null'}.`)
             process.exit(1)
           }
+          EOF
+      - name: Marketplace adapter diagnostics
+        continue-on-error: true
+        run: |
+          node --input-type=module <<'EOF'
+          import { searchNativeMarketSources } from './src/market-adapters.js'
+          import { search3DBaza, searchWireWheels } from './src/catalog-adapters.js'
+          const native = await searchNativeMarketSources('Toyota', 8)
+          const [baza, wire] = await Promise.all([
+            search3DBaza('Toyota', 8).catch(error => ({error:error.message,results:[],pagesFetched:0})),
+            searchWireWheels('Ford', 8).catch(error => ({error:error.message,results:[],pagesFetched:0})),
+          ])
+          console.log('MARKET', JSON.stringify(native.map(x => ({source:x.sourceId,status:x.status,count:x.results.length,pages:x.pagesFetched,error:x.error})), null, 2))
+          console.log('3D-BAZA', JSON.stringify({count:baza.results.length,pages:baza.pagesFetched,error:baza.error}, null, 2))
+          console.log('WIRE', JSON.stringify({count:wire.results.length,pages:wire.pagesFetched,error:wire.error}, null, 2))
           EOF
