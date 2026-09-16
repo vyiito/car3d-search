@@ -11,7 +11,7 @@ import DiscoveryCarousel from './components/DiscoveryCarousel'
 import './styles.css'
 
 type KindFilter = 'Todos' | '3D Model' | 'Game Mod'
-type SortMode = 'Relevância' | 'Grátis primeiro' | 'Nome A-Z' | 'Fonte'
+type SortMode = 'Relevância' | 'Nome A-Z' | 'Fonte'
 type VehicleGroup = 'Todos' | 'Car' | 'SUV' | 'Race Car' | 'Motorcycle' | 'Truck / Pickup' | 'Van' | 'Bus' | 'Utility / Tractor'
 
 const vehicleGroups: { value: VehicleGroup; label: string }[] = [
@@ -38,7 +38,7 @@ function providerSearchUrl(provider: Provider, term: string) {
   if (provider.searchUrl?.includes('{query}')) return provider.searchUrl.replace('{query}', encodeURIComponent(clean))
   try {
     const host = new URL(provider.url).hostname.replace(/^www\./, '')
-    return `https://www.google.com/search?q=${encodeURIComponent(`site:${host} ${clean} car vehicle`)}`
+    return `https://www.google.com/search?q=${encodeURIComponent(`site:${host} ${clean} car vehicle free download`)}`
   } catch {
     return provider.searchUrl || provider.url
   }
@@ -64,7 +64,7 @@ function ResultModal({ result, onClose }: { result: GlobalSearchResult; onClose:
           {result.imageUrl ? <img src={result.imageUrl} alt={result.title}/> : <div className="modalImageFallback"><ImageOff size={38}/><span>Imagem não disponível</span></div>}
           <div className="modalMediaShade"/>
           <span className="modalSourceBadge">{result.source}</span>
-          <span className={result.isFree === true ? 'modalPriceBadge free' : 'modalPriceBadge'}>{result.isFree === true ? 'GRÁTIS' : result.price != null ? `$${result.price}` : 'PREÇO NA FONTE'}</span>
+          <span className="modalPriceBadge free">GRÁTIS</span>
         </div>
         <div className="modalContent">
           <div className="modalKicker"><CarFront size={14}/> {result.vehicleClass} {result.brand ? `· ${result.brand}` : ''}</div>
@@ -76,17 +76,18 @@ function ResultModal({ result, onClose }: { result: GlobalSearchResult; onClose:
             <div><HardDrive size={16}/><span>Tamanho</span><strong>{result.fileSize || 'Na fonte'}</strong></div>
             <div><FileText size={16}/><span>Formatos</span><strong>{result.formats.length ? result.formats.join(', ') : 'Na fonte'}</strong></div>
             <div><Link2 size={16}/><span>Fonte</span><strong>{result.source}</strong></div>
-            <div><ShieldCheck size={16}/><span>Ano</span><strong>{result.year || 'Não informado'}</strong></div>
+            <div><ShieldCheck size={16}/><span>Acesso</span><strong>Gratuito</strong></div>
           </div>
           <div className="modalFormats">
             {result.formats.map(format => <span key={format}>{format}</span>)}
+            <span className="downloadableChip">100% GRÁTIS</span>
             {result.downloadable && <span className="downloadableChip">DOWNLOAD DISPONÍVEL</span>}
           </div>
           <div className="modalActions">
             {result.downloadUrl ? <a className="primaryAction" href={result.downloadUrl} target="_blank" rel="noreferrer" download><Download size={17}/> Baixar arquivo</a> : <button className="primaryAction disabled" disabled><Download size={17}/> Download direto indisponível</button>}
             <a className="secondaryAction" href={result.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink size={17}/> Ver item original</a>
           </div>
-          <p className="modalNote">O VJ 3D Search indexa e organiza os resultados; os arquivos continuam hospedados pelas fontes originais.</p>
+          <p className="modalNote">O VJ 3D Search exibe apenas resultados identificados como gratuitos. Os arquivos continuam hospedados pelas fontes originais.</p>
         </div>
       </section>
     </div>
@@ -104,7 +105,7 @@ function App() {
   const [vehicleClass, setVehicleClass] = useState<VehicleGroup>('Todos')
   const [format, setFormat] = useState('Todos')
   const [source, setSource] = useState('Todas')
-  const [availability, setAvailability] = useState('Todos')
+  const [downloadOnly, setDownloadOnly] = useState(false)
   const [imageOnly, setImageOnly] = useState(false)
   const [sortMode, setSortMode] = useState<SortMode>('Relevância')
   const [searchFocused, setSearchFocused] = useState(false)
@@ -133,7 +134,10 @@ function App() {
     setLoading(true)
     setApiError(null)
     globalSearch(submittedQuery, controller.signal)
-      .then(data => { setRemoteResults(data.results); setSourceStatuses(data.sources) })
+      .then(data => {
+        setRemoteResults(data.results.filter(result => result.isFree === true))
+        setSourceStatuses(data.sources)
+      })
       .catch(error => {
         if (error?.name === 'AbortError') return
         setRemoteResults([])
@@ -150,7 +154,7 @@ function App() {
     return searchIdeas.filter(term => term.toLowerCase().includes(q)).slice(0, 5)
   }, [query])
 
-  const rawResults = remoteResults
+  const rawResults = remoteResults.filter(result => result.isFree === true)
   const formats = ['Todos', ...Array.from(new Set(rawResults.flatMap(result => result.formats))).sort()]
   const sources = ['Todas', ...Array.from(new Set(rawResults.map(result => result.source))).sort()]
 
@@ -161,24 +165,20 @@ function App() {
       const matchesFormat = format === 'Todos' || result.formats.includes(format)
       const matchesSource = source === 'Todas' || result.source === source
       const matchesImage = !imageOnly || Boolean(result.imageUrl)
-      const matchesAvailability = availability === 'Todos'
-        || (availability === 'Grátis' && result.isFree === true)
-        || (availability === 'Pago' && result.isFree === false)
-        || (availability === 'Download direto' && Boolean(result.downloadUrl))
-      return matchesKind && matchesVehicle && matchesFormat && matchesSource && matchesImage && matchesAvailability
+      const matchesDownload = !downloadOnly || Boolean(result.downloadUrl)
+      return result.isFree === true && matchesKind && matchesVehicle && matchesFormat && matchesSource && matchesImage && matchesDownload
     })
     return [...filtered].sort((a, b) => {
-      if (sortMode === 'Grátis primeiro') return Number(b.isFree === true) - Number(a.isFree === true) || b.score - a.score
       if (sortMode === 'Nome A-Z') return a.title.localeCompare(b.title)
       if (sortMode === 'Fonte') return a.source.localeCompare(b.source) || a.title.localeCompare(b.title)
       return b.score - a.score
     })
-  }, [rawResults, kind, vehicleClass, format, source, imageOnly, availability, sortMode])
+  }, [rawResults, kind, vehicleClass, format, source, imageOnly, downloadOnly, sortMode])
 
-  const activeFilters = [kind !== 'Todos', vehicleClass !== 'Todos', format !== 'Todos', source !== 'Todas', availability !== 'Todos', imageOnly, sortMode !== 'Relevância'].filter(Boolean).length
+  const activeFilters = [kind !== 'Todos', vehicleClass !== 'Todos', format !== 'Todos', source !== 'Todas', downloadOnly, imageOnly, sortMode !== 'Relevância'].filter(Boolean).length
 
   const clearFilters = () => {
-    setKind('Todos'); setVehicleClass('Todos'); setFormat('Todos'); setSource('Todas'); setAvailability('Todos'); setImageOnly(false); setSortMode('Relevância')
+    setKind('Todos'); setVehicleClass('Todos'); setFormat('Todos'); setSource('Todas'); setDownloadOnly(false); setImageOnly(false); setSortMode('Relevância')
   }
 
   const runSearch = (term = query) => {
@@ -194,23 +194,23 @@ function App() {
   return (
     <main>
       <header className="topbar">
-        <a className="brand" href="#"><span className="brandMark"><CarFront size={22}/></span><span><b>VJ</b> 3D Search<small>Automotive index</small></span></a>
+        <a className="brand" href="#"><span className="brandMark"><CarFront size={22}/></span><span><b>VJ</b> 3D Search<small>Free automotive index</small></span></a>
         <nav><a href="#search">Buscar</a><a href="#results">Catálogo</a><a href="#sources">Fontes</a><a className="githubLink" href="https://github.com/vyiito/car3d-search" target="_blank" rel="noreferrer">GitHub <ArrowUpRight size={13}/></a></nav>
       </header>
 
       <section className="hero" id="search">
-        <div className="eyebrow"><ShieldCheck size={14}/> 100% focado em carros e veículos · {providers.length} fontes</div>
-        <h1>O buscador de <span>modelos 3D automotivos.</span></h1>
-        <p>Pesquise carros, SUVs, motos, caminhões, ônibus, vans, veículos de corrida e utilitários. Resultados de cidades, arquitetura e objetos genéricos são filtrados antes de aparecer.</p>
+        <div className="eyebrow"><ShieldCheck size={14}/> 100% veículos · 100% grátis · {providers.length} fontes</div>
+        <h1>Modelos 3D automotivos. <span>Sem conteúdo pago.</span></h1>
+        <p>Pesquise carros, SUVs, motos, caminhões, ônibus, vans, corrida e utilitários. O VJ 3D Search remove resultados pagos e conteúdos não automotivos antes de exibir o catálogo.</p>
         <div className="searchArea">
           <div className="searchBox">
             <Search size={23}/>
-            <input value={query} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 160)} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Marca, modelo, geração ou ano — ex: Honda City 2024, BMW E36..."/>
-            <button onClick={() => runSearch()}>{loading ? <LoaderCircle className="spin" size={19}/> : 'Buscar veículos'}</button>
+            <input value={query} onFocus={() => setSearchFocused(true)} onBlur={() => window.setTimeout(() => setSearchFocused(false), 160)} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Procure um veículo grátis — ex: Honda City, BMW E36, Supra MK4..."/>
+            <button onClick={() => runSearch()}>{loading ? <LoaderCircle className="spin" size={19}/> : 'Buscar grátis'}</button>
           </div>
           {searchFocused && query.trim() && <div className="searchSuggestions">
-            {suggestions.map(term => <button className="suggestionItem" key={term} onMouseDown={() => runSearch(term)}><span className="suggestionThumb hintIcon"><CarFront size={18}/></span><span className="suggestionText"><strong>{term}</strong><small>Pesquisar em todas as fontes</small></span><ArrowUpRight size={15}/></button>)}
-            <button className="searchAllSuggestion" onMouseDown={() => runSearch()}><Globe2 size={16}/> Buscar “{query}” como veículo em todas as {providers.length} fontes</button>
+            {suggestions.map(term => <button className="suggestionItem" key={term} onMouseDown={() => runSearch(term)}><span className="suggestionThumb hintIcon"><CarFront size={18}/></span><span className="suggestionText"><strong>{term}</strong><small>Pesquisar modelos gratuitos</small></span><ArrowUpRight size={15}/></button>)}
+            <button className="searchAllSuggestion" onMouseDown={() => runSearch()}><Globe2 size={16}/> Buscar “{query}” grátis em todas as {providers.length} fontes</button>
           </div>}
         </div>
         <div className="quickSearches"><span>Buscas rápidas</span>{['Honda City','Toyota Supra MK4','BMW E36','Porsche 911 GT3','Scania R'].map(term => <button key={term} onClick={() => runSearch(term)}>{term}</button>)}</div>
@@ -219,10 +219,10 @@ function App() {
       {!submittedQuery && <DiscoveryCarousel onSelect={setSelectedResult} onSearch={runSearch}/>} 
 
       <section className="stats">
-        <div><strong>{providers.length}</strong><span>fontes automotivas</span></div>
-        <div><strong>{providers.filter(p => p.sourceType === '3d-models').length}</strong><span>bibliotecas 3D</span></div>
-        <div><strong>{providers.filter(p => p.sourceType === 'game-mods').length}</strong><span>bases de mods</span></div>
-        <div><strong>{submittedQuery ? remoteResults.length : 'LIVE'}</strong><span>{submittedQuery ? 'veículos encontrados' : 'vitrine dinâmica'}</span></div>
+        <div><strong>{providers.length}</strong><span>fontes pesquisadas</span></div>
+        <div><strong>0</strong><span>resultados pagos</span></div>
+        <div><strong>FREE</strong><span>catálogo gratuito</span></div>
+        <div><strong>{submittedQuery ? remoteResults.length : 'LIVE'}</strong><span>{submittedQuery ? 'modelos grátis encontrados' : 'vitrine gratuita'}</span></div>
       </section>
 
       <section className={`vehicleTabs ${!submittedQuery ? 'searchIdle' : ''}`}>
@@ -233,19 +233,19 @@ function App() {
         <aside className="filtersPanel">
           <div className="filterTitle"><SlidersHorizontal size={18}/><div><strong>Filtros</strong><small>{activeFilters ? `${activeFilters} ativo(s)` : 'Refine os resultados'}</small></div></div>
           <SelectFilter label="Tipo de conteúdo" value={kind} onChange={value => setKind(value as KindFilter)} options={['Todos','3D Model','Game Mod']} />
-          <SelectFilter label="Disponibilidade" value={availability} onChange={setAvailability} options={['Todos','Grátis','Pago','Download direto']} />
           <SelectFilter label="Formato" value={format} onChange={setFormat} options={formats} />
           <SelectFilter label="Fonte" value={source} onChange={setSource} options={sources} />
-          <SelectFilter label="Ordenar" value={sortMode} onChange={value => setSortMode(value as SortMode)} options={['Relevância','Grátis primeiro','Nome A-Z','Fonte']} />
+          <SelectFilter label="Ordenar" value={sortMode} onChange={value => setSortMode(value as SortMode)} options={['Relevância','Nome A-Z','Fonte']} />
+          <label className="toggleRow"><span><strong>Download direto</strong><small>Mostra só arquivos com link direto</small></span><input type="checkbox" checked={downloadOnly} onChange={e => setDownloadOnly(e.target.checked)}/></label>
           <label className="toggleRow"><span><strong>Somente com imagem</strong><small>Oculta cards sem preview</small></span><input type="checkbox" checked={imageOnly} onChange={e => setImageOnly(e.target.checked)}/></label>
           <button className="clearFilters" onClick={clearFilters}>Limpar todos os filtros</button>
-          <div className="automotiveGuard"><ShieldCheck size={17}/><span><strong>Filtro automotivo ativo</strong><small>Arquitetura, cidades e objetos genéricos são removidos no servidor.</small></span></div>
+          <div className="automotiveGuard"><ShieldCheck size={17}/><span><strong>Filtro duplo ativo</strong><small>Somente veículos gratuitos passam pelo servidor.</small></span></div>
         </aside>
 
         <div className="results">
-          <div className="resultsHeader"><div><span className="sectionEyebrow">CATÁLOGO AUTOMOTIVO</span><h2>{`Resultados para “${submittedQuery}”`}</h2><p>{loading ? `Consultando ${providers.length} fontes...` : `${filteredResults.length} de ${rawResults.length} resultado(s) exibidos`}</p></div><div className="resultsPill"><CarFront size={15}/> somente veículos</div></div>
+          <div className="resultsHeader"><div><span className="sectionEyebrow">CATÁLOGO GRATUITO</span><h2>{`Resultados grátis para “${submittedQuery}”`}</h2><p>{loading ? `Consultando ${providers.length} fontes...` : `${filteredResults.length} de ${rawResults.length} resultado(s) gratuitos exibidos`}</p></div><div className="resultsPill"><ShieldCheck size={15}/> 0 conteúdo pago</div></div>
 
-          {loading && <div className="globalLoading"><LoaderCircle className="spin" size={28}/><div><strong>Buscando veículos em todas as bases</strong><span>Coletando, classificando e removendo resultados não automotivos.</span></div></div>}
+          {loading && <div className="globalLoading"><LoaderCircle className="spin" size={28}/><div><strong>Buscando veículos gratuitos em todas as bases</strong><span>Coletando, classificando e removendo itens pagos e não automotivos.</span></div></div>}
           {apiError && <div className="apiWarning"><CircleX size={18}/><span>{apiError}</span></div>}
 
           {!loading && filteredResults.length > 0 && <div className="grid">{filteredResults.map(result => <article className="card" key={result.id} onClick={() => setSelectedResult(result)} tabIndex={0} onKeyDown={event => { if (event.key === 'Enter') setSelectedResult(result) }}>
@@ -253,7 +253,7 @@ function App() {
               {result.imageUrl ? <img src={result.imageUrl} alt={result.title} loading="lazy" onError={e => { e.currentTarget.style.display='none'; e.currentTarget.nextElementSibling?.classList.add('show') }}/>: null}
               <span className={`imageFallback ${result.imageUrl ? '' : 'show'}`}><ImageOff size={30}/><small>Sem preview</small></span><span className="thumbShade"/>
               <span className="vehicleBadge"><CarFront size={12}/>{result.vehicleClass}</span>
-              <span className={result.isFree === true ? 'priceBadge free' : 'priceBadge'}>{result.isFree === true ? 'GRÁTIS' : result.price != null ? `$${result.price}` : 'NA FONTE'}</span>
+              <span className="priceBadge free">GRÁTIS</span>
               {result.downloadUrl && <span className="downloadBadge"><Download size={12}/> DIRETO</span>}
             </div>
             <div className="cardBody">
@@ -261,20 +261,20 @@ function App() {
               <h3>{result.title}</h3>
               <div className="vehicleIdentity"><span>{result.brand || 'Marca não identificada'}</span>{result.year && <span>{result.year}</span>}</div>
               <div className="chips">{result.formats.length ? result.formats.slice(0,5).map(f => <span key={f}>{f}</span>) : <span>FORMATO NA FONTE</span>}{result.fileSize && <span>{result.fileSize}</span>}</div>
-              <div className="cardFooter"><span>Clique para abrir detalhes</span><button onClick={event => { event.stopPropagation(); setSelectedResult(result) }}>Ver detalhes <ArrowUpRight size={14}/></button></div>
+              <div className="cardFooter"><span>Grátis · clique para detalhes</span><button onClick={event => { event.stopPropagation(); setSelectedResult(result) }}>Ver detalhes <ArrowUpRight size={14}/></button></div>
             </div>
           </article>)}</div>}
 
-          {!loading && filteredResults.length === 0 && <div className="emptyState"><CarFront size={32}/><h3>Nenhum veículo passou pelos filtros</h3><p>Tente remover algum filtro ou pesquisar com marca + modelo. Resultados não automotivos são descartados propositalmente.</p></div>}
+          {!loading && filteredResults.length === 0 && <div className="emptyState"><CarFront size={32}/><h3>Nenhum modelo gratuito encontrado</h3><p>Tente pesquisar com marca + modelo ou remover filtros. Itens pagos são descartados propositalmente.</p></div>}
 
-          {sourceStatuses.length > 0 && <details className="sourceStatusSection"><summary><Database size={17}/> Status das {sourceStatuses.length} fontes <span>{sourceStatuses.filter(s => s.status === 'ok').length} responderam</span></summary><div className="sourceStatusGrid">{sourceStatuses.map(item => <a key={item.provider} href={item.searchUrl} target="_blank" rel="noreferrer" className={item.status === 'ok' ? 'sourceOk' : 'sourceError'}>{item.status === 'ok' ? <CircleCheck size={15}/> : <CircleX size={15}/>}<span><strong>{item.name}</strong><small>{item.status === 'ok' ? `${item.count} veículo(s) · ${item.durationMs}ms` : 'Abrir busca na fonte'}</small></span><ArrowUpRight size={13}/></a>)}</div></details>}
+          {sourceStatuses.length > 0 && <details className="sourceStatusSection"><summary><Database size={17}/> Status das {sourceStatuses.length} fontes <span>{sourceStatuses.filter(s => s.status === 'ok').length} responderam</span></summary><div className="sourceStatusGrid">{sourceStatuses.map(item => <a key={item.provider} href={item.searchUrl} target="_blank" rel="noreferrer" className={item.status === 'ok' ? 'sourceOk' : 'sourceError'}>{item.status === 'ok' ? <CircleCheck size={15}/> : <CircleX size={15}/>}<span><strong>{item.name}</strong><small>{item.status === 'ok' ? `${item.count} gratuito(s) · ${item.durationMs}ms` : 'Abrir busca na fonte'}</small></span><ArrowUpRight size={13}/></a>)}</div></details>}
 
-          {(apiError || (!loading && remoteResults.length === 0)) && <section className="providerSearchSection"><div className="providerSearchHeading"><div><Globe2 size={18}/><strong>Busca automotiva direta nas {providers.length} fontes</strong></div><span>Abra a pesquisa já contextualizada como carro/veículo.</span></div><div className="providerSearchGrid">{providers.map(provider => <a key={provider.id} href={providerSearchUrl(provider, submittedQuery)} target="_blank" rel="noreferrer"><span className="providerSearchIcon"><CarFront size={17}/></span><span><strong>{provider.name}</strong><small>{provider.categories.slice(0,2).join(' · ')}</small></span><ArrowUpRight size={15}/></a>)}</div></section>}
+          {(apiError || (!loading && remoteResults.length === 0)) && <section className="providerSearchSection"><div className="providerSearchHeading"><div><Globe2 size={18}/><strong>Busca direta por opções gratuitas</strong></div><span>O VJ 3D Search só indexa como resultado o que foi identificado como gratuito.</span></div><div className="providerSearchGrid">{providers.map(provider => <a key={provider.id} href={providerSearchUrl(provider, submittedQuery)} target="_blank" rel="noreferrer"><span className="providerSearchIcon"><CarFront size={17}/></span><span><strong>{provider.name}</strong><small>buscar grátis na fonte</small></span><ArrowUpRight size={15}/></a>)}</div></section>}
         </div>
       </section>
 
-      <section className="sources" id="sources"><div className="sectionHeading"><div><span className="sectionEyebrow">FONTES INDEXADAS</span><h2>{providers.length} bases de carros e veículos</h2><p>Marketplaces, bibliotecas 3D, coleções de game assets e comunidades de mods.</p></div></div><div className="providerGrid">{providers.map(provider => <a key={provider.id} href={provider.searchUrl || provider.url} target="_blank" rel="noreferrer"><div className="providerIcon"><CarFront size={17}/></div><div className="providerText"><strong>{provider.name}</strong><span>{provider.categories.slice(0,3).join(' · ')}</span></div><div className="providerMeta"><b>P{provider.priority}</b><small>{provider.freeModels ? 'FREE' : ''}{provider.paidModels ? ' + PRO' : ''}</small></div></a>)}</div></section>
-      <footer><span>VJ 3D Search</span><small>Automotive 3D Meta Search · apenas carros e veículos</small></footer>
+      <section className="sources" id="sources"><div className="sectionHeading"><div><span className="sectionEyebrow">FONTES PESQUISADAS</span><h2>{providers.length} bases · resultados exibidos só se forem grátis</h2><p>O agregador pode pesquisar marketplaces e bibliotecas mistas, mas itens pagos nunca entram no catálogo do VJ 3D Search.</p></div></div><div className="providerGrid">{providers.map(provider => <a key={provider.id} href={provider.searchUrl || provider.url} target="_blank" rel="noreferrer"><div className="providerIcon"><CarFront size={17}/></div><div className="providerText"><strong>{provider.name}</strong><span>{provider.categories.slice(0,3).join(' · ')}</span></div><div className="providerMeta"><b>FREE</b><small>FILTER</small></div></a>)}</div></section>
+      <footer><span>VJ 3D Search</span><small>Automotive 3D Meta Search · somente veículos gratuitos</small></footer>
       {selectedResult && <ResultModal result={selectedResult} onClose={() => setSelectedResult(null)}/>} 
     </main>
   )
