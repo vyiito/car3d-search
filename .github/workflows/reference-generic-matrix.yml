@@ -28,15 +28,15 @@ jobs:
           node --input-type=module <<'EOF'
           import { canonicalizeVehicleIdentity, scoreReferenceIdentity } from './src/reference-engine.js'
           const cases = [
-            [{ title: 'Honda Civic SI 2014 - LM', brand: 'Honda', year: 2014 }, /honda civic si/i],
-            [{ title: '1998 Toyota Supra RZ JZA80 - Forza Horizon 5 FBX', brand: 'Toyota', year: 1998 }, /toyota supra/i],
-            [{ title: 'BMW M3 E46 2004 3D Model', brand: 'BMW', year: 2004 }, /bmw m3 e46/i],
-            [{ title: '1999 Nissan Skyline GT-R R34', brand: 'Nissan', year: 1999 }, /nissan skyline gt-r r34/i],
-            [{ title: '2018 Funco Motorsports F9', brand: 'Funco Motorsports', year: 2018 }, /funco motorsports f9/i],
-            [{ title: '1965 Ford Mustang Fastback', brand: null, year: 1965 }, /ford mustang/i],
-            [{ title: '2022 Lada Niva Legend', brand: null, year: 2022 }, /lada niva/i],
-            [{ title: '2019 Alfa Romeo Giulia Quadrifoglio', brand: null, year: 2019 }, /alfa romeo giulia/i],
-            [{ title: 'Porsche 911 992 Carrera S 2021', brand: 'Porsche', year: 2021 }, /porsche 911 992/i],
+            [{ title: 'Honda Civic SI 2014 - LM', brand: 'Honda', year: 2014, vehicleClass: 'Car' }, /honda civic si/i],
+            [{ title: '1998 Toyota Supra RZ JZA80 - Forza Horizon 5 FBX', brand: 'Toyota', year: 1998, vehicleClass: 'Car' }, /toyota supra/i],
+            [{ title: 'BMW M3 E46 2004 3D Model', brand: 'BMW', year: 2004, vehicleClass: 'Car' }, /bmw m3 e46/i],
+            [{ title: '1999 Nissan Skyline GT-R R34', brand: 'Nissan', year: 1999, vehicleClass: 'Car' }, /nissan skyline gt-r r34/i],
+            [{ title: '2018 Funco Motorsports F9', brand: 'Funco Motorsports', year: 2018, vehicleClass: 'Car' }, /funco motorsports f9/i],
+            [{ title: '1965 Ford Mustang Fastback', brand: null, year: 1965, vehicleClass: 'Car' }, /ford mustang/i],
+            [{ title: '2022 Lada Niva Legend', brand: null, year: 2022, vehicleClass: 'SUV' }, /lada niva/i],
+            [{ title: '2019 Alfa Romeo Giulia Quadrifoglio', brand: null, year: 2019, vehicleClass: 'Car' }, /alfa romeo giulia/i],
+            [{ title: 'Porsche 911 992 Carrera S 2021', brand: 'Porsche', year: 2021, vehicleClass: 'Car' }, /porsche 911 992/i],
           ]
           for (const [asset, expected] of cases) {
             const identity = canonicalizeVehicleIdentity(asset)
@@ -45,7 +45,7 @@ jobs:
             if (!identity.primaryModel) process.exit(1)
           }
 
-          const noisy = canonicalizeVehicleIdentity({ title: 'Sayrx Toyota Supra MK4 Vert - Individual Cars | VOSAN', brand: 'Toyota', year: 1983 })
+          const noisy = canonicalizeVehicleIdentity({ title: 'Sayrx Toyota Supra MK4 Vert - Individual Cars | VOSAN', brand: 'Toyota', year: 1983, vehicleClass: 'Car' })
           console.log(JSON.stringify({ noisy }, null, 2))
           if (!/^Toyota Supra MK4/i.test(noisy.display)) process.exit(1)
           if (/Sayrx|VOSAN|Individual Cars/i.test(noisy.display)) process.exit(1)
@@ -57,23 +57,33 @@ jobs:
           console.log(JSON.stringify({ lego, real }, null, 2))
           if (lego.ok || lego.reason !== 'non-real-reference') process.exit(1)
           if (!real.ok) process.exit(1)
+
+          const across = canonicalizeVehicleIdentity({ title: 'Suzuki Across', brand: 'Suzuki', vehicleClass: 'Car' })
+          const wrongBike = scoreReferenceIdentity(across, { title: 'Suzuki Across and V-Strom 04', sourcePage: 'https://example.com/suzuki-across-vstrom', source: 'Flickr' })
+          const rightCar = scoreReferenceIdentity(across, { title: '2020 Suzuki Across E-Four 2.5', sourcePage: 'https://commons.wikimedia.org/wiki/File:2020_Suzuki_Across.jpg', source: 'Wikimedia Commons' })
+          console.log(JSON.stringify({ across, wrongBike, rightCar }, null, 2))
+          if (across.vehicleKind !== 'car') process.exit(1)
+          if (wrongBike.ok || wrongBike.reason !== 'motorcycle-reference') process.exit(1)
+          if (!rightCar.ok) process.exit(1)
           EOF
       - name: Live reference diversity
         run: |
           node --input-type=module <<'EOF'
           import { searchReferencePack } from './src/reference-engine.js'
           const cases = [
-            { title: 'Toyota Supra MK4 1998', brand: 'Toyota', year: 1998 },
-            { title: 'BMW M3 E46 2004', brand: 'BMW', year: 2004 },
-            { title: 'Ford Mustang Fastback 1965', brand: 'Ford', year: 1965 },
-            { title: 'Sayrx Toyota Supra MK4 Vert - Individual Cars | VOSAN', brand: 'Toyota', year: 1983 },
+            { title: 'Toyota Supra MK4 1998', brand: 'Toyota', year: 1998, vehicleClass: 'Car' },
+            { title: 'BMW M3 E46 2004', brand: 'BMW', year: 2004, vehicleClass: 'Car' },
+            { title: 'Ford Mustang Fastback 1965', brand: 'Ford', year: 1965, vehicleClass: 'Car' },
+            { title: 'Suzuki Across', brand: 'Suzuki', vehicleClass: 'Car' },
+            { title: 'Sayrx Toyota Supra MK4 Vert - Individual Cars | VOSAN', brand: 'Toyota', year: 1983, vehicleClass: 'Car' },
           ]
           let successes = 0
           for (const asset of cases) {
             const pack = await searchReferencePack(asset, { perAngle: 2 })
             const fake = pack.images.filter(image => /\b(?:lego|technic|die[- ]?cast|hot wheels|matchbox|toy|miniature|model kit|3d render|game screenshot)\b/i.test(`${image.title} ${image.sourcePage}`))
-            console.log(JSON.stringify({ asset: asset.title, canonical: pack.canonicalVehicle, year: pack.year, images: pack.images.length, angles: pack.angleCoverage, fake: fake.map(x => x.title), identity: pack.identity }, null, 2))
-            if (fake.length) process.exit(1)
+            const bikeLeak = asset.vehicleClass === 'Car' ? pack.images.filter(image => /\b(?:motorcycle|motorbike|v[- ]?strom|vstrom|scooter|moped)\b/i.test(`${image.title} ${image.sourcePage}`)) : []
+            console.log(JSON.stringify({ asset: asset.title, canonical: pack.canonicalVehicle, year: pack.year, images: pack.images.length, angles: pack.angleCoverage, fake: fake.map(x => x.title), bikeLeak: bikeLeak.map(x => x.title), identity: pack.identity }, null, 2))
+            if (fake.length || bikeLeak.length) process.exit(1)
             if (asset.title.startsWith('Sayrx') && (!/^Toyota Supra/i.test(pack.canonicalVehicle) || pack.year)) process.exit(1)
             if (pack.images.length > 0) successes += 1
           }
