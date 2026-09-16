@@ -23,11 +23,31 @@ jobs:
         run: |
           node --input-type=module <<'EOF'
           import { searchReferencePack } from './src/reference-adapter.js'
-          const pack = await searchReferencePack({ title: 'Honda Civic SI 2014 - LM', brand: 'Honda', year: 2014 }, { perAngle: 2 })
-          const bad = pack.images.filter(image => /\b(?:acura\s+rsx|fa5|fg2)\b/i.test(`${image.title} ${image.sourcePage}`))
-          const badWeb = (pack.webSearch || []).filter(link => /(?:%20|\+|\s)-?LM(?:&|$|%20|\+)/i.test(link.url))
-          console.log(JSON.stringify({ canonicalVehicle: pack.canonicalVehicle, query: pack.query, images: pack.images.length, angles: pack.angleCoverage, bad: bad.map(x => x.title), web: pack.webSearch }, null, 2))
-          if (pack.canonicalVehicle?.toLowerCase() !== 'honda civic si') process.exit(1)
-          if (!pack.images.length) process.exit(1)
-          if (bad.length || badWeb.length) process.exit(1)
+          for (const asset of [
+            { title: 'Honda Civic SI 2014 - LM', brand: 'Honda', year: 2014 },
+            { title: 'Honda Civic SI 2014 - LM', brand: null, year: 2014 },
+          ]) {
+            const pack = await searchReferencePack(asset, { perAngle: 2 })
+            const bad = pack.images.filter(image => /\b(?:acura\s+rsx|fa5|fg2)\b/i.test(`${image.title} ${image.sourcePage}`))
+            const badWeb = (pack.webSearch || []).filter(link => /(?:%20|\+|\s)-?LM(?:&|$|%20|\+)/i.test(link.url))
+            console.log(JSON.stringify({ asset, canonicalVehicle: pack.canonicalVehicle, query: pack.query, images: pack.images.length, angles: pack.angleCoverage, bad: bad.map(x => x.title), web: pack.webSearch }, null, 2))
+            if (pack.canonicalVehicle?.toLowerCase() !== 'honda civic si') process.exit(1)
+            if (!pack.images.length) process.exit(1)
+            if (bad.length || badWeb.length) process.exit(1)
+          }
+          EOF
+      - name: Production Civic API smoke
+        run: |
+          node --input-type=module <<'EOF'
+          const urls = [
+            'https://car3d-search-api.onrender.com/api/references?title=Honda%20Civic%20SI%202014%20-%20LM&brand=Honda&year=2014&perAngle=2',
+            'https://car3d-search-api.onrender.com/api/references?title=Honda%20Civic%20SI%202014%20-%20LM&year=2014&perAngle=2',
+          ]
+          for (const url of urls) {
+            const response = await fetch(url, { headers: { accept: 'application/json' } })
+            const payload = await response.json()
+            console.log(JSON.stringify({ url, status: response.status, canonicalVehicle: payload?.canonicalVehicle, query: payload?.query, images: payload?.images?.length, angles: payload?.angleCoverage }, null, 2))
+            if (!response.ok || !Array.isArray(payload?.images) || payload.images.length === 0) process.exit(1)
+            if (String(payload?.canonicalVehicle || '').toLowerCase() !== 'honda civic si') process.exit(1)
+          }
           EOF
