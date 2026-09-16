@@ -43,6 +43,7 @@ function cleanAssetTitle(title) {
     .replace(/\([^)]*(?:3d\s*model|fbx|obj|blend|stl|3ds|max|c4d|game|mod|forza|assetto|gran turismo|download|\b\d{5,}\b)[^)]*\)/gi, ' ')
     .replace(/\[[^\]]*(?:fbx|obj|blend|stl|game|mod|forza|assetto|gran turismo|csr|carx|download|\b\d{5,}\b)[^\]]*\]/gi, ' ')
     .replace(/\(\s*\d{5,}\s*\)/g, ' ').replace(GAME_RE, ' ').replace(FORMAT_RE, ' ').replace(MARKET_RE, ' ').replace(CATALOG_RE, ' ').replace(SOURCE_RE, ' ')
+    .replace(/\bvert\b/gi, ' ')
     .replace(/(?:US\$|R\$|\$|€|£)\s*\d+(?:[.,]\d{1,2})?/gi, ' ').replace(/\b(?:IE[- ]?)?\d{1,3}%\b/gi, ' ')
     .replace(/[|_]+/g, ' ').replace(/\s*[-–—]\s*$/g, ' ').replace(/\s+/g, ' ').trim()
 }
@@ -181,7 +182,7 @@ function hasGenerationEvidence(identity, evidence) { return generationEvidenceGr
 function variantTokens(identity) {
   const primary = new Set(tokenise(identity.primaryModel).map(norm))
   const codes = new Set(generationCodesForIdentity(identity).map(norm))
-  return tokenise(identity.modelDisplay).filter(token => !primary.has(norm(token)) && !codes.has(norm(token)))
+  return tokenise(identity.modelDisplay).filter(token => token.length > 1 && !primary.has(norm(token)) && !codes.has(norm(token)))
 }
 function relaxedTokenMatch(evidence, token) {
   const normalizedEvidence = norm(evidence), normalizedToken = norm(token)
@@ -230,9 +231,9 @@ export function scoreReferenceIdentity(identity, image) {
   const coreEvidence = imageIdentityEvidence(image), normalized = norm(coreEvidence)
   const nonReal = nonRealReferenceReason(fullEvidence)
   if (nonReal) return { ok: false, score: 0, reason: 'non-real-reference' }
-  if (multiVehicleConflict(identity, coreEvidence)) return { ok: false, score: 0, reason: 'multi-vehicle-reference' }
   const classConflict = vehicleKindConflict(identity, coreEvidence)
   if (classConflict) return { ok: false, score: 0, reason: classConflict }
+  if (multiVehicleConflict(identity, coreEvidence)) return { ok: false, score: 0, reason: 'multi-vehicle-reference' }
   const unexpectedVariant = unexpectedVariantConflict(identity, coreEvidence)
   if (unexpectedVariant) return { ok: false, score: 0, reason: 'unexpected-variant' }
   if (!identity.primaryModel || !anchorMatches(identity.primaryModel, normalized)) return { ok: false, score: 0, reason: 'model-mismatch' }
