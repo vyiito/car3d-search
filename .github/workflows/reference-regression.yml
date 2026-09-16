@@ -1,0 +1,33 @@
+name: Reference identity regression
+
+on:
+  push:
+    paths:
+      - 'server/src/reference-adapter.js'
+      - '.github/workflows/reference-regression.yml'
+  workflow_dispatch:
+
+jobs:
+  civic-reference:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Honda Civic Si 2014 identity fidelity
+        run: |
+          node --input-type=module <<'EOF'
+          import { searchReferencePack } from './src/reference-adapter.js'
+          const pack = await searchReferencePack({ title: 'Honda Civic SI 2014 - LM', brand: 'Honda', year: 2014 }, { perAngle: 2 })
+          const bad = pack.images.filter(image => /\b(?:acura\s+rsx|fa5|fg2)\b/i.test(`${image.title} ${image.sourcePage}`))
+          const badWeb = (pack.webSearch || []).filter(link => /(?:%20|\+|\s)-?LM(?:&|$|%20|\+)/i.test(link.url))
+          console.log(JSON.stringify({ canonicalVehicle: pack.canonicalVehicle, query: pack.query, images: pack.images.length, angles: pack.angleCoverage, bad: bad.map(x => x.title), web: pack.webSearch }, null, 2))
+          if (pack.canonicalVehicle?.toLowerCase() !== 'honda civic si') process.exit(1)
+          if (!pack.images.length) process.exit(1)
+          if (bad.length || badWeb.length) process.exit(1)
+          EOF
