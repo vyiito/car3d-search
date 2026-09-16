@@ -135,4 +135,12 @@ app.get('/api/download', async (req, res) => {
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`)
+  setTimeout(async () => {
+    try {
+      const probe = await searchAll('Toyota Supra', { perSource: 60 })
+      console.log(`[deep-probe] ${probe.sources.map(source => `${source.provider}=${source.status}:${source.count}@${source.pagesFetched || 0}p${source.error ? `(${source.error})` : ''}`).join(' | ')}`)
+    } catch (error) {
+      console.log(`[deep-probe] ERROR ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }, 1800)
 })
