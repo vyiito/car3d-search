@@ -166,7 +166,7 @@ function hasGenerationEvidence(identity, evidence) {
 function specializedIdentityVerified(identity, normalizedEvidence, years) {
   const codes = generationCodesForIdentity(identity)
   if (identity.yearTrusted && identity.year) {
-    if (years.length) return years.some(value => Math.abs(value - identity.year) <= 1)
+    if (years.length) return years.includes(identity.year)
     if (codes.length) return hasGenerationEvidence(identity, normalizedEvidence)
     return false
   }
