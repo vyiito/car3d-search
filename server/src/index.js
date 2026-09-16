@@ -14,6 +14,7 @@ import { searchCGMoodV2, searchZifir, search3ddd } from './remaining-adapters.js
 import { searchRenderHubClean, search3dCarClean } from './commerce-adapters.js'
 import { searchCGTraderMarketV2 } from './cgtrader-adapter.js'
 import { searchReferencePack, buildReferenceZip } from './reference-adapter.js'
+import { registerProgressiveSearchRoute } from './progressive-route.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -29,6 +30,7 @@ const ALL_NATIVE_IDS = [...new Set(['vertex-warehouse','brasil-simulator-mods','
 app.disable('x-powered-by')
 app.use(cors({ origin: [allowedOrigin, 'http://localhost:5173'], methods: ['GET'] }))
 app.use(express.json({ limit: '32kb' }))
+registerProgressiveSearchRoute(app)
 
 function trimCache(target, max = 120, remove = 20) {
   if (target.size <= max) return
@@ -52,7 +54,7 @@ function normalizeMarketResult(result) {
 }
 function safeAdapter(fn, label) { return fn().catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : `${label} search failed` })) }
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, marketMode: 'free+paid', detailsResolver: true, directDownloadGate: true, paginatedSearch: true, gameFacets: true, referencePacks: true, nativeAdapters: ALL_NATIVE_IDS }))
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, marketMode: 'free+paid', detailsResolver: true, directDownloadGate: true, paginatedSearch: true, gameFacets: true, referencePacks: true, progressiveSearch: true, nativeAdapters: ALL_NATIVE_IDS }))
 app.get('/api/providers', (_req, res) => res.json(providers.map(provider => ({ id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, browseUrl: provider.browseUrl || provider.baseUrl, freeCatalog: Boolean(provider.freeCatalog), defaultGame: provider.defaultGame || null, pagination: Boolean(provider.pagination), nativeAdapter: ALL_NATIVE_IDS.includes(provider.id) }))))
 
 app.get('/api/search', async (req, res) => {

@@ -7,7 +7,8 @@ import {
   ShieldCheck, SlidersHorizontal, X, Zap,
 } from 'lucide-react'
 import { providers, type Provider } from './data/providers'
-import { globalSearch, type GlobalSearchResult, type SourceSearchStatus } from './api/search'
+import { type GlobalSearchResult, type SourceSearchStatus } from './api/search'
+import { progressiveSearch } from './api/progressive'
 import DiscoveryCarousel from './components/DiscoveryCarousel'
 import ResultDetailView from './components/ResultDetailView'
 import BrandsExplorer from './components/BrandsExplorer'
@@ -15,6 +16,7 @@ import GamesExplorer from './components/GamesExplorer'
 import './styles.css'
 import './v2.css'
 import './market.css'
+import './progressive.css'
 
 type KindFilter = 'Todos' | '3D Model' | 'Game Mod'
 type SortMode = 'Mix de fontes' | 'Relevância' | 'Mais recentes' | 'Menor preço' | 'Maior preço' | 'Nome A-Z' | 'Fonte'
@@ -33,6 +35,7 @@ const vehicleGroups: { value: VehicleGroup; label: string }[] = [
 ]
 
 const searchIdeas = ['Honda City','Toyota Supra MK4','BMW E36','Porsche 911 GT3','Nissan Skyline R34','Subaru Forester STI','Mitsubishi Lancer Evolution','2018 Funco Motorsports F9','Scania R','Ferrari F40','Mazda RX-7','Honda NSX']
+const PAGE_SIZE = 50
 
 function providerSearchUrl(provider: Provider, term: string) {
   const clean = term.trim()
@@ -43,6 +46,27 @@ function providerSearchUrl(provider: Provider, term: string) {
 }
 
 function toggleValue(list: string[], value: string) { return list.includes(value) ? list.filter(item => item !== value) : [...list, value] }
+function mergeSearchResults(current: GlobalSearchResult[], incoming: GlobalSearchResult[]) {
+  const map = new Map(current.map(item => [`${item.sourceId}|${item.sourceUrl}`, item]))
+  for (const item of incoming) {
+    const key = `${item.sourceId}|${item.sourceUrl}`
+    const previous = map.get(key)
+    if (!previous || item.score >= previous.score) map.set(key, previous ? { ...previous, ...item } : item)
+  }
+  return [...map.values()]
+}
+function upsertSourceStatus(current: SourceSearchStatus[], incoming: SourceSearchStatus) {
+  const next = current.filter(item => item.provider !== incoming.provider)
+  return [...next, incoming].sort((a,b) => a.name.localeCompare(b.name))
+}
+function paginationItems(current: number, total: number): Array<number | '…'> {
+  if (total <= 7) return Array.from({ length: total }, (_, index) => index + 1)
+  const values = new Set([1, total, current - 2, current - 1, current, current + 1, current + 2].filter(page => page >= 1 && page <= total))
+  const pages = [...values].sort((a,b) => a - b)
+  const out: Array<number | '…'> = []
+  pages.forEach((page,index) => { if (index && page - pages[index - 1] > 1) out.push('…'); out.push(page) })
+  return out
+}
 function safeParse<T>(key: string, fallback: T): T { try { return JSON.parse(localStorage.getItem(key) || '') as T } catch { return fallback } }
 function save(key: string, value: unknown) { try { localStorage.setItem(key, JSON.stringify(value)) } catch {} }
 function duplicateKey(result: GlobalSearchResult) { return `${result.brand || ''}|${result.title.toLowerCase().replace(/\b(19|20)\d{2}\b/g,'').replace(/[^a-z0-9]+/g,' ').replace(/\b(3d|model|car|vehicle|free|download)\b/g,'').trim()}` }
@@ -114,6 +138,8 @@ function App(){
   const [filtersOpen,setFiltersOpen]=useState(false)
   const [remoteResults,setRemoteResults]=useState<GlobalSearchResult[]>([])
   const [sourceStatuses,setSourceStatuses]=useState<SourceSearchStatus[]>([])
+  const [currentPage,setCurrentPage]=useState(1)
+  const [searchedSourceCount,setSearchedSourceCount]=useState(0)
   const [loading,setLoading]=useState(false)
   const [apiError,setApiError]=useState<string|null>(null)
   const [selectedResult,setSelectedResult]=useState<GlobalSearchResult|null>(null)
@@ -129,7 +155,24 @@ function App(){
     if(asset)setPendingAssetUrl(asset)
   },[])
 
-  useEffect(()=>{if(!submittedQuery)return;const controller=new AbortController();setLoading(true);setApiError(null);globalSearch(submittedQuery,controller.signal).then(data=>{setRemoteResults(data.results);setSourceStatuses(data.sources)}).catch(error=>{if(error?.name==='AbortError')return;setRemoteResults([]);setSourceStatuses([]);setApiError(`O agregador não respondeu. As ${providers.length} fontes continuam acessíveis pela busca direta.`)}).finally(()=>setLoading(false));return()=>controller.abort()},[submittedQuery])
+  useEffect(()=>{
+    if(!submittedQuery)return
+    const controller=new AbortController()
+    setLoading(true);setApiError(null);setRemoteResults([]);setSourceStatuses([]);setCurrentPage(1);setSearchedSourceCount(0)
+    progressiveSearch(submittedQuery,{
+      onSource:event=>{
+        setRemoteResults(current=>mergeSearchResults(current,event.results))
+        setSourceStatuses(current=>upsertSourceStatus(current,event.source))
+        setSearchedSourceCount(event.completed)
+      },
+      onDone:event=>{setSearchedSourceCount(event.completed);setLoading(false)},
+      onError:message=>setApiError(message),
+    },controller.signal).catch(error=>{
+      if(error?.name==='AbortError')return
+      setApiError(`O agregador progressivo não respondeu. As ${providers.length} fontes continuam acessíveis pela busca direta.`)
+    }).finally(()=>{if(!controller.signal.aborted)setLoading(false)})
+    return()=>controller.abort()
+  },[submittedQuery])
   useEffect(()=>{if(!pendingAssetUrl||!remoteResults.length)return;const found=remoteResults.find(r=>r.sourceUrl===pendingAssetUrl);if(found){setSelectedResult(found);setPendingAssetUrl(null)}},[pendingAssetUrl,remoteResults])
   useEffect(()=>{save('vj:view',viewMode)},[viewMode])
   useEffect(()=>{const onKey=(event:KeyboardEvent)=>{const target=event.target as HTMLElement|null,typing=target&&['INPUT','TEXTAREA','SELECT'].includes(target.tagName);if(!typing&&event.key==='/'){event.preventDefault();document.getElementById('vj-search-input')?.focus()}if(!typing&&event.key.toLowerCase()==='f'&&submittedQuery&&!selectedResult)setFiltersOpen(v=>!v);if(!typing&&event.key.toLowerCase()==='g')setViewMode('grid');if(!typing&&event.key.toLowerCase()==='c')setViewMode('compact')};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey)},[submittedQuery,selectedResult])
@@ -167,6 +210,13 @@ function App(){
   const duplicateCounts=useMemo(()=>{const map=new Map<string,number>();rawResults.forEach(r=>map.set(duplicateKey(r),(map.get(duplicateKey(r))||0)+1));return map},[rawResults])
   const filteredResults=useMemo(()=>{let items=applyFilters(rawResults);if(groupDuplicates){const seen=new Set<string>();items=items.filter(item=>{const key=duplicateKey(item);if(seen.has(key))return false;seen.add(key);return true})}if(sortMode==='Mix de fontes')return mixBySource(items);return [...items].sort((a,b)=>sortMode==='Mais recentes'?(b.year||0)-(a.year||0)||b.score-a.score:sortMode==='Menor preço'?(a.price??Number.MAX_SAFE_INTEGER)-(b.price??Number.MAX_SAFE_INTEGER):sortMode==='Maior preço'?(b.price??-1)-(a.price??-1):sortMode==='Nome A-Z'?a.title.localeCompare(b.title):sortMode==='Fonte'?a.source.localeCompare(b.source)||a.title.localeCompare(b.title):b.score-a.score)},[rawResults,priceMode,kind,vehicleClass,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo,sortMode,groupDuplicates])
 
+  const pageCount=Math.max(1,Math.ceil(filteredResults.length/PAGE_SIZE))
+  const safePage=Math.min(currentPage,pageCount)
+  const pagedResults=useMemo(()=>filteredResults.slice((safePage-1)*PAGE_SIZE,safePage*PAGE_SIZE),[filteredResults,safePage])
+  const pageLinks=useMemo(()=>paginationItems(safePage,pageCount),[safePage,pageCount])
+  useEffect(()=>{setCurrentPage(1)},[submittedQuery,priceMode,kind,vehicleClass,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo,sortMode,groupDuplicates])
+  useEffect(()=>{if(currentPage>pageCount)setCurrentPage(pageCount)},[currentPage,pageCount])
+
   const activeFilters=[priceMode!=='Todos',kind!=='Todos',vehicleClass!=='Todos',selectedFormats.length>0,selectedSources.length>0,selectedGames.length>0,downloadMode!=='Todos',imageMode!=='Todos',Boolean(yearFrom),Boolean(yearTo),sortMode!=='Mix de fontes',groupDuplicates].filter(Boolean).length
   const clearFilters=()=>{setPriceMode('Todos');setKind('Todos');setVehicleClass('Todos');setSelectedFormats([]);setSelectedSources([]);setSelectedGames([]);setDownloadMode('Todos');setImageMode('Todos');setYearFrom('');setYearTo('');setSortMode('Mix de fontes');setGroupDuplicates(false)}
   const runSearch=(term=query,brand:string|null=null,game:string|null=null)=>{const clean=term.trim();if(clean.length<2)return;setQuery(clean);setSubmittedQuery(clean);setSelectedBrand(brand);setSelectedGames(game?[game]:[]);setSearchFocused(false);const next=[clean,...history.filter(x=>x.toLowerCase()!==clean.toLowerCase())].slice(0,12);setHistory(next);save('vj:history',next);if(brand){const bh=[brand,...brandHistory.filter(x=>x!==brand)].slice(0,8);setBrandHistory(bh);save('vj:brands',bh)}const params=new URLSearchParams();if(brand)params.set('brand',brand);else params.set('q',clean);if(game)params.set('game',game);window.history.pushState({},'',`${window.location.pathname}?${params}`);window.setTimeout(()=>document.getElementById('results')?.scrollIntoView({behavior:'smooth'}),30)}
@@ -174,6 +224,7 @@ function App(){
   const closeResult=()=>{setSelectedResult(null);const params=new URLSearchParams(window.location.search);params.delete('asset');window.history.replaceState({},'',`${window.location.pathname}${params.toString()?`?${params}`:''}`)}
   const handleEnrichedResult=(enriched:GlobalSearchResult)=>{setSelectedResult(enriched);setRemoteResults(cur=>cur.map(r=>r.id===enriched.id?{...r,...enriched}:r));setFavorites(cur=>{const next=cur.map(r=>r.id===enriched.id?{...r,...enriched}:r);save('vj:favorites',next);return next})}
   const toggleFavorite=(result:GlobalSearchResult)=>setFavorites(cur=>{const exists=cur.some(r=>r.id===result.id),next=exists?cur.filter(r=>r.id!==result.id):[result,...cur].slice(0,50);save('vj:favorites',next);return next})
+  const goToPage=(page:number)=>{setCurrentPage(Math.max(1,Math.min(page,pageCount)));window.setTimeout(()=>document.querySelector('.catalogTopline')?.scrollIntoView({behavior:'smooth',block:'start'}),20)}
 
   return <main>
     <div className="pageNoise" aria-hidden="true"/>
@@ -183,7 +234,7 @@ function App(){
 
     {!submittedQuery&&<><DiscoveryCarousel onSelect={openResult} onSearch={term=>runSearch(term)}/><BrandsExplorer onSearch={brand=>runSearch(brand,brand)} recent={brandHistory}/><GamesExplorer onSearch={game=>runSearch(game,null,game)}/>{favorites.length>0&&<section className="savedSection"><div className="savedHead"><span><Heart size={13}/> FAVORITOS / LOCAL</span><b>{favorites.length}</b></div><div className="savedRail">{favorites.slice(0,10).map(item=><button key={item.id} onClick={()=>openResult(item)}>{item.imageUrl?<img src={item.imageUrl} alt=""/>:<span className="savedFallback"><CarFront size={18}/></span>}<strong>{item.title}</strong><small>{formatPrice(item)} · {item.source}</small></button>)}</div></section>}</>}
 
-    <section className={`resultsShell ${!submittedQuery?'searchIdle':''}`} id="results"><div className="catalogTopline"><div><span>{selectedBrand?`MARCA / ${selectedBrand.toUpperCase()}`:`RESULTADOS / ${submittedQuery.toUpperCase()}`}</span><h2>{selectedBrand?`${selectedBrand.toUpperCase()} / TODOS OS VEÍCULOS`:'CATÁLOGO'}</h2></div><div className="catalogCounters"><strong>{filteredResults.length}</strong><span>DE {rawResults.length} EXIBIDOS</span></div><button className="mobileFilterButton" onClick={()=>setFiltersOpen(!filtersOpen)}><Filter size={15}/> FILTROS {activeFilters?`(${activeFilters})`:''}</button></div>
+    <section className={`resultsShell ${!submittedQuery?'searchIdle':''}`} id="results"><div className="catalogTopline"><div><span>{selectedBrand?`MARCA / ${selectedBrand.toUpperCase()}`:`RESULTADOS / ${submittedQuery.toUpperCase()}`}</span><h2>{selectedBrand?`${selectedBrand.toUpperCase()} / TODOS OS VEÍCULOS`:'CATÁLOGO'}</h2></div><div className="catalogCounters"><strong>{filteredResults.length}</strong><span>{loading?'BUSCANDO · ':''}50 / PÁG. · {rawResults.length} INDEXADOS</span></div><button className="mobileFilterButton" onClick={()=>setFiltersOpen(!filtersOpen)}><Filter size={15}/> FILTROS {activeFilters?`(${activeFilters})`:''}</button></div>
       <section className="vehicleTabs">{vehicleGroups.map((group,index)=>{const count=group.value==='Todos'?applyFilters(rawResults,'vehicle').length:(vehicleCounts.get(group.value)||0);return <button key={group.value} className={vehicleClass===group.value?'active':''} onClick={()=>setVehicleClass(group.value)}><span>{String(index).padStart(2,'0')}</span>{group.label}<b className="facetMiniCount">{count}</b></button>})}</section>
       <div className="content"><aside className={`filtersPanel ${filtersOpen?'open':''}`}><div className="filterTitle"><SlidersHorizontal size={17}/><div><strong>REFINAR BUSCA</strong><small>{activeFilters?`${activeFilters} filtro(s) ativo(s)`:'facetas combináveis'}</small></div><button onClick={()=>setFiltersOpen(false)} className="filterClose"><X size={16}/></button></div>
         <div className="filterSection"><span className="filterSectionTitle">PREÇO</span><div className="segmentedFilter marketSegment">{(['Todos','Grátis','Pago'] as PriceMode[]).map(option=>{const key=option==='Grátis'?'free':option==='Pago'?'paid':'all';const count=option==='Todos'?applyFilters(rawResults,'price').length:(priceCounts.get(key)||0);return <button key={option} className={priceMode===option?'active':''} onClick={()=>setPriceMode(option)}><span>{option}</span><b>{count}</b></button>})}</div></div>
@@ -198,8 +249,9 @@ function App(){
         <SelectFilter label="Ordenar resultados" value={sortMode} onChange={value=>setSortMode(value as SortMode)} options={['Mix de fontes','Relevância','Mais recentes','Menor preço','Maior preço','Nome A-Z','Fonte']}/><button className="clearFilters" onClick={clearFilters}><RotateCcw size={13}/> LIMPAR FILTROS</button><div className="automotiveGuard"><ShieldCheck size={16}/><span><strong>AUTOMOTIVE GUARD</strong><small>Filtros usam lógica AND entre categorias e OR dentro da mesma faceta.</small></span></div></aside>
 
         <div className="results"><div className="resultsToolbar"><div className="activeFilterStrip"><span className="freeChip"><Zap size={12}/> {priceMode==='Todos'?'FREE + PREMIUM':priceMode.toUpperCase()}</span>{downloadMode!=='Todos'&&<span>{downloadMode}</span>}{selectedGames.length>0&&<span>{selectedGames.join(' / ')}</span>}{selectedSources.length>0&&<span>{selectedSources.length} fonte(s)</span>}{selectedFormats.length>0&&<span>{selectedFormats.join(' / ')}</span>}</div><div className="viewTools"><button className={viewMode==='grid'?'active':''} onClick={()=>setViewMode('grid')}><Grid2X2 size={14}/></button><button className={viewMode==='compact'?'active':''} onClick={()=>setViewMode('compact')}><List size={15}/></button><button className={viewMode==='showcase'?'active':''} onClick={()=>setViewMode('showcase')}><Columns3 size={15}/></button><span className="sortReadout"><Gauge size={13}/> {sortMode}</span></div></div>
-          {loading&&<div className="globalLoading"><div className="loadingMark"><LoaderCircle className="spin" size={26}/></div><div><strong>VARRENDO AS BASES</strong><span>percorrendo páginas e consolidando resultados gratuitos e premium...</span></div></div>}{apiError&&<div className="apiWarning"><CircleX size={17}/><span>{apiError}</span></div>}
-          {!loading&&filteredResults.length>0&&<div className={`grid view-${viewMode}`}>{filteredResults.map((result,index)=>{const signals=qualitySignals(result),dups=duplicateCounts.get(duplicateKey(result))||1,favored=favorites.some(r=>r.id===result.id),market=marketKind(result);return <article className="card" key={result.id} style={{'--delay':`${Math.min(index,12)*32}ms`} as React.CSSProperties} onClick={()=>openResult(result)} tabIndex={0}><div className="thumb">{result.imageUrl?<img src={result.imageUrl} alt={result.title} loading="lazy"/>:<span className="imageFallback show"><ImageOff size={29}/><small>SEM PREVIEW</small></span>}<span className="thumbShade"/><span className="cardIndex">{String(index+1).padStart(2,'0')}</span><span className="vehicleBadge"><CarFront size={11}/>{result.vehicleClass}</span><span className={`priceBadge ${market}`}>{formatPrice(result)}</span>{result.downloadUrl&&<span className="downloadBadge"><Download size={11}/> DIRETO</span>}{dups>1&&<span className="duplicateBadge">{dups} FONTES</span>}<button className={`favoriteButton ${favored?'active':''}`} onClick={e=>{e.stopPropagation();toggleFavorite(result)}}><Heart size={14} fill={favored?'currentColor':'none'}/></button></div><div className="cardBody"><div className="sourceRow"><span>{result.source}</span><span>{result.game||(result.sourceType==='game-mods'?'GAME MOD':'3D ASSET')}</span></div><h3>{result.title}</h3><div className="vehicleIdentity"><span>{result.brand||'Marca não identificada'}</span>{result.year&&<span>{result.year}</span>}</div>{signals.length>0&&<div className="qualitySignals">{signals.map(s=><span key={s}>{s}</span>)}</div>}<div className="chips">{result.formats.length?result.formats.slice(0,5).map(f=><span key={f}>{f}</span>):<span>FORMATO NA FONTE</span>}</div><div className="cardFooter"><span>{result.downloadUrl?'DOWNLOAD DIRETO':'DETALHES / FONTE'}</span><button onClick={e=>{e.stopPropagation();openResult(result)}}>ABRIR <ArrowUpRight size={13}/></button></div></div></article>})}</div>}
+          {loading&&<div className="globalLoading progressive"><div className="loadingMark"><LoaderCircle className="spin" size={26}/></div><div><strong>BUSCA PROGRESSIVA <b>{searchedSourceCount}/{providers.length}</b></strong><span>{rawResults.length?`${rawResults.length} resultados já encontrados. Novos carros aparecem assim que cada fonte responde.`:'consultando as primeiras fontes…'}</span></div></div>}{apiError&&<div className="apiWarning"><CircleX size={17}/><span>{apiError}</span></div>}
+          {filteredResults.length>0&&<div className={`grid view-${viewMode} progressiveResults`}>{pagedResults.map((result,index)=>{const signals=qualitySignals(result),dups=duplicateCounts.get(duplicateKey(result))||1,favored=favorites.some(r=>r.id===result.id),market=marketKind(result);return <article className="card" key={result.id} style={{'--delay':`${Math.min(index,12)*32}ms`} as React.CSSProperties} onClick={()=>openResult(result)} tabIndex={0}><div className="thumb">{result.imageUrl?<img src={result.imageUrl} alt={result.title} loading="lazy"/>:<span className="imageFallback show"><ImageOff size={29}/><small>SEM PREVIEW</small></span>}<span className="thumbShade"/><span className="cardIndex">{String((safePage-1)*PAGE_SIZE+index+1).padStart(2,'0')}</span><span className="vehicleBadge"><CarFront size={11}/>{result.vehicleClass}</span><span className={`priceBadge ${market}`}>{formatPrice(result)}</span>{result.downloadUrl&&<span className="downloadBadge"><Download size={11}/> DIRETO</span>}{dups>1&&<span className="duplicateBadge">{dups} FONTES</span>}<button className={`favoriteButton ${favored?'active':''}`} onClick={e=>{e.stopPropagation();toggleFavorite(result)}}><Heart size={14} fill={favored?'currentColor':'none'}/></button></div><div className="cardBody"><div className="sourceRow"><span>{result.source}</span><span>{result.game||(result.sourceType==='game-mods'?'GAME MOD':'3D ASSET')}</span></div><h3>{result.title}</h3><div className="vehicleIdentity"><span>{result.brand||'Marca não identificada'}</span>{result.year&&<span>{result.year}</span>}</div>{signals.length>0&&<div className="qualitySignals">{signals.map(s=><span key={s}>{s}</span>)}</div>}<div className="chips">{result.formats.length?result.formats.slice(0,5).map(f=><span key={f}>{f}</span>):<span>FORMATO NA FONTE</span>}</div><div className="cardFooter"><span>{result.downloadUrl?'DOWNLOAD DIRETO':'DETALHES / FONTE'}</span><button onClick={e=>{e.stopPropagation();openResult(result)}}>ABRIR <ArrowUpRight size={13}/></button></div></div></article>})}</div>}
+          {filteredResults.length>PAGE_SIZE&&<nav className="catalogPagination" aria-label="Paginação do catálogo"><button onClick={()=>goToPage(safePage-1)} disabled={safePage<=1}>‹</button>{pageLinks.map((page,index)=>page==='…'?<span className="ellipsis" key={`ellipsis-${index}`}>…</span>:<button key={page} className={page===safePage?'active':''} onClick={()=>goToPage(page)}>{page}</button>)}<button onClick={()=>goToPage(safePage+1)} disabled={safePage>=pageCount}>›</button><div className="catalogPaginationInfo">PÁGINA {safePage} DE {pageCount} · {Math.min(PAGE_SIZE,Math.max(0,filteredResults.length-(safePage-1)*PAGE_SIZE))} ITENS NESTA PÁGINA · {filteredResults.length} RESULTADOS</div></nav>}
           {!loading&&submittedQuery&&filteredResults.length===0&&<div className="emptyState"><span>FILTER / 00</span><CarFront size={31}/><h3>NENHUM ASSET NESTA COMBINAÇÃO</h3><p>Os filtros são cumulativos. Remova uma faceta ou use “Todos”.</p><button onClick={clearFilters}><RotateCcw size={13}/> limpar filtros</button></div>}
           {sourceStatuses.length>0&&<details className="sourceStatusSection"><summary><Database size={16}/> STATUS DAS FONTES <span>{sourceStatuses.filter(s=>s.status==='ok').length}/{sourceStatuses.length} responderam</span></summary><div className="sourceStatusGrid">{sourceStatuses.map(item=><a key={item.provider} href={item.searchUrl} target="_blank" rel="noreferrer" className={item.status==='ok'?'sourceOk':'sourceError'}>{item.status==='ok'?<CircleCheck size={14}/>:<CircleX size={14}/>}<span><strong>{item.name}</strong><small>{item.status==='ok'?`${item.count} asset(s) · ${item.pagesFetched||1} pág.`:'abrir fonte'}</small></span><ArrowUpRight size={12}/></a>)}</div></details>}
           {(apiError||(!loading&&submittedQuery&&rawResults.length===0))&&<section className="providerSearchSection"><div className="providerSearchHeading"><div><Globe2 size={17}/><strong>BUSCA DIRETA NAS FONTES</strong></div></div><div className="providerSearchGrid">{providers.map(provider=><a key={provider.id} href={providerSearchUrl(provider,submittedQuery)} target="_blank" rel="noreferrer"><span className="providerSearchIcon"><CarFront size={16}/></span><span><strong>{provider.name}</strong><small>{provider.categories.slice(0,2).join(' · ')}</small></span><ArrowUpRight size={14}/></a>)}</div></section>}</div>

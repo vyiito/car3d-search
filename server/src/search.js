@@ -604,7 +604,17 @@ function dedupe(results) {
 
 export async function searchAll(query, options = {}) {
   const perSource = Math.max(1, Math.min(Number(options.perSource || 40), 80))
-  const sources = await Promise.all(providers.map(provider => limiter(() => searchProvider(provider, query, perSource))))
+  const excluded = new Set(Array.isArray(options.excludeIds) ? options.excludeIds : [])
+  const selectedProviders = providers.filter(provider => !excluded.has(provider.id))
+  const onSource = typeof options.onSource === 'function' ? options.onSource : null
+  const tasks = selectedProviders.map(provider => limiter(async () => {
+    const source = await searchProvider(provider, query, perSource)
+    if (onSource) {
+      try { await onSource(source) } catch {}
+    }
+    return source
+  }))
+  const sources = await Promise.all(tasks)
   const results = dedupe(sources.flatMap(source => source.results))
   return {
     query,
