@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { getResultDetails, vjDirectDownloadUrl, type GlobalSearchResult } from '../api/search'
 import ModelViewer from './ModelViewer'
+import ReferencePack from './ReferencePack'
 import '../detail.css'
 
 interface Props {
@@ -103,12 +104,14 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
 
           {viewerUrl && <ModelViewer url={viewerUrl} title={detail.title}/>} 
 
-          <section className="assetDescriptionPanel"><span className="assetSectionCode">DESCRIPTION / 01</span><h3>SOBRE ESTE ASSET</h3><p>{detail.description || 'A fonte não forneceu uma descrição detalhada para este modelo. Use os metadados extraídos e a página original para verificar informações adicionais.'}</p></section>
+          <ReferencePack result={detail}/>
+
+          <section className="assetDescriptionPanel"><span className="assetSectionCode">DESCRIPTION / 06</span><h3>SOBRE ESTE ASSET</h3><p>{detail.description || 'A fonte não forneceu uma descrição detalhada para este modelo. Use os metadados extraídos e a página original para verificar informações adicionais.'}</p></section>
         </section>
 
         <aside className="assetInfoColumn">
           <div className="assetDetailStatus">{loading ? <><LoaderCircle className="spin" size={15}/> ANALISANDO PÁGINA ORIGINAL</> : error ? <>DETALHES PARCIAIS · FONTE NÃO ANALISADA</> : <><Check size={14}/> DADOS DA FONTE ATUALIZADOS</>}</div>
-          <div className="assetTitleBlock"><span className="assetKicker"><CarFront size={13}/> {detail.vehicleClass} · {detail.game || (detail.sourceType === 'game-mods' ? 'GAME MOD' : '3D ASSET')}</span><h1>{detail.title}</h1><div className="assetTags"><span>{priceLabel}</span>{confirmedDownloadHref && <span>DOWNLOAD DIRETO CONFIRMADO</span>}{viewerUrl && <span>VIEWER 3D</span>}{detail.game && <span>{detail.game}</span>}{detail.year && <span>{detail.year}</span>}</div></div>
+          <div className="assetTitleBlock"><span className="assetKicker"><CarFront size={13}/> {detail.vehicleClass} · {detail.game || (detail.sourceType === 'game-mods' ? 'GAME MOD' : '3D ASSET')}</span><h1>{detail.title}</h1><div className="assetTags"><span>{priceLabel}</span>{confirmedDownloadHref && <span>DOWNLOAD DIRETO CONFIRMADO</span>}{viewerUrl && <span>VIEWER 3D</span>}<span>REFERENCE KIT</span>{detail.game && <span>{detail.game}</span>}{detail.year && <span>{detail.year}</span>}</div></div>
 
           <div className="assetPrimaryActions">
             {confirmedDownloadHref && <a href={confirmedDownloadHref} className="assetDownload direct"><Download size={17}/><span><b>BAIXAR DIRETO</b><small>arquivo final confirmado pelo VJ</small></span><ArrowUpRight size={16}/></a>}
@@ -122,7 +125,7 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
           <section className="assetResolverSection"><span className="assetSectionCode">DOWNLOAD RESOLVER / 04</span><div className={`assetResolverState ${confirmedDownloadHref ? 'resolved' : ''}`}><span className="resolverDot"/><div><strong>{confirmedDownloadHref ? 'ARQUIVO FINAL CONFIRMADO' : detail.downloadActionUrl ? 'A FONTE TEM UMA ETAPA DE DOWNLOAD' : 'SEM LINK DIRETO PÚBLICO'}</strong><small>{confirmedDownloadHref ? 'O botão acima usa o VJ para validar o asset e redirecionar ao arquivo público final.' : 'O VJ só mostra botão de baixar quando encontra um arquivo final público. Para compras ou downloads intermediários, use a página original.'}</small></div></div>{detail.downloadCandidates && detail.downloadCandidates.some(candidate => candidate.kind === 'direct') && <details className="assetRoutes"><summary>rotas diretas detectadas</summary><div>{detail.downloadCandidates.filter(candidate => candidate.kind === 'direct').slice(0,6).map(candidate => <a key={candidate.url} href={candidate.url} target="_blank" rel="noreferrer"><span>DIRECT</span><b>{candidate.label}</b><ArrowUpRight size={12}/></a>)}</div></details>}</section>
 
           <div className="assetUtilityActions"><button onClick={copyShare}><Clipboard size={14}/>{copied ? 'LINK VJ COPIADO' : 'COPIAR LINK VJ'}</button><a href={detail.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/> ABRIR FONTE</a></div>
-          <p className="assetLegalNote">O VJ só exibe “Baixar direto” quando encontra um arquivo final público. O arquivo continua hospedado pela fonte original; o VJ não replica nem redistribui o conteúdo. Modelos premium devem ser adquiridos na fonte original.</p>
+          <p className="assetLegalNote">O VJ só exibe “Baixar direto” quando encontra um arquivo final público. O arquivo continua hospedado pela fonte original; o VJ não replica nem redistribui o conteúdo. Modelos premium devem ser adquiridos na fonte original. O Reference Pack inclui somente imagens classificadas como redistribuíveis conforme os metadados publicados pelas fontes abertas.</p>
         </aside>
       </main>
     </div>
