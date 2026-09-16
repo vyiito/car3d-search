@@ -1,28 +1,27 @@
-import * as cheerio from 'cheerio'
+const UA='VJ3DSearch/1.1 (+https://github.com/vyiito/car3d-search)'
 
-const targets = [
-  ['done3d','https://done3d.com/?s=Toyota%20Supra'],
-  ['brasil','https://brasilsimulatormods.com/?s=Toyota%20Supra'],
-  ['3drush','https://3drush.com/?s=Toyota%20Supra'],
-]
+async function probe(name,url){
+  try{
+    const response=await fetch(url,{redirect:'follow',headers:{'user-agent':UA,accept:'application/json,text/html,*/*'}})
+    const text=await response.text()
+    const snippet=text.replace(/\s+/g,' ').slice(0,900)
+    console.log(`[api-probe] ${name} status=${response.status} ct=${response.headers.get('content-type')||''} final=${response.url} bytes=${text.length} snippet=${snippet}`)
+  }catch(error){console.log(`[api-probe] ${name} ERROR ${error instanceof Error?error.message:String(error)}`)}
+}
 
-export async function probeProviderStructures() {
-  for (const [name,url] of targets) {
-    try {
-      const response = await fetch(url,{redirect:'follow',headers:{'user-agent':'VJ3DSearch/1.0 (+https://github.com/vyiito/car3d-search)','accept':'text/html,application/xhtml+xml'}})
-      const html = await response.text()
-      const $ = cheerio.load(html)
-      const title = $('title').text().replace(/\s+/g,' ').trim()
-      const hits=[]
-      $('a[href]').each((_,el)=>{
-        const node=$(el)
-        const href=new URL(node.attr('href')||'',response.url).href
-        const text=`${node.text()} ${node.attr('title')||''} ${node.attr('aria-label')||''}`.replace(/\s+/g,' ').trim()
-        const parent=node.closest('article,.post,.item,.card,.search-result,.product,.elementor-post,.blog-item,li')
-        const parentText=parent.text().replace(/\s+/g,' ').trim().slice(0,260)
-        if(/supra|toyota/i.test(`${href} ${text} ${parentText}`)) hits.push({href,text,parentText})
-      })
-      console.log(`[html-links] ${name} status=${response.status} title=${title} articles=${$('article').length} searchResults=${$('.search-result').length} posts=${$('.post,.elementor-post').length} hits=${JSON.stringify(hits.slice(0,12))}`)
-    } catch(error){console.log(`[html-links] ${name} ERROR ${error instanceof Error?error.message:String(error)}`)}
-  }
+export async function probeProviderStructures(){
+  const tests=[
+    ['done3d-wp-search','https://done3d.com/wp-json/wp/v2/search?search=Toyota%20Supra&per_page=10'],
+    ['done3d-wp-posts','https://done3d.com/wp-json/wp/v2/posts?search=Toyota%20Supra&per_page=10&_embed=1'],
+    ['brasil-wp-search','https://brasilsimulatormods.com/wp-json/wp/v2/search?search=Toyota%20Supra&per_page=10'],
+    ['brasil-wp-posts','https://brasilsimulatormods.com/wp-json/wp/v2/posts?search=Toyota%20Supra&per_page=10&_embed=1'],
+    ['3drush-wp-search','https://3drush.com/wp-json/wp/v2/search?search=Toyota%20Supra&per_page=10'],
+    ['3drush-wp-posts','https://3drush.com/wp-json/wp/v2/posts?search=Toyota%20Supra&per_page=10&_embed=1'],
+    ['3dsky-api-search','https://3dsky.org/api/models?search=Toyota%20Supra&page=1'],
+    ['3dsky-api-query','https://3dsky.org/api/models?query=Toyota%20Supra&page=1'],
+    ['3dsky-api-q','https://3dsky.org/api/models?q=Toyota%20Supra&page=1'],
+    ['vosan-page','https://vosan.co/explore?search=Toyota%20Supra'],
+    ['3dwarehouse-page','https://3dwarehouse.sketchup.com/search/?q=Toyota%20Supra%20car%20vehicle'],
+  ]
+  for(const [name,url] of tests) await probe(name,url)
 }
