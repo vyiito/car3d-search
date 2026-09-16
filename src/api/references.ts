@@ -90,7 +90,12 @@ async function requestReferencePack(result: GlobalSearchResult, title: string, i
   if (result.brand) url.searchParams.set('brand', result.brand)
   if (includeYear && result.year) url.searchParams.set('year', String(result.year))
   url.searchParams.set('perAngle', '4')
-  const response = await fetch(url.href, { signal })
+  // Reference results evolve as the identity matcher improves; never reuse an old empty response from the browser cache.
+  const response = await fetch(url.href, {
+    signal,
+    cache: 'no-store',
+    headers: { 'cache-control': 'no-cache', pragma: 'no-cache' },
+  })
   if (!response.ok) throw new Error(`Reference API ${response.status}`)
   return response.json()
 }
