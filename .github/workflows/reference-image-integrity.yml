@@ -23,7 +23,7 @@ jobs:
       - name: Reject unrelated cars inside valid vehicle pages
         run: |
           node --input-type=module <<'EOF'
-          import { canonicalizeVehicleIdentity } from './src/reference-engine.js'
+          import { canonicalizeVehicleIdentity, scoreReferenceIdentity } from './src/reference-engine.js'
           import { extractSpecializedImagesForTest } from './src/reference-specialized.js'
 
           const bmw = canonicalizeVehicleIdentity({ title: 'BMW M3 E46 2004', brand: 'BMW', vehicleClass: 'Car' })
@@ -64,4 +64,40 @@ jobs:
           if (!mustangUrls.some(url => url.includes('fastback.jpg'))) process.exit(1)
           if (!mustangUrls.some(url => url.includes('generic-rear.jpg'))) process.exit(1)
           if (mustangUrls.some(url => url.includes('mach-e.jpg'))) process.exit(1)
+
+          const cases = [
+            {
+              asset: { title: '1965 Ford Mustang Fastback', brand: 'Ford', vehicleClass: 'Car' },
+              good: '1965 Ford Mustang Fastback rear view',
+              bad: '1965 Ford Mustang Convertible rear view',
+            },
+            {
+              asset: { title: '2018 Honda Civic Type R FK8', brand: 'Honda', vehicleClass: 'Car' },
+              good: '2018 Honda Civic Type R front view',
+              bad: '2018 Honda Civic Si Sedan front view',
+            },
+            {
+              asset: { title: '2021 Porsche 911 992 Carrera S', brand: 'Porsche', vehicleClass: 'Car' },
+              good: '2021 Porsche 911 Carrera S rear view',
+              bad: '2021 Porsche 911 Turbo S rear view',
+            },
+            {
+              asset: { title: '2016 Chevrolet Corvette C7 Z06', brand: 'Chevrolet', vehicleClass: 'Car' },
+              good: '2016 Chevrolet Corvette Z06 front view',
+              bad: '2016 Chevrolet Corvette C7 Stingray front view',
+            },
+            {
+              asset: { title: '1998 Subaru Impreza WRX STI GC8', brand: 'Subaru', vehicleClass: 'Car' },
+              good: '1998 Subaru Impreza WRX STI front view',
+              bad: '1998 Subaru Impreza 2.5 RS front view',
+            },
+          ]
+          for (const entry of cases) {
+            const identity = canonicalizeVehicleIdentity(entry.asset)
+            const good = scoreReferenceIdentity(identity, { title: entry.good, source: 'Test' })
+            const bad = scoreReferenceIdentity(identity, { title: entry.bad, source: 'Test' })
+            console.log(JSON.stringify({ asset: entry.asset.title, good, bad }, null, 2))
+            if (!good.ok) process.exit(1)
+            if (bad.ok) process.exit(1)
+          }
           EOF
