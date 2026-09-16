@@ -154,43 +154,72 @@ function generationAliases(code) {
     mk4: ['mk4','mk iv','a80','jza80'], jza80: ['jza80','a80','mk4','mk iv'], a80: ['a80','jza80','mk4','mk iv'],
     mk3: ['mk3','mk iii','a70','ma70','jza70'], a70: ['a70','ma70','jza70','mk3','mk iii'],
     r34: ['r34','bnr34','er34'], r33: ['r33','bcnr33','er33'], r32: ['r32','bnr32','hcr32'],
-    fd3s: ['fd3s','fd'], jza70: ['jza70','a70','mk3','mk iii'],
+    e46: ['e46'], e36: ['e36'], e92: ['e92'], e90: ['e90'], f80: ['f80'], g80: ['g80'],
+    fd3s: ['fd3s','fd'], na1: ['na1'], na2: ['na2'], gc8: ['gc8'], jza70: ['jza70','a70','mk3','mk iii'],
   }
   return aliases[key] || [code]
 }
-function hasGenerationEvidence(identity, evidence) {
-  const haystack = ` ${norm(evidence)} `, codes = generationCodesForIdentity(identity)
-  if (!codes.length) return false
-  return codes.some(code => generationAliases(code).some(alias => { const needle = norm(alias); return needle && haystack.includes(` ${needle} `) }))
-}
-function specializedIdentityVerified(identity, normalizedEvidence, years) {
-  const codes = generationCodesForIdentity(identity)
-  if (identity.yearTrusted && identity.year) {
-    if (years.length) return years.includes(identity.year)
-    if (codes.length) return hasGenerationEvidence(identity, normalizedEvidence)
-    return false
+function generationEvidenceGroups(identity) {
+  const groups = []
+  for (const code of generationCodesForIdentity(identity)) {
+    const aliases = uniq(generationAliases(code).map(alias => norm(alias)))
+    const overlapping = groups.find(group => group.some(alias => aliases.includes(alias)))
+    if (overlapping) for (const alias of aliases) if (!overlapping.includes(alias)) overlapping.push(alias)
+    else groups.push([...aliases])
   }
-  if (codes.length) return hasGenerationEvidence(identity, normalizedEvidence)
-  return true
+  return groups
+}
+function groupMatchesEvidence(group, evidence) { return group.some(alias => anchorMatches(alias, evidence)) }
+function hasGenerationEvidence(identity, evidence) { return generationEvidenceGroups(identity).some(group => groupMatchesEvidence(group, norm(evidence))) }
+function variantTokens(identity) {
+  const primary = new Set(tokenise(identity.primaryModel).map(norm))
+  const codes = new Set(generationCodesForIdentity(identity).map(norm))
+  return tokenise(identity.modelDisplay).filter(token => !primary.has(norm(token)) && !codes.has(norm(token)))
+}
+function relaxedTokenMatch(evidence, token) {
+  const normalizedEvidence = norm(evidence), normalizedToken = norm(token)
+  if (anchorMatches(normalizedToken, normalizedEvidence)) return true
+  const hyphenRelaxedEvidence = normalizedEvidence.replace(/-/g, ' '), hyphenRelaxedToken = normalizedToken.replace(/-/g, ' ')
+  if (anchorMatches(hyphenRelaxedToken, hyphenRelaxedEvidence)) return true
+  if (normalizedToken.includes('-')) {
+    const compact = normalizedToken.replace(/-/g, ''), evidenceTokens = tokenise(normalizedEvidence)
+    if (evidenceTokens.includes(compact)) return true
+  }
+  return false
+}
+function variantEvidenceVerified(identity, evidence) {
+  const required = variantTokens(identity)
+  if (!required.length) return true
+  return required.every(token => relaxedTokenMatch(evidence, token))
+}
+function strictIdentityVerified(identity, normalizedEvidence, years) {
+  const exactYear = Boolean(identity.yearTrusted && identity.year && years.includes(identity.year))
+  const groups = generationEvidenceGroups(identity), matched = groups.map(group => groupMatchesEvidence(group, normalizedEvidence))
+  if (groups.length) {
+    const requiredGroups = exactYear ? matched.slice(1) : matched
+    if (!requiredGroups.every(Boolean)) return false
+  }
+  return variantEvidenceVerified(identity, normalizedEvidence)
 }
 
 export function scoreReferenceIdentity(identity, image) {
   const evidence = clean(`${image?.title || ''} ${image?.galleryTitle || ''} ${image?.sourcePage || ''} ${image?.source || ''} ${image?.creator || ''}`), normalized = norm(evidence)
+  const yearEvidence = norm(`${image?.title || ''} ${image?.galleryTitle || ''}`)
   const nonReal = nonRealReferenceReason(evidence)
   if (nonReal) return { ok: false, score: 0, reason: 'non-real-reference' }
   const classConflict = vehicleKindConflict(identity, evidence)
   if (classConflict) return { ok: false, score: 0, reason: classConflict }
   if (!identity.primaryModel || !anchorMatches(identity.primaryModel, normalized)) return { ok: false, score: 0, reason: 'model-mismatch' }
   if (brandConflict(identity, normalized)) return { ok: false, score: 0, reason: 'brand-conflict' }
-  if (samePrefixGenerationConflict(identity.generationCodes, tokenise(normalized))) return { ok: false, score: 0, reason: 'generation-conflict' }
-  const years = [...normalized.matchAll(/\b(19[3-9]\d|20[0-3]\d)\b/g)].map(match => Number(match[1]))
-  if (identity.yearTrusted && identity.year && years.length && !years.some(value => Math.abs(value - identity.year) <= 1)) return { ok: false, score: 0, reason: 'year-conflict' }
-  if (image?.sourceKind === 'specialized' && !specializedIdentityVerified(identity, normalized, years)) return { ok: false, score: 0, reason: 'generation-unverified' }
+  if (samePrefixGenerationConflict(generationCodesForIdentity(identity), tokenise(normalized))) return { ok: false, score: 0, reason: 'generation-conflict' }
+  const years = [...yearEvidence.matchAll(/\b(19[3-9]\d|20[0-3]\d)\b/g)].map(match => Number(match[1]))
+  if (identity.yearTrusted && identity.year && years.length && !years.includes(identity.year)) return { ok: false, score: 0, reason: 'year-conflict' }
+  if (!strictIdentityVerified(identity, normalized, years)) return { ok: false, score: 0, reason: 'variant-unverified' }
   let score = 5
   if (identity.brand && containsPhrase(normalized, identity.brand)) score += 3
   score += Math.min(3, identity.supporting.filter(token => anchorMatches(token, normalized)).length)
-  score += generationCodesForIdentity(identity).filter(code => generationAliases(code).some(alias => anchorMatches(alias, normalized))).length * 2
-  if (identity.yearTrusted && identity.year && years.some(value => Math.abs(value - identity.year) <= 1)) score += 2
+  score += generationEvidenceGroups(identity).filter(group => groupMatchesEvidence(group, normalized)).length * 2
+  if (identity.yearTrusted && identity.year && years.includes(identity.year)) score += 2
   if (identity.vehicleKind === 'car' && CAR_BODY_EVIDENCE_RE.test(evidence)) score += 2
   if (identity.vehicleKind === 'motorcycle' && MOTORCYCLE_EVIDENCE_RE.test(evidence)) score += 2
   if (image?.sourceKind === 'specialized') score += 1
