@@ -4,7 +4,7 @@ import { providers } from './providers.js'
 import { searchAll } from './search.js'
 import { getResultDetails } from './details.js'
 import { searchBrasilSimulatorMods } from './brasil-adapter.js'
-import { runDynamicProviderProbe } from './dynamic-provider-probe.js'
+import { search3DSky } from './3dsky-adapter.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -48,21 +48,30 @@ async function cachedDetails(sourceId, sourceUrl) {
   detailsCache.set(cacheKey, { createdAt: Date.now(), payload }); trimCache(detailsCache, 250, 40); return payload
 }
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, freeOnly: true, detailsResolver: true, directDownloadGate: true, paginatedSearch: true, gameFacets: true }))
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, freeOnly: true, detailsResolver: true, directDownloadGate: true, paginatedSearch: true, gameFacets: true, nativeAdapters: ['vertex-warehouse','brasil-simulator-mods','3dsky'] }))
 app.get('/api/providers', (_req, res) => res.json(providers.map(provider => ({ id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, browseUrl: provider.browseUrl || provider.baseUrl, freeCatalog: Boolean(provider.freeCatalog), defaultGame: provider.defaultGame || null, pagination: Boolean(provider.pagination) }))))
 app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 120)
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
   const perSource = Math.max(1, Math.min(Number(req.query.perSource || 60), 80))
-  const cacheKey = `free-v2|${q.toLowerCase()}|${perSource}`
+  const cacheKey = `free-v3|${q.toLowerCase()}|${perSource}`
   const cached = cache.get(cacheKey); if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return res.json({ ...cached.payload, cached: true })
   try {
-    const [rawPayload, brasil] = await Promise.all([
+    const [rawPayload, brasil, sky] = await Promise.all([
       searchAll(q, { perSource }),
       searchBrasilSimulatorMods(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'BSM search failed' })),
+      search3DSky(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : '3DSky search failed' })),
     ])
-    rawPayload.results = [...rawPayload.results.filter(result => result.sourceId !== 'brasil-simulator-mods'), ...brasil.results]
-    rawPayload.sources = rawPayload.sources.map(source => source.provider === 'brasil-simulator-mods' ? { ...source, status: brasil.error ? 'error' : 'ok', count: brasil.results.length, pagesFetched: brasil.pagesFetched, error: brasil.error } : source)
+    rawPayload.results = [
+      ...rawPayload.results.filter(result => !['brasil-simulator-mods','3dsky'].includes(result.sourceId)),
+      ...brasil.results,
+      ...sky.results,
+    ]
+    rawPayload.sources = rawPayload.sources.map(source => {
+      if (source.provider === 'brasil-simulator-mods') return { ...source, status: brasil.error ? 'error' : 'ok', count: brasil.results.length, pagesFetched: brasil.pagesFetched, error: brasil.error }
+      if (source.provider === '3dsky') return { ...source, status: sky.error ? 'error' : 'ok', count: sky.results.length, pagesFetched: sky.pagesFetched, error: sky.error }
+      return source
+    })
     rawPayload.total = rawPayload.results.length
     console.log(`[search] ${q} :: ${rawPayload.sources.map(source => `${source.provider}=${source.status}:${source.count}@${source.pagesFetched || 0}p`).join(' | ')}`)
     const payload = freeOnlyPayload(rawPayload); cache.set(cacheKey, { createdAt: Date.now(), payload }); trimCache(cache); res.json({ ...payload, cached: false })
@@ -87,5 +96,4 @@ app.get('/api/download', async (req, res) => {
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`)
-  setTimeout(() => runDynamicProviderProbe().catch(() => {}), 1200)
 })
