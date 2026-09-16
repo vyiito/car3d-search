@@ -5,6 +5,8 @@ on:
     paths:
       - 'server/src/reference-engine.js'
       - 'server/src/index.js'
+      - 'src/api/references.ts'
+      - 'src/components/ReferencePack.tsx'
       - '.github/workflows/reference-generic-matrix.yml'
   workflow_dispatch:
 
@@ -24,7 +26,7 @@ jobs:
       - name: Canonical identity matrix
         run: |
           node --input-type=module <<'EOF'
-          import { canonicalizeVehicleIdentity } from './src/reference-engine.js'
+          import { canonicalizeVehicleIdentity, scoreReferenceIdentity } from './src/reference-engine.js'
           const cases = [
             [{ title: 'Honda Civic SI 2014 - LM', brand: 'Honda', year: 2014 }, /honda civic si/i],
             [{ title: '1998 Toyota Supra RZ JZA80 - Forza Horizon 5 FBX', brand: 'Toyota', year: 1998 }, /toyota supra/i],
@@ -42,6 +44,19 @@ jobs:
             if (!expected.test(identity.display)) process.exit(1)
             if (!identity.primaryModel) process.exit(1)
           }
+
+          const noisy = canonicalizeVehicleIdentity({ title: 'Sayrx Toyota Supra MK4 Vert - Individual Cars | VOSAN', brand: 'Toyota', year: 1983 })
+          console.log(JSON.stringify({ noisy }, null, 2))
+          if (!/^Toyota Supra MK4/i.test(noisy.display)) process.exit(1)
+          if (/Sayrx|VOSAN|Individual Cars/i.test(noisy.display)) process.exit(1)
+          if (noisy.yearTrusted) process.exit(1)
+          if (/1983/.test(noisy.canonical)) process.exit(1)
+
+          const lego = scoreReferenceIdentity(noisy, { title: 'Building Lego Technic Toyota Supra MK4 Fast and Furious', sourcePage: 'https://commons.wikimedia.org/wiki/File:Lego_Technic_Toyota_Supra_MK4.jpg', source: 'Wikimedia Commons' })
+          const real = scoreReferenceIdentity(noisy, { title: 'Toyota Supra MK4 side view', sourcePage: 'https://commons.wikimedia.org/wiki/File:Toyota_Supra_MK4.jpg', source: 'Wikimedia Commons' })
+          console.log(JSON.stringify({ lego, real }, null, 2))
+          if (lego.ok || lego.reason !== 'non-real-reference') process.exit(1)
+          if (!real.ok) process.exit(1)
           EOF
       - name: Live reference diversity
         run: |
@@ -51,12 +66,16 @@ jobs:
             { title: 'Toyota Supra MK4 1998', brand: 'Toyota', year: 1998 },
             { title: 'BMW M3 E46 2004', brand: 'BMW', year: 2004 },
             { title: 'Ford Mustang Fastback 1965', brand: 'Ford', year: 1965 },
+            { title: 'Sayrx Toyota Supra MK4 Vert - Individual Cars | VOSAN', brand: 'Toyota', year: 1983 },
           ]
           let successes = 0
           for (const asset of cases) {
             const pack = await searchReferencePack(asset, { perAngle: 2 })
-            console.log(JSON.stringify({ asset: asset.title, canonical: pack.canonicalVehicle, images: pack.images.length, angles: pack.angleCoverage, identity: pack.identity }, null, 2))
+            const fake = pack.images.filter(image => /\b(?:lego|technic|die[- ]?cast|hot wheels|matchbox|toy|miniature|model kit|3d render|game screenshot)\b/i.test(`${image.title} ${image.sourcePage}`))
+            console.log(JSON.stringify({ asset: asset.title, canonical: pack.canonicalVehicle, year: pack.year, images: pack.images.length, angles: pack.angleCoverage, fake: fake.map(x => x.title), identity: pack.identity }, null, 2))
+            if (fake.length) process.exit(1)
+            if (asset.title.startsWith('Sayrx') && (!/^Toyota Supra/i.test(pack.canonicalVehicle) || pack.year)) process.exit(1)
             if (pack.images.length > 0) successes += 1
           }
-          if (successes < 2) process.exit(1)
+          if (successes < 3) process.exit(1)
           EOF
