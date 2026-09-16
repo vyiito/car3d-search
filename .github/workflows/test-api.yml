@@ -33,6 +33,7 @@ jobs:
       - run: node --check src/remaining-adapters.js
       - run: node --check src/commerce-adapters.js
       - run: node --check src/cgtrader-adapter.js
+      - run: node --check src/reference-adapter.js
       - name: Vertex regression · Funco F9
         run: |
           node --input-type=module <<'EOF'
@@ -86,4 +87,12 @@ jobs:
           if (!cg.results.length || !paid) process.exit(1)
           if (renderBad) process.exit(1)
           if (!nsx) process.exit(1)
+          EOF
+      - name: Reference pack diagnostic
+        continue-on-error: true
+        run: |
+          node --input-type=module <<'EOF'
+          import { searchReferencePack } from './src/reference-adapter.js'
+          const pack = await searchReferencePack({ title: 'Toyota Supra MK4', brand: 'Toyota', year: 1998 }, { perAngle: 2 })
+          console.log(JSON.stringify({ query: pack.query, images: pack.images.length, downloadable: pack.downloadableCount, angles: pack.angleCoverage }, null, 2))
           EOF
