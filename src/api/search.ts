@@ -1,3 +1,9 @@
+export interface DownloadCandidate {
+  url: string
+  label: string
+  kind: 'direct' | 'action'
+}
+
 export interface GlobalSearchResult {
   id: string
   title: string
@@ -11,6 +17,12 @@ export interface GlobalSearchResult {
   isFree: boolean | null
   downloadable: boolean | null
   downloadUrl: string | null
+  downloadActionUrl?: string | null
+  downloadStatus?: 'direct' | 'source' | 'unavailable'
+  downloadCandidates?: DownloadCandidate[]
+  gallery?: string[]
+  license?: string | null
+  detailsFetchedAt?: string | null
   author: string | null
   description: string | null
   fileSize: string | null
@@ -37,6 +49,7 @@ export interface GlobalSearchResponse {
   searchedProviders: number
   successfulProviders: number
   automotiveOnly?: boolean
+  freeOnly?: boolean
   results: GlobalSearchResult[]
   sources: SourceSearchStatus[]
   cached: boolean
@@ -50,4 +63,26 @@ export async function globalSearch(query: string, signal?: AbortSignal, perSourc
   const response = await fetch(url, { signal })
   if (!response.ok) throw new Error(`API ${response.status}`)
   return response.json()
+}
+
+export async function getResultDetails(result: GlobalSearchResult, signal?: AbortSignal): Promise<GlobalSearchResult> {
+  const url = `${API_BASE}/api/details?sourceId=${encodeURIComponent(result.sourceId)}&url=${encodeURIComponent(result.sourceUrl)}`
+  const response = await fetch(url, { signal })
+  if (!response.ok) throw new Error(`API ${response.status}`)
+  const details = await response.json()
+
+  return {
+    ...result,
+    ...details,
+    title: details.title || result.title,
+    imageUrl: details.imageUrl || result.imageUrl,
+    gallery: details.gallery?.length ? details.gallery : (result.imageUrl ? [result.imageUrl] : []),
+    formats: details.formats?.length ? details.formats : result.formats,
+    author: details.author || result.author,
+    description: details.description || result.description,
+    fileSize: details.fileSize || result.fileSize,
+    year: details.year || result.year,
+    downloadUrl: details.downloadUrl || result.downloadUrl,
+    downloadStatus: details.downloadUrl ? 'direct' : details.downloadActionUrl ? 'source' : (details.downloadStatus || result.downloadStatus || 'unavailable'),
+  }
 }
