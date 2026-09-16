@@ -8,6 +8,7 @@ import { search3DSky } from './3dsky-adapter.js'
 import { searchVosan } from './vosan-adapter.js'
 import { searchOvertake } from './overtake-adapter.js'
 import { searchVertexNative } from './vertex-adapter.js'
+import { searchNativeMarketSources, nativeMarketAdapters } from './market-adapters.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -16,6 +17,7 @@ const cache = new Map()
 const detailsCache = new Map()
 const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 10 * 60 * 1000)
 const DETAILS_CACHE_TTL_MS = Number(process.env.DETAILS_CACHE_TTL_MS || 30 * 60 * 1000)
+const MARKET_NATIVE_IDS = Object.keys(nativeMarketAdapters)
 
 app.disable('x-powered-by')
 app.use(cors({ origin: [allowedOrigin, 'http://localhost:5173'], methods: ['GET'] }))
@@ -55,7 +57,7 @@ app.get('/health', (_req, res) => res.json({
   directDownloadGate: true,
   paginatedSearch: true,
   gameFacets: true,
-  nativeAdapters: ['vertex-warehouse','brasil-simulator-mods','3dsky','vosan','overtake'],
+  nativeAdapters: ['vertex-warehouse','brasil-simulator-mods','3dsky','vosan','overtake',...MARKET_NATIVE_IDS],
 }))
 
 app.get('/api/providers', (_req, res) => res.json(providers.map(provider => ({
@@ -67,33 +69,38 @@ app.get('/api/providers', (_req, res) => res.json(providers.map(provider => ({
   freeCatalog: Boolean(provider.freeCatalog),
   defaultGame: provider.defaultGame || null,
   pagination: Boolean(provider.pagination),
+  nativeAdapter: MARKET_NATIVE_IDS.includes(provider.id) || ['vertex-warehouse','brasil-simulator-mods','3dsky','vosan','overtake'].includes(provider.id),
 }))))
 
 app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 120)
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
   const perSource = Math.max(1, Math.min(Number(req.query.perSource || 60), 80))
-  const cacheKey = `market-v7|${q.toLowerCase()}|${perSource}`
+  const cacheKey = `market-v8|${q.toLowerCase()}|${perSource}`
   const cached = cache.get(cacheKey)
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return res.json({ ...cached.payload, cached: true })
 
   try {
-    const [rawPayload, brasil, sky, vosan, overtake, vertex] = await Promise.all([
+    const [rawPayload, brasil, sky, vosan, overtake, vertex, nativeMarkets] = await Promise.all([
       searchAll(q, { perSource }),
       searchBrasilSimulatorMods(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'BSM search failed' })),
       search3DSky(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : '3DSky search failed' })),
       searchVosan(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'VOSAN search failed' })),
       searchOvertake(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'OverTake search failed' })),
       searchVertexNative(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'Vertex search failed' })),
+      searchNativeMarketSources(q, perSource),
     ])
 
+    const nativeMap = new Map(nativeMarkets.map(item => [item.sourceId, item]))
+    const replacedIds = new Set(['brasil-simulator-mods','3dsky','vosan','overtake','vertex-warehouse',...MARKET_NATIVE_IDS])
     rawPayload.results = [
-      ...rawPayload.results.filter(result => !['brasil-simulator-mods','3dsky','vosan','overtake','vertex-warehouse'].includes(result.sourceId)),
+      ...rawPayload.results.filter(result => !replacedIds.has(result.sourceId)),
       ...brasil.results,
       ...sky.results,
       ...vosan.results,
       ...overtake.results,
       ...vertex.results,
+      ...nativeMarkets.flatMap(item => item.results || []),
     ].map(normalizeMarketResult)
 
     rawPayload.sources = rawPayload.sources.map(source => {
@@ -102,6 +109,8 @@ app.get('/api/search', async (req, res) => {
       if (source.provider === 'vosan') return { ...source, status: vosan.error ? 'error' : 'ok', count: vosan.results.length, pagesFetched: vosan.pagesFetched, error: vosan.error }
       if (source.provider === 'overtake') return { ...source, status: overtake.error ? 'error' : 'ok', count: overtake.results.length, pagesFetched: overtake.pagesFetched, error: overtake.error }
       if (source.provider === 'vertex-warehouse') return { ...source, status: vertex.error ? 'error' : 'ok', count: vertex.results.length, pagesFetched: vertex.pagesFetched, error: vertex.error }
+      const native = nativeMap.get(source.provider)
+      if (native) return { ...source, status: native.status, count: native.results.length, pagesFetched: native.pagesFetched, durationMs: native.durationMs, error: native.error }
       return source
     })
 
