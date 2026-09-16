@@ -23,3 +23,24 @@ jobs:
       - run: node --check src/index.js
       - run: node --check src/search.js
       - run: node --check src/providers.js
+      - run: node --check src/vertex-adapter.js
+      - run: node --check src/brasil-adapter.js
+      - run: node --check src/3dsky-adapter.js
+      - run: node --check src/vosan-adapter.js
+      - run: node --check src/overtake-adapter.js
+      - name: Vertex regression · Funco F9
+        run: |
+          node --input-type=module <<'EOF'
+          import { searchVertexNative } from './src/vertex-adapter.js'
+          const payload = await searchVertexNative('2018 Funco Motorsports F9', 20)
+          const hit = payload.results.find(item => /funco\s+motorsports\s+f9/i.test(item.title))
+          console.log(JSON.stringify({ pagesFetched: payload.pagesFetched, count: payload.results.length, hit }, null, 2))
+          if (!hit) {
+            console.error('Regression: 2018 Funco Motorsports F9 was not returned by the native Vertex adapter.')
+            process.exit(1)
+          }
+          if (hit.game !== 'Forza Horizon 5') {
+            console.error(`Regression: expected Forza Horizon 5, got ${hit.game || 'null'}.`)
+            process.exit(1)
+          }
+          EOF
