@@ -11,7 +11,8 @@ import { searchVertexNative } from './vertex-adapter.js'
 import { searchNativeMarketSources, nativeMarketAdapters } from './market-adapters.js'
 import { search3DBaza, searchWireWheels } from './catalog-adapters.js'
 import { searchCGMoodV2, searchZifir, search3ddd } from './remaining-adapters.js'
-import { searchCGTraderMarket, searchRenderHubClean, search3dCarClean } from './commerce-adapters.js'
+import { searchRenderHubClean, search3dCarClean } from './commerce-adapters.js'
+import { searchCGTraderMarketV2 } from './cgtrader-adapter.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -57,14 +58,14 @@ app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 120)
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
   const perSource = Math.max(1, Math.min(Number(req.query.perSource || 60), 80))
-  const cacheKey = `market-v11|${q.toLowerCase()}|${perSource}`
+  const cacheKey = `market-v12|${q.toLowerCase()}|${perSource}`
   const cached = cache.get(cacheKey)
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return res.json({ ...cached.payload, cached: true })
   try {
     const [rawPayload, brasil, sky, vosan, overtake, vertex, nativeMarketsRaw, baza, wire, cgmood, zifir, renderhub, ddd, carGallery, cgtrader] = await Promise.all([
       searchAll(q, { perSource }),
       safeAdapter(() => searchBrasilSimulatorMods(q, perSource), 'BSM'), safeAdapter(() => search3DSky(q, perSource), '3DSky'), safeAdapter(() => searchVosan(q, perSource), 'VOSAN'), safeAdapter(() => searchOvertake(q, perSource), 'OverTake'), safeAdapter(() => searchVertexNative(q, perSource), 'Vertex'),
-      searchNativeMarketSources(q, perSource), safeAdapter(() => search3DBaza(q, perSource), '3D-Baza'), safeAdapter(() => searchWireWheels(q, perSource), 'Wire Wheels'), safeAdapter(() => searchCGMoodV2(q, perSource), 'CGMood'), safeAdapter(() => searchZifir(q, perSource), 'ZIFIR'), safeAdapter(() => searchRenderHubClean(q, perSource), 'RenderHub'), safeAdapter(() => search3ddd(q, perSource), '3ddd'), safeAdapter(() => search3dCarClean(q, perSource), '3DCar'), safeAdapter(() => searchCGTraderMarket(q, perSource), 'CGTrader'),
+      searchNativeMarketSources(q, perSource), safeAdapter(() => search3DBaza(q, perSource), '3D-Baza'), safeAdapter(() => searchWireWheels(q, perSource), 'Wire Wheels'), safeAdapter(() => searchCGMoodV2(q, perSource), 'CGMood'), safeAdapter(() => searchZifir(q, perSource), 'ZIFIR'), safeAdapter(() => searchRenderHubClean(q, perSource), 'RenderHub'), safeAdapter(() => search3ddd(q, perSource), '3ddd'), safeAdapter(() => search3dCarClean(q, perSource), '3DCar'), safeAdapter(() => searchCGTraderMarketV2(q, perSource), 'CGTrader'),
     ])
     const nativeMarkets = nativeMarketsRaw.filter(item => !['cgmood'].includes(item.sourceId))
     const nativeMap = new Map(nativeMarkets.map(item => [item.sourceId, item]))
