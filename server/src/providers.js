@@ -1,10 +1,21 @@
 const tagSlug = value => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/\s+/).filter(Boolean).pop()?.replace(/[^a-z0-9-]+/g, '-') || 'car'
 
+const knownBrandSlugs = new Map([
+  ['abarth','abarth'],['acura','acura'],['alfa romeo','alfa-romeo'],['aston martin','aston-martin'],['audi','audi'],['bentley','bentley'],['bmw','bmw'],['bugatti','bugatti'],['cadillac','cadillac'],['chevrolet','chevrolet'],['citroen','citroen'],['dodge','dodge'],['ferrari','ferrari'],['fiat','fiat'],['ford','ford'],['honda','honda'],['hyundai','hyundai'],['infiniti','infiniti'],['jaguar','jaguar'],['jeep','jeep'],['kia','kia'],['koenigsegg','koenigsegg'],['lamborghini','lamborghini'],['lancia','lancia'],['land rover','land-rover'],['lexus','lexus'],['lotus','lotus'],['maserati','maserati'],['mazda','mazda'],['mclaren','mclaren'],['mercedes','mercedes-benz'],['mercedes-benz','mercedes-benz'],['mini','mini'],['mitsubishi','mitsubishi'],['nissan','nissan'],['opel','opel'],['pagani','pagani'],['peugeot','peugeot'],['pontiac','pontiac'],['porsche','porsche'],['renault','renault'],['subaru','subaru'],['suzuki','suzuki'],['tesla','tesla'],['toyota','toyota'],['volkswagen','volkswagen'],['volvo','volvo']
+])
+
+const normal = value => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const brandSlugFromQuery = value => {
+  const q = normal(value)
+  const matches = [...knownBrandSlugs.entries()].filter(([brand]) => q === brand || q.startsWith(`${brand} `)).sort((a,b)=>b[0].length-a[0].length)
+  return matches[0]?.[1] || null
+}
+
 export const providers = [
   { id: 'rigmodels', name: 'RigModels', type: '3d-models', freeCatalog: true, pagination: true, baseUrl: 'https://rigmodels.com', buildUrl: q => `https://rigmodels.com/index.php?searchkeyword=${encodeURIComponent(q)}` },
   { id: 'free3d', name: 'Free3D', type: '3d-models', pagination: true, baseUrl: 'https://free3d.com', buildUrl: q => `https://free3d.com/3d-models/${encodeURIComponent(q.trim().replace(/\s+/g, '-'))}` },
   { id: '3drush', name: '3D Rush', type: '3d-models', pagination: true, baseUrl: 'https://3drush.com', buildUrl: q => `https://3drush.com/?s=${encodeURIComponent(q)}` },
-  { id: 'brasil-simulator-mods', name: 'Brasil Simulator Mods', type: 'game-mods', freeCatalog: true, pagination: true, baseUrl: 'https://brasilsimulatormods.com', buildUrl: q => `https://brasilsimulatormods.com/?s=${encodeURIComponent(q)}` },
+  { id: 'brasil-simulator-mods', name: 'Brasil Simulator Mods', type: 'game-mods', freeCatalog: true, pagination: true, adapter: 'brasil', baseUrl: 'https://brasilsimulatormods.com', buildUrl: q => { const brand = brandSlugFromQuery(q); return brand ? `https://brasilsimulatormods.com/en/search/${brand}/` : `https://brasilsimulatormods.com/en/?s=${encodeURIComponent(q)}` } },
   { id: 'overtake', name: 'OverTake.gg', type: 'game-mods', pagination: true, baseUrl: 'https://www.overtake.gg', buildUrl: q => `https://www.overtake.gg/search/?q=${encodeURIComponent(q)}` },
   { id: 'assettomods', name: 'Assetto Mods', type: 'game-mods', defaultGame: 'Assetto Corsa', pagination: true, baseUrl: 'https://assettomods.com', buildUrl: q => `https://assettomods.com/?s=${encodeURIComponent(q)}` },
   { id: 'moddb', name: 'ModDB', type: 'game-mods', freeCatalog: true, pagination: true, baseUrl: 'https://www.moddb.com', buildUrl: q => `https://www.moddb.com/search?q=${encodeURIComponent(`${q} car vehicle`)}` },
