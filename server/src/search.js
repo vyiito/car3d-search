@@ -4,13 +4,43 @@ import { providers } from './providers.js'
 
 const limiter = pLimit(Number(process.env.SEARCH_CONCURRENCY || 5))
 const collectionLimiter = pLimit(3)
-const USER_AGENT = 'VJ3DSearch/0.2 (+https://github.com/vyiito/car3d-search)'
+const USER_AGENT = 'VJ3DSearch/0.3 (+https://github.com/vyiito/car3d-search)'
 const FORMAT_RE = /\b(blend|fbx|obj|stl|3ds|max|c4d|dae|gltf|glb|3mf|skp|ma|mb|step|stp|dwg|dxf|unitypackage|kn5|zip|rar|7z)\b/gi
 const PRICE_RE = /(?:US\$|R\$|\$|€|£)\s?\d+(?:[.,]\d{1,2})?|\b(?:free|grátis|gratis)\b/i
 const FILE_SIZE_RE = /\b\d+(?:[.,]\d+)?\s?(?:KB|MB|GB|TB)\b/i
 const DIRECT_FILE_RE = /\.(?:zip|rar|7z|blend|fbx|obj|stl|3ds|max|c4d|dae|gltf|glb|3mf|kn5)(?:$|[?#])/i
+const YEAR_RE = /\b(19[3-9]\d|20[0-3]\d)\b/
+
+const VEHICLE_ONLY_PROVIDERS = new Set([
+  '3drush', 'brasil-simulator-mods', 'assettomods', 'assettohub', 'ets2lt', 'vosan',
+  'done3d', 'free3dio', 'mediafire-rr3', 'open3dlab', 'vk-3d-car-models'
+])
+
+const BRANDS = [
+  'Abarth','Acura','Alfa Romeo','Alpine','Aston Martin','Audi','Bentley','BMW','Bugatti','Buick','BYD','Cadillac','Caterham','Chery','Chevrolet','Chrysler','Citroen','Cupra','Dacia','Daihatsu','Dodge','Ferrari','Fiat','Ford','Genesis','Geely','GMC','Honda','Holden','Hummer','Hyundai','Infiniti','Isuzu','Jaguar','Jeep','Kia','Koenigsegg','Lada','Lamborghini','Lancia','Land Rover','Lexus','Lincoln','Lotus','Lucid','Mahindra','Maserati','Mazda','McLaren','Mercedes','Mercedes-Benz','Mercury','MG','Mini','Mitsubishi','Nio','Nissan','Oldsmobile','Opel','Pagani','Peugeot','Plymouth','Polestar','Pontiac','Porsche','Proton','Ram','Renault','Rimac','Rivian','Rolls-Royce','Rover','Saab','Saturn','Scion','Seat','Skoda','Smart','Subaru','Suzuki','Tata','Tesla','Toyota','Vauxhall','Volkswagen','Volvo','Wuling','Zeekr',
+  'DAF','Freightliner','International','Iveco','Kamaz','Kenworth','Mack','MAN','Peterbilt','Scania','Western Star','ZIL','GAZ','UAZ',
+  'Aprilia','BMW Motorrad','Can-Am','Ducati','Harley-Davidson','Husqvarna','Indian','Kawasaki','KTM','Royal Enfield','Suzuki','Triumph','Vespa','Yamaha',
+  'Caterpillar','John Deere','Kirovets','Kubota','Massey Ferguson','New Holland'
+]
+
+const VEHICLE_TERMS = [
+  'car','cars','vehicle','vehicles','automobile','automotive','sedan','saloon','coupe','coupé','hatchback','hatch','wagon','estate','roadster','convertible','cabriolet','cabrio','supercar','hypercar','racecar','race car','racing car','sports car','muscle car','concept car','taxi','police car','ambulance','limousine',
+  'suv','crossover','4x4','offroad','off-road','pickup','pick-up','ute','truck','lorry','semi truck','tractor unit','bus','coach','minibus','van','minivan','mpv','camper','motorhome','trailer',
+  'motorcycle','motorbike','bike','scooter','moped','quad','atv','kart','go-kart','buggy','formula','gt3','gt4','rally','drift','nascar','indycar','dragster',
+  'tractor','harvester','excavator','bulldozer','forklift','loader','agricultural vehicle'
+]
+
+const NEGATIVE_TERMS = [
+  'cityscape','city block','city hall','city center','city centre','downtown','skyline','building','buildings','architecture','architectural','house','apartment','skyscraper','street scene','urban scene','terrain','landscape','village','town','furniture','chair','sofa','table','room','interior scene','airport terminal','train station'
+]
 
 const clean = value => String(value || '').replace(/\s+/g, ' ').trim()
+const norm = value => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const phraseRegex = value => new RegExp(`(^|[^a-z0-9])${escapeRegex(norm(value))}([^a-z0-9]|$)`, 'i')
+const BRAND_PATTERNS = BRANDS.map(name => [name, phraseRegex(name)])
+const VEHICLE_PATTERNS = VEHICLE_TERMS.map(term => [term, phraseRegex(term)])
+const NEGATIVE_PATTERNS = NEGATIVE_TERMS.map(term => [term, phraseRegex(term)])
 
 function absoluteUrl(value, base) {
   if (!value) return null
@@ -18,12 +48,12 @@ function absoluteUrl(value, base) {
 }
 
 function scoreText(text, query) {
-  const source = clean(text).toLowerCase()
-  const tokens = clean(query).toLowerCase().split(/\s+/).filter(t => t.length > 1)
+  const source = norm(text)
+  const tokens = norm(query).split(/\s+/).filter(t => t.length > 1)
   if (!tokens.length) return 0
   let score = 0
   for (const token of tokens) if (source.includes(token)) score += 1
-  if (source.includes(clean(query).toLowerCase())) score += 3
+  if (source.includes(norm(query))) score += 3
   return score
 }
 
@@ -44,6 +74,66 @@ function parseFileSize(text) {
   return clean(text).match(FILE_SIZE_RE)?.[0] || null
 }
 
+function findBrand(text) {
+  const value = norm(text)
+  for (const [brand, pattern] of BRAND_PATTERNS) if (pattern.test(value)) return brand
+  return null
+}
+
+function matchingVehicleTerms(text) {
+  const value = norm(text)
+  return VEHICLE_PATTERNS.filter(([, pattern]) => pattern.test(value)).map(([term]) => term)
+}
+
+function negativeCount(text) {
+  const value = norm(text)
+  return NEGATIVE_PATTERNS.reduce((count, [, pattern]) => count + (pattern.test(value) ? 1 : 0), 0)
+}
+
+function inferVehicleClass(text, providerId) {
+  const value = norm(text)
+  const has = (...terms) => terms.some(term => phraseRegex(term).test(value))
+  if (has('motorcycle','motorbike','scooter','moped','bike','quad','atv')) return 'Motorcycle'
+  if (has('bus','coach','minibus')) return 'Bus'
+  if (has('tractor','harvester','excavator','bulldozer','forklift','loader','agricultural vehicle')) return 'Utility / Tractor'
+  if (has('truck','lorry','semi truck','tractor unit','pickup','pick-up','ute')) return 'Truck / Pickup'
+  if (has('van','minivan','mpv','camper','motorhome')) return 'Van'
+  if (has('suv','crossover','4x4','offroad','off-road')) return 'SUV'
+  if (has('formula','gt3','gt4','rally','drift','racecar','race car','racing car','nascar','indycar','dragster')) return 'Race Car'
+  if (providerId === 'ets2lt') return 'Truck / Pickup'
+  if (['assettomods','assettohub','vosan','mediafire-rr3','vk-3d-car-models','done3d','3drush','open3dlab'].includes(providerId)) return 'Car'
+  return 'Car'
+}
+
+function inferYear(text) {
+  const match = clean(text).match(YEAR_RE)
+  return match ? Number(match[1]) : null
+}
+
+function automotiveMeta(title, description, provider) {
+  const titleText = clean(title)
+  const fullText = `${titleText} ${clean(description)}`
+  const brand = findBrand(titleText) || findBrand(fullText)
+  const titleVehicleTerms = matchingVehicleTerms(titleText)
+  const fullVehicleTerms = matchingVehicleTerms(fullText)
+  const negatives = negativeCount(titleText)
+  const dedicated = VEHICLE_ONLY_PROVIDERS.has(provider.id)
+  const automotive = Boolean(brand || titleVehicleTerms.length || (dedicated && fullVehicleTerms.length)) && !(negatives >= 2 && !brand && !titleVehicleTerms.length)
+  return {
+    automotive,
+    brand,
+    year: inferYear(titleText),
+    vehicleClass: inferVehicleClass(fullText, provider.id),
+    autoSignalScore: (brand ? 4 : 0) + titleVehicleTerms.length * 2 + Math.min(fullVehicleTerms.length, 3) - negatives * 2,
+  }
+}
+
+function decorateResult(result, provider) {
+  const meta = automotiveMeta(result.title, result.description, provider)
+  if (!meta.automotive) return null
+  return { ...result, brand: meta.brand, year: meta.year, vehicleClass: meta.vehicleClass, score: result.score + Math.max(meta.autoSignalScore, 0) }
+}
+
 function bestImage($, card, baseUrl) {
   const img = card.find('img').first()
   const raw = img.attr('src') || img.attr('data-src') || img.attr('data-lazy-src') || img.attr('data-original') || img.attr('srcset')?.split(',')[0]?.trim().split(' ')[0]
@@ -53,8 +143,7 @@ function bestImage($, card, baseUrl) {
 function bestTitle($, card, anchor) {
   const heading = card.find('h1,h2,h3,h4,h5,.title,.name').first().text()
   const aria = anchor.attr('aria-label') || anchor.attr('title')
-  const text = anchor.text()
-  return clean(heading || aria || text)
+  return clean(heading || aria || anchor.text())
 }
 
 function bestAuthor($, card) {
@@ -67,10 +156,8 @@ function directDownloadUrl($, card, baseUrl) {
   let found = null
   card.find('a[href]').each((_, el) => {
     if (found) return false
-    const href = $(el).attr('href') || ''
-    const url = absoluteUrl(href, baseUrl)
-    if (!url) return
-    if (DIRECT_FILE_RE.test(url)) found = url
+    const url = absoluteUrl($(el).attr('href') || '', baseUrl)
+    if (url && DIRECT_FILE_RE.test(url)) found = url
   })
   return found
 }
@@ -82,10 +169,7 @@ function descriptionFromText(text, title) {
 }
 
 function candidateCards($) {
-  const selectors = [
-    'article', '.card', '.product', '.product-item', '.model', '.model-card', '.item',
-    '.resource', '.download', '.search-result', '.result', '.grid-item', '.file', '.project', 'li'
-  ]
+  const selectors = ['article','.card','.product','.product-item','.model','.model-card','.item','.resource','.download','.search-result','.result','.grid-item','.file','.project','li']
   const seen = new Set()
   const cards = []
   for (const selector of selectors) {
@@ -107,17 +191,11 @@ async function fetchHtml(url, timeoutMs = 10000) {
     const response = await fetch(url, {
       signal: controller.signal,
       redirect: 'follow',
-      headers: {
-        'user-agent': USER_AGENT,
-        'accept': 'text/html,application/xhtml+xml',
-        'accept-language': 'en-US,en;q=0.9,pt-BR;q=0.8',
-      },
+      headers: { 'user-agent': USER_AGENT, accept: 'text/html,application/xhtml+xml', 'accept-language': 'en-US,en;q=0.9,pt-BR;q=0.8' },
     })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     return await response.text()
-  } finally {
-    clearTimeout(timer)
-  }
+  } finally { clearTimeout(timer) }
 }
 
 function extractHtmlResults(provider, query, limit, html) {
@@ -133,7 +211,7 @@ function extractHtmlResults(provider, query, limit, html) {
     if (!title || title.length < 3) return
     const { price, isFree } = parsePrice(text)
     const downloadUrl = directDownloadUrl($, card, provider.baseUrl)
-    results.push({
+    const candidate = decorateResult({
       id: `${provider.id}:${Buffer.from(sourceUrl).toString('base64url').slice(0, 24)}`,
       title,
       source: provider.name,
@@ -150,7 +228,9 @@ function extractHtmlResults(provider, query, limit, html) {
       description: descriptionFromText(text, title),
       fileSize: parseFileSize(text),
       score: relevance,
-    })
+    }, provider)
+    if (!candidate) return
+    results.push(candidate)
     seen.add(sourceUrl)
   }
 
@@ -177,7 +257,7 @@ function extractHtmlResults(provider, query, limit, html) {
       if (title.length < 4 || relevance <= 0) return
       const sourceUrl = absoluteUrl(anchor.attr('href'), provider.baseUrl)
       if (!sourceUrl || seen.has(sourceUrl)) return
-      results.push({
+      const candidate = decorateResult({
         id: `${provider.id}:${Buffer.from(sourceUrl).toString('base64url').slice(0, 24)}`,
         title,
         source: provider.name,
@@ -188,17 +268,18 @@ function extractHtmlResults(provider, query, limit, html) {
         formats: [],
         price: null,
         isFree: null,
-        downloadable: null,
+        downloadable: DIRECT_FILE_RE.test(sourceUrl) ? true : null,
         downloadUrl: DIRECT_FILE_RE.test(sourceUrl) ? sourceUrl : null,
         author: null,
         description: null,
         fileSize: null,
         score: relevance,
-      })
+      }, provider)
+      if (!candidate) return
+      results.push(candidate)
       seen.add(sourceUrl)
     })
   }
-
   return results
 }
 
@@ -214,7 +295,7 @@ async function searchSketchfab(provider, query, limit) {
     const response = await fetch(url, { signal: controller.signal, headers: { 'user-agent': USER_AGENT } })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const data = await response.json()
-    return (data.results || []).slice(0, limit).map(model => ({
+    return (data.results || []).map(model => decorateResult({
       id: `${provider.id}:${model.uid}`,
       title: clean(model.name),
       source: provider.name,
@@ -231,16 +312,12 @@ async function searchSketchfab(provider, query, limit) {
       description: clean(model.description).slice(0, 420) || null,
       fileSize: null,
       score: scoreText(`${model.name} ${model.description || ''}`, query) + 3,
-    }))
-  } finally {
-    clearTimeout(timer)
-  }
+    }, provider)).filter(Boolean).slice(0, limit)
+  } finally { clearTimeout(timer) }
 }
 
 async function searchHtmlProvider(provider, query, limit) {
-  const searchUrl = provider.buildUrl(query)
-  const html = await fetchHtml(searchUrl)
-  return extractHtmlResults(provider, query, limit, html)
+  return extractHtmlResults(provider, query, limit, await fetchHtml(provider.buildUrl(query)))
 }
 
 async function searchCollectionProvider(provider, query, limit) {
@@ -249,13 +326,9 @@ async function searchCollectionProvider(provider, query, limit) {
     const carCollection = 'https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/'
     for (let page = 2; page <= 7; page += 1) urls.push(`${carCollection}?page=${page}`)
   }
-  const uniqueUrls = [...new Set(urls)]
-  const documents = await Promise.allSettled(uniqueUrls.map(url => collectionLimiter(() => fetchHtml(url, 12000))))
+  const documents = await Promise.allSettled([...new Set(urls)].map(url => collectionLimiter(() => fetchHtml(url, 12000))))
   const merged = []
-  for (const document of documents) {
-    if (document.status !== 'fulfilled') continue
-    merged.push(...extractHtmlResults(provider, query, limit, document.value))
-  }
+  for (const document of documents) if (document.status === 'fulfilled') merged.push(...extractHtmlResults(provider, query, limit, document.value))
   return dedupe(merged).slice(0, limit)
 }
 
@@ -267,26 +340,9 @@ async function searchProvider(provider, query, limit) {
       : provider.adapter === 'collection'
         ? await searchCollectionProvider(provider, query, limit)
         : await searchHtmlProvider(provider, query, limit)
-    return {
-      provider: provider.id,
-      name: provider.name,
-      status: 'ok',
-      count: results.length,
-      searchUrl: provider.buildUrl(query),
-      durationMs: Date.now() - started,
-      results,
-    }
+    return { provider: provider.id, name: provider.name, status: 'ok', count: results.length, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, results }
   } catch (error) {
-    return {
-      provider: provider.id,
-      name: provider.name,
-      status: 'error',
-      count: 0,
-      searchUrl: provider.buildUrl(query),
-      durationMs: Date.now() - started,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      results: [],
-    }
+    return { provider: provider.id, name: provider.name, status: 'error', count: 0, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, error: error instanceof Error ? error.message : 'Unknown error', results: [] }
   }
 }
 
@@ -302,8 +358,7 @@ function dedupe(results) {
 
 export async function searchAll(query, options = {}) {
   const perSource = Math.max(1, Math.min(Number(options.perSource || 20), 50))
-  const jobs = providers.map(provider => limiter(() => searchProvider(provider, query, perSource)))
-  const sources = await Promise.all(jobs)
+  const sources = await Promise.all(providers.map(provider => limiter(() => searchProvider(provider, query, perSource))))
   const results = dedupe(sources.flatMap(source => source.results))
   return {
     query,
@@ -311,6 +366,7 @@ export async function searchAll(query, options = {}) {
     providerCount: providers.length,
     searchedProviders: sources.length,
     successfulProviders: sources.filter(x => x.status === 'ok').length,
+    automotiveOnly: true,
     results,
     sources: sources.map(({ results: _results, ...source }) => source),
   }
