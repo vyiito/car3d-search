@@ -4,7 +4,7 @@ import { providers } from './providers.js'
 
 const limiter = pLimit(Number(process.env.SEARCH_CONCURRENCY || 5))
 const collectionLimiter = pLimit(3)
-const USER_AGENT = 'VJ3DSearch/0.9 (+https://github.com/vyiito/car3d-search)'
+const USER_AGENT = 'VJ3DSearch/1.0 (+https://github.com/vyiito/car3d-search)'
 const MAX_HTML_PAGES = Math.max(1, Math.min(Number(process.env.MAX_PROVIDER_PAGES || 5), 10))
 const MAX_VERTEX_PAGES = Math.max(1, Math.min(Number(process.env.MAX_VERTEX_PAGES || 8), 20))
 const FORMAT_RE = /\b(blend|fbx|obj|stl|3ds|max|c4d|dae|gltf|glb|3mf|skp|ma|mb|step|stp|dwg|dxf|unitypackage|kn5|dds|png|jpg|jpeg|textures|zip|rar|7z)\b/gi
@@ -41,6 +41,8 @@ const GAMES = [
   ['Forza Horizon 4',['forza horizon 4','fh4']],
   ['Forza Horizon 6',['forza horizon 6','fh6']],
   ['Forza Motorsport',['forza motorsport','fm8']],
+  ['Gran Turismo 7',['gran turismo 7','gt7']],
+  ['Gran Turismo Sport',['gran turismo sport','gtsport']],
   ['Assetto Corsa Competizione',['assetto corsa competizione','acc']],
   ['Assetto Corsa',['assetto corsa']],
   ['CarX Drift Racing 2',['carx drift racing 2','cxdr 2']],
@@ -69,6 +71,7 @@ const phraseRegex = value => new RegExp(`(^|[^a-z0-9])${escapeRegex(norm(value))
 const BRAND_PATTERNS = BRANDS.map(name => [name, phraseRegex(name)])
 const VEHICLE_PATTERNS = VEHICLE_TERMS.map(term => [term, phraseRegex(term)])
 const NEGATIVE_PATTERNS = NEGATIVE_TERMS.map(term => [term, phraseRegex(term)])
+let vertexActionCache = { id: null, expiresAt: 0 }
 
 function absoluteUrl(value, base) {
   if (!value) return null
@@ -370,42 +373,115 @@ function parseVertexPage(html) {
   for (const payload of payloads) {
     if (!payload.includes('initialData')) continue
     const items = extractJsonArrayAfter(payload, '"initialData":')
-    if (Array.isArray(items)) return { items, hasNext: /"isNextPage":true/.test(payload) }
+    if (Array.isArray(items)) {
+      const itemsPerPage = Number(payload.match(/"itemsPerPage":(\d+)/)?.[1] || items.length || 11)
+      return { items, itemsPerPage, hasNext: /"isNextPage":true/.test(payload) }
+    }
   }
-  return { items: [], hasNext: false }
+  return { items: [], itemsPerPage: 11, hasNext: false }
+}
+
+async function discoverVertexActionId(html, pageUrl) {
+  if (vertexActionCache.id && Date.now() < vertexActionCache.expiresAt) return vertexActionCache.id
+  const $ = cheerio.load(html)
+  const scriptUrls = $('script[src]').map((_, element) => absoluteUrl($(element).attr('src'), pageUrl)).get().filter(Boolean)
+  const scriptUrl = scriptUrls.find(url => /\/search\/page-[^/]+\.js(?:$|\?)/.test(url))
+  if (!scriptUrl) return null
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 9000)
+  try {
+    const response = await fetch(scriptUrl, { signal: controller.signal, headers: { 'user-agent': USER_AGENT, accept: 'application/javascript,*/*' } })
+    if (!response.ok) return null
+    const js = await response.text()
+    const exportMatch = js.match(/Qx:function\(\)\{return ([A-Za-z_$][\w$]*)\}/)
+    if (!exportMatch) return null
+    const variable = exportMatch[1]
+    const assignment = new RegExp(`${escapeRegex(variable)}=\\(0,[A-Za-z_$][\\w$]*\\.\\$\\)\\(\"([a-f0-9]{40})\"\\)`).exec(js)
+    const id = assignment?.[1] || null
+    if (id) vertexActionCache = { id, expiresAt: Date.now() + 30 * 60 * 1000 }
+    return id
+  } catch { return null }
+  finally { clearTimeout(timer) }
+}
+
+function parseVertexActionResponse(text) {
+  const lines = String(text || '').split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+  for (const line of lines.reverse()) {
+    const match = line.match(/^\d+:(\{[\s\S]*\})$/)
+    if (!match) continue
+    try {
+      const payload = JSON.parse(match[1])
+      if (Array.isArray(payload?.data)) return payload
+    } catch {}
+  }
+  return null
+}
+
+async function callVertexSearchAction(provider, actionId, query, page, itemsPerPage) {
+  const url = provider.buildUrl(query)
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 12000)
+  try {
+    const response = await fetch(url, {
+      method: 'POST', signal: controller.signal, redirect: 'follow',
+      headers: {
+        'user-agent': USER_AGENT,
+        accept: 'text/x-component',
+        'content-type': 'text/plain;charset=UTF-8',
+        'next-action': actionId,
+        origin: provider.baseUrl,
+        referer: url,
+      },
+      body: JSON.stringify([query, { page, itemsPerPage }]),
+    })
+    if (!response.ok) throw new Error(`Vertex action HTTP ${response.status}`)
+    return parseVertexActionResponse(await response.text())
+  } finally { clearTimeout(timer) }
+}
+
+function addVertexItems(provider, query, items, merged, seen, limit) {
+  let added = 0
+  for (const item of items || []) {
+    if (!item?.id || seen.has(item.id)) continue
+    seen.add(item.id)
+    const title = clean(item?.name)
+    if (!title || !item?.pages?.key) continue
+    const shortId = String(item.id).split('-')[0]
+    const sourceUrl = `${provider.baseUrl}/models/${encodeURIComponent(item.pages.key)}/${encodeURIComponent(shortId)}/${vertexSlug(title)}`
+    const game = clean(item.pages?.name) || null
+    const description = [game, Array.isArray(item.tags) && item.tags.length ? `Tags: ${item.tags.join(', ')}` : null].filter(Boolean).join(' · ')
+    const candidate = decorateResult({
+      id: `${provider.id}:${item.id}`, title, source: provider.name, sourceId: provider.id, sourceType: provider.type, sourceUrl,
+      imageUrl: Array.isArray(item.images) ? item.images[0] || null : null,
+      formats: Array.isArray(item.formats) ? [...new Set(item.formats.map(value => String(value).toUpperCase()))].slice(0, 12) : [],
+      price: 0, isFree: true, downloadable: true, downloadUrl: null, game,
+      author: item.created_by?.username || null, description: description || null, fileSize: null,
+      score: scoreText(`${title} ${(item.tags || []).join(' ')} ${game || ''}`, query) + 5,
+    }, provider)
+    if (candidate) { merged.push(candidate); added += 1 }
+    if (merged.length >= limit) break
+  }
+  return added
 }
 
 async function searchVertex(provider, query, limit) {
   const merged = [], seen = new Set()
-  let pagesFetched = 0
-  for (let page = 1; page <= MAX_VERTEX_PAGES && merged.length < limit; page += 1) {
-    const url = new URL(provider.buildUrl(query))
-    if (page > 1) url.searchParams.set('page', String(page))
-    const { html } = await fetchHtml(url.href, 12000)
+  const firstUrl = provider.buildUrl(query)
+  const first = await fetchHtml(firstUrl, 12000)
+  const parsed = parseVertexPage(first.html)
+  let pagesFetched = 1
+  addVertexItems(provider, query, parsed.items, merged, seen, limit)
+  let hasNext = parsed.hasNext
+  if (!hasNext || merged.length >= limit) return { results: dedupe(merged).slice(0, limit), pagesFetched }
+
+  const actionId = await discoverVertexActionId(first.html, first.finalUrl)
+  if (!actionId) return { results: dedupe(merged).slice(0, limit), pagesFetched }
+
+  for (let page = 2; page <= MAX_VERTEX_PAGES && hasNext && merged.length < limit; page += 1) {
+    const payload = await callVertexSearchAction(provider, actionId, query, page, parsed.itemsPerPage)
+    if (!payload) break
     pagesFetched += 1
-    const parsed = parseVertexPage(html)
-    let newItems = 0
-    for (const item of parsed.items) {
-      if (!item?.id || seen.has(item.id)) continue
-      seen.add(item.id); newItems += 1
-      const title = clean(item?.name)
-      if (!title || !item?.pages?.key) continue
-      const shortId = String(item.id).split('-')[0]
-      const sourceUrl = `${provider.baseUrl}/models/${encodeURIComponent(item.pages.key)}/${encodeURIComponent(shortId)}/${vertexSlug(title)}`
-      const game = clean(item.pages?.name) || null
-      const description = [game, Array.isArray(item.tags) && item.tags.length ? `Tags: ${item.tags.join(', ')}` : null].filter(Boolean).join(' · ')
-      const candidate = decorateResult({
-        id: `${provider.id}:${item.id}`, title, source: provider.name, sourceId: provider.id, sourceType: provider.type, sourceUrl,
-        imageUrl: Array.isArray(item.images) ? item.images[0] || null : null,
-        formats: Array.isArray(item.formats) ? [...new Set(item.formats.map(value => String(value).toUpperCase()))].slice(0, 12) : [],
-        price: 0, isFree: true, downloadable: true, downloadUrl: null, game,
-        author: item.created_by?.username || null, description: description || null, fileSize: null,
-        score: scoreText(`${title} ${(item.tags || []).join(' ')} ${game || ''}`, query) + 5,
-      }, provider)
-      if (candidate) merged.push(candidate)
-      if (merged.length >= limit) break
-    }
-    if (!parsed.hasNext || newItems === 0) break
+    const added = addVertexItems(provider, query, payload.data, merged, seen, limit)
+    hasNext = Boolean(payload.isNextPage)
+    if (!added) break
   }
   return { results: dedupe(merged).slice(0, limit), pagesFetched }
 }
@@ -529,5 +605,14 @@ export async function searchAll(query, options = {}) {
   const perSource = Math.max(1, Math.min(Number(options.perSource || 40), 80))
   const sources = await Promise.all(providers.map(provider => limiter(() => searchProvider(provider, query, perSource))))
   const results = dedupe(sources.flatMap(source => source.results))
-  return { query, total: results.length, providerCount: providers.length, searchedProviders: sources.length, successfulProviders: sources.filter(x => x.status === 'ok').length, automotiveOnly: true, results, sources: sources.map(({ results: _results, ...source }) => source) }
+  return {
+    query,
+    total: results.length,
+    providerCount: providers.length,
+    searchedProviders: sources.length,
+    successfulProviders: sources.filter(x => x.status === 'ok').length,
+    automotiveOnly: true,
+    results,
+    sources: sources.map(({ results: _results, ...source }) => source),
+  }
 }
