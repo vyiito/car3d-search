@@ -85,28 +85,14 @@ jobs:
           let specializedHits = 0
           for (const asset of cases) {
             const pack = await searchReferencePack(asset, { perAngle: 2 })
-            const fake = pack.images.filter(image => /\b(?:lego|technic|die[- ]?cast|hot wheels|matchbox|toy|miniature|model kit|3d render|game screenshot)\b/i.test(`${image.title} ${image.sourcePage}`))
+            const fake = pack.images.filter(image => /\b(?:lego|technic|die[- ]?cast|hot\s*wheels|hotwheels|tomica|matchbox|toy|miniature|model kit|r\s*\/\s*c|3d render|game screenshot)\b/i.test(`${image.title} ${image.sourcePage}`))
             const bikeLeak = asset.vehicleClass === 'Car' ? pack.images.filter(image => /\b(?:motorcycle|motorbike|v[- ]?strom|vstrom|scooter|moped)\b/i.test(`${image.title} ${image.sourcePage}`)) : []
             const specialized = pack.images.filter(image => image.sourceKind === 'specialized')
             specializedHits += specialized.length
-            console.log(JSON.stringify({
-              asset: asset.title,
-              canonical: pack.canonicalVehicle,
-              year: pack.year,
-              images: pack.images.length,
-              specializedImages: specialized.length,
-              angles: pack.angleCoverage,
-              fake: fake.map(x => x.title),
-              bikeLeak: bikeLeak.map(x => x.title),
-              sourceGroups: pack.sourceGroups,
-              sourceStatus: pack.sourceStatus,
-              primarySet: pack.primarySet,
-              modelingCoverage: pack.modelingCoverage,
-              identity: pack.identity,
-            }, null, 2))
+            console.log(JSON.stringify({ asset:asset.title, canonical:pack.canonicalVehicle, year:pack.year, images:pack.images.length, specializedImages:specialized.length, angles:pack.angleCoverage, fake:fake.map(x=>x.title), bikeLeak:bikeLeak.map(x=>x.title), sourceGroups:pack.sourceGroups, sourceStatus:pack.sourceStatus, primarySet:pack.primarySet, modelingCoverage:pack.modelingCoverage, identity:pack.identity }, null, 2))
             if (fake.length || bikeLeak.length) process.exit(1)
             if (asset.title.startsWith('Sayrx') && (!/^Toyota Supra/i.test(pack.canonicalVehicle) || pack.year)) process.exit(1)
-            if (pack.identity?.engine !== 'generic-v6-strict') process.exit(1)
+            if (pack.identity?.engine !== 'generic-v7-exact') process.exit(1)
             if (!pack.modelingCoverage || !Number.isFinite(pack.modelingCoverage.readiness)) process.exit(1)
             if (!Array.isArray(pack.sourceStatus) || pack.sourceStatus.length !== 4) process.exit(1)
             const linkIds = new Set((pack.webSearch || []).map(link => link.id))
