@@ -1,6 +1,6 @@
 import type { GlobalSearchResult } from './search'
 
-export type ReferenceAngle = 'front' | 'rear' | 'side' | 'three-quarter' | 'interior' | 'details' | string
+export type ReferenceAngle = 'front' | 'rear' | 'side' | 'three-quarter' | 'interior' | 'details' | 'reference' | string
 
 export interface ReferenceImage {
   id: string
@@ -21,17 +21,26 @@ export interface ReferenceImage {
   height: number | null
   downloadAllowed: boolean
   redistributionNote: string
+  matchLevel?: 'exact' | 'generation' | 'family' | 'alias' | string
+}
+
+export interface ReferenceSearchLink {
+  id: string
+  label: string
+  url: string
 }
 
 export interface ReferencePack {
   packId: string
   query: string
+  queryVariants?: Array<{ query: string; matchLevel: string }>
   title: string
   brand: string | null
   year: number | null
   images: ReferenceImage[]
   downloadableCount: number
   angleCoverage: string[]
+  webSearch?: ReferenceSearchLink[]
   createdAt: string
   expiresInSeconds: number
 }
