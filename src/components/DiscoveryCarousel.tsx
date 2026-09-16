@@ -6,7 +6,7 @@ import {
 import { globalSearch, type GlobalSearchResult } from '../api/search'
 import '../discovery.css'
 
-type DiscoveryMode = 'Destaques' | 'Grátis' | 'Download direto' | 'Corrida'
+type DiscoveryMode = 'Destaques' | 'Download direto' | 'Corrida' | 'Com imagem'
 
 interface DiscoveryCarouselProps {
   onSelect: (result: GlobalSearchResult) => void
@@ -15,7 +15,7 @@ interface DiscoveryCarouselProps {
 
 function curateResults(results: GlobalSearchResult[]) {
   const sorted = [...results]
-    .filter(result => result.title && result.sourceUrl)
+    .filter(result => result.title && result.sourceUrl && result.isFree === true)
     .sort((a, b) => Number(Boolean(b.imageUrl)) - Number(Boolean(a.imageUrl)) || b.score - a.score)
 
   const sourceCount = new Map<string, number>()
@@ -62,9 +62,9 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
   }, [])
 
   const visibleItems = useMemo(() => {
-    if (mode === 'Grátis') return items.filter(item => item.isFree === true)
     if (mode === 'Download direto') return items.filter(item => Boolean(item.downloadUrl))
     if (mode === 'Corrida') return items.filter(item => item.vehicleClass === 'Race Car' || /race|racing|gt3|rally|drift|formula/i.test(item.title))
+    if (mode === 'Com imagem') return items.filter(item => Boolean(item.imageUrl))
     return items
   }, [items, mode])
 
@@ -79,12 +79,12 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
   }
 
   return (
-    <section className="discoverySection" aria-label="Descobrir modelos 3D automotivos">
+    <section className="discoverySection" aria-label="Descobrir modelos 3D automotivos gratuitos">
       <div className="discoveryHead">
         <div>
-          <span className="discoveryEyebrow"><Sparkles size={13}/> DESCOBERTA AO VIVO</span>
-          <h2>Encontre algo que você nem estava procurando.</h2>
-          <p>Uma seleção dinâmica de veículos reais encontrados nas bases do VJ 3D Search. Nada aqui é modelo de teste.</p>
+          <span className="discoveryEyebrow"><Sparkles size={13}/> DESCOBERTA GRATUITA</span>
+          <h2>Modelos automotivos gratuitos para explorar.</h2>
+          <p>Uma seleção dinâmica de veículos reais encontrados nas bases do VJ 3D Search. Apenas itens gratuitos entram nesta vitrine.</p>
         </div>
         <div className="discoveryActions">
           <button className="surpriseButton" onClick={surprise} disabled={!items.length}><Shuffle size={15}/> Surpreenda-me</button>
@@ -94,16 +94,16 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
       </div>
 
       <div className="discoveryModes">
-        {(['Destaques', 'Grátis', 'Download direto', 'Corrida'] as DiscoveryMode[]).map(item => (
+        {(['Destaques', 'Download direto', 'Corrida', 'Com imagem'] as DiscoveryMode[]).map(item => (
           <button key={item} className={mode === item ? 'active' : ''} onClick={() => setMode(item)}>{item}</button>
         ))}
-        <span className="liveIndicator"><i/> resultados reais do agregador</span>
+        <span className="liveIndicator"><i/> somente resultados gratuitos</span>
       </div>
 
       {loading && (
         <div className="discoveryLoading">
           <LoaderCircle className="spin" size={24}/>
-          <div><strong>Montando sua vitrine automotiva</strong><span>Buscando previews reais nas fontes indexadas...</span></div>
+          <div><strong>Montando sua vitrine gratuita</strong><span>Buscando veículos grátis nas fontes indexadas...</span></div>
         </div>
       )}
 
@@ -115,7 +115,7 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
 
       {!loading && !error && visibleItems.length === 0 && (
         <div className="discoveryError">
-          <CarFront size={23}/><div><strong>Nenhum item nesta seleção.</strong><span>Troque o filtro acima para ver outros veículos.</span></div>
+          <CarFront size={23}/><div><strong>Nenhum item gratuito nesta seleção.</strong><span>Troque o filtro acima para ver outros veículos.</span></div>
         </div>
       )}
 
@@ -130,9 +130,7 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
                 <div className="discoveryShade"/>
                 <span className="discoveryIndex">{String(index + 1).padStart(2, '0')}</span>
                 <span className="discoveryType"><CarFront size={11}/>{result.vehicleClass}</span>
-                <span className={result.isFree === true ? 'discoveryPrice free' : 'discoveryPrice'}>
-                  {result.isFree === true ? 'GRÁTIS' : result.price != null ? `$${result.price}` : result.source}
-                </span>
+                <span className="discoveryPrice free">GRÁTIS</span>
                 {result.downloadUrl && <span className="discoveryDownload"><Download size={11}/> DOWNLOAD</span>}
               </div>
               <div className="discoveryBody">
@@ -148,8 +146,8 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
           ))}
           <button className="discoverMoreCard" onClick={() => onSearch('car')}>
             <span><Search size={24}/></span>
-            <strong>Explorar o catálogo</strong>
-            <small>Veja ainda mais veículos encontrados nas bases.</small>
+            <strong>Explorar modelos grátis</strong>
+            <small>Veja mais veículos gratuitos encontrados nas bases.</small>
             <b>Pesquisar agora <ArrowUpRight size={14}/></b>
           </button>
         </div>
