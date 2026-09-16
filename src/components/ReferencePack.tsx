@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Check, Download, ExternalLink, Image as ImageIcon, LoaderCircle, PackageOpen, RefreshCw, Square, SquareCheckBig } from 'lucide-react'
+import { Check, Download, ExternalLink, Globe2, Image as ImageIcon, LoaderCircle, PackageOpen, RefreshCw, Square, SquareCheckBig } from 'lucide-react'
 import type { GlobalSearchResult } from '../api/search'
 import { getReferencePack, referencePackDownloadUrl, type ReferenceImage, type ReferencePack as ReferencePackData } from '../api/references'
 import '../reference-pack.css'
@@ -8,7 +8,7 @@ interface Props { result: GlobalSearchResult }
 
 type AngleFilter = 'all' | string
 
-const angleOrder = ['front','rear','side','three-quarter','interior','details']
+const angleOrder = ['front','rear','side','three-quarter','interior','details','reference']
 
 function resolutionLabel(image: ReferenceImage) {
   if (!image.width || !image.height) return null
@@ -67,22 +67,24 @@ export default function ReferencePack({ result }: Props) {
   const selectAll = () => setSelected(new Set(downloadable.map(image => image.id)))
   const clearAll = () => setSelected(new Set())
 
+  const webLinks = pack?.webSearch || []
+
   return (
     <section className="referencePack">
       <div className="referencePackHeading">
         <div>
           <span className="referencePackCode">VJ REFERENCE KIT / 05</span>
           <h3>FOTOS REAIS PARA MODELAGEM</h3>
-          <p>Referências abertas do carro real, organizadas por ângulo. Selecione as imagens reutilizáveis e baixe tudo em um único .ZIP.</p>
+          <p>O VJ limpa o nome do asset, tenta ano, geração, aliases e o nome simples do carro. Imagens com licença compatível podem entrar no .ZIP; o restante fica como referência.</p>
         </div>
-        {pack && <div className="referencePackStats"><strong>{pack.images.length}</strong><span>IMAGENS</span><strong>{pack.angleCoverage.length}</strong><span>ÂNGULOS</span></div>}
+        {pack && <div className="referencePackStats"><strong>{pack.images.length}</strong><span>IMAGENS</span><strong>{pack.angleCoverage.length}</strong><span>GRUPOS</span></div>}
       </div>
 
-      {loading && <div className="referencePackLoading"><LoaderCircle className="spin" size={20}/><div><strong>BUSCANDO REFERÊNCIAS REAIS</strong><span>Openverse + Wikimedia Commons · frente · traseira · lateral · interior · detalhes</span></div></div>}
+      {loading && <div className="referencePackLoading"><LoaderCircle className="spin" size={20}/><div><strong>IDENTIFICANDO O CARRO E BUSCANDO REFERÊNCIAS</strong><span>nome limpo · geração · aliases · Openverse · Wikimedia Commons</span></div></div>}
 
       {!loading && error && <div className="referencePackEmpty"><ImageIcon size={26}/><div><strong>NÃO FOI POSSÍVEL CARREGAR AS REFERÊNCIAS</strong><span>A busca de assets continua funcionando normalmente.</span></div><button onClick={() => setReloadKey(value => value + 1)}><RefreshCw size={14}/> TENTAR NOVAMENTE</button></div>}
 
-      {!loading && !error && pack && !pack.images.length && <div className="referencePackEmpty"><ImageIcon size={26}/><div><strong>NENHUMA REFERÊNCIA ABERTA ENCONTRADA</strong><span>Esse veículo pode ser raro ou não estar indexado nas fontes abertas.</span></div></div>}
+      {!loading && !error && pack && !pack.images.length && <div className="referencePackEmpty referencePackEmptyWide"><ImageIcon size={26}/><div><strong>NENHUMA REFERÊNCIA ABERTA INDEXADA PARA “{pack.query}”</strong><span>O VJ já tentou versões mais simples do nome. Você ainda pode procurar o carro diretamente na web; essas imagens aparecem como referência externa e não entram automaticamente no ZIP.</span></div>{webLinks.length>0&&<div className="referenceWebLinks">{webLinks.map(link=><a key={link.id} href={link.url} target="_blank" rel="noreferrer"><Globe2 size={13}/>{link.label}<ExternalLink size={11}/></a>)}</div>}</div>}
 
       {!loading && pack && pack.images.length > 0 && <>
         <div className="referenceToolbar">
@@ -107,13 +109,15 @@ export default function ReferencePack({ result }: Props) {
               </button>
               <div className="referenceCardMeta">
                 <strong title={image.title}>{image.title}</strong>
-                <div><span>{image.source}</span>{resolutionLabel(image) && <span>{resolutionLabel(image)}</span>}</div>
+                <div><span>{image.source}</span>{resolutionLabel(image) && <span>{resolutionLabel(image)}</span>}{image.matchLevel&&<span>{image.matchLevel.toUpperCase()}</span>}</div>
                 <small>{image.license}{image.licenseVersion ? ` ${image.licenseVersion}` : ''} · {image.creator}</small>
                 <a href={image.sourcePage} target="_blank" rel="noreferrer"><ExternalLink size={11}/> ABRIR ORIGINAL</a>
               </div>
             </article>
           })}
         </div>
+
+        {webLinks.length>0&&<div className="referenceMoreWeb"><span><Globe2 size={14}/> NÃO ACHOU O ÂNGULO CERTO?</span><div>{webLinks.map(link=><a key={link.id} href={link.url} target="_blank" rel="noreferrer">{link.label}<ExternalLink size={10}/></a>)}</div></div>}
 
         <div className="referencePackFooter">
           <div className="referenceLicenseNote"><PackageOpen size={19}/><div><strong>{pack.downloadableCount} imagens elegíveis para o ZIP</strong><span>O arquivo inclui um sources.txt com autor, licença e URL original de cada referência.</span></div></div>
