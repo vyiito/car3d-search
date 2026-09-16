@@ -7,6 +7,7 @@ import { searchBrasilSimulatorMods } from './brasil-adapter.js'
 import { search3DSky } from './3dsky-adapter.js'
 import { searchVosan } from './vosan-adapter.js'
 import { searchOvertake } from './overtake-adapter.js'
+import { searchVertexNative } from './vertex-adapter.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -56,28 +57,31 @@ app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 120)
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
   const perSource = Math.max(1, Math.min(Number(req.query.perSource || 60), 80))
-  const cacheKey = `free-v5|${q.toLowerCase()}|${perSource}`
+  const cacheKey = `free-v6|${q.toLowerCase()}|${perSource}`
   const cached = cache.get(cacheKey); if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return res.json({ ...cached.payload, cached: true })
   try {
-    const [rawPayload, brasil, sky, vosan, overtake] = await Promise.all([
+    const [rawPayload, brasil, sky, vosan, overtake, vertex] = await Promise.all([
       searchAll(q, { perSource }),
       searchBrasilSimulatorMods(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'BSM search failed' })),
       search3DSky(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : '3DSky search failed' })),
       searchVosan(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'VOSAN search failed' })),
       searchOvertake(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'OverTake search failed' })),
+      searchVertexNative(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'Vertex search failed' })),
     ])
     rawPayload.results = [
-      ...rawPayload.results.filter(result => !['brasil-simulator-mods','3dsky','vosan','overtake'].includes(result.sourceId)),
+      ...rawPayload.results.filter(result => !['brasil-simulator-mods','3dsky','vosan','overtake','vertex-warehouse'].includes(result.sourceId)),
       ...brasil.results,
       ...sky.results,
       ...vosan.results,
       ...overtake.results,
+      ...vertex.results,
     ]
     rawPayload.sources = rawPayload.sources.map(source => {
       if (source.provider === 'brasil-simulator-mods') return { ...source, status: brasil.error ? 'error' : 'ok', count: brasil.results.length, pagesFetched: brasil.pagesFetched, error: brasil.error }
       if (source.provider === '3dsky') return { ...source, status: sky.error ? 'error' : 'ok', count: sky.results.length, pagesFetched: sky.pagesFetched, error: sky.error }
       if (source.provider === 'vosan') return { ...source, status: vosan.error ? 'error' : 'ok', count: vosan.results.length, pagesFetched: vosan.pagesFetched, error: vosan.error }
       if (source.provider === 'overtake') return { ...source, status: overtake.error ? 'error' : 'ok', count: overtake.results.length, pagesFetched: overtake.pagesFetched, error: overtake.error }
+      if (source.provider === 'vertex-warehouse') return { ...source, status: vertex.error ? 'error' : 'ok', count: vertex.results.length, pagesFetched: vertex.pagesFetched, error: vertex.error }
       return source
     })
     rawPayload.total = rawPayload.results.length
