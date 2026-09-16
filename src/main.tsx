@@ -2,13 +2,13 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   ArrowUpRight, CalendarRange, CarFront, Check, ChevronDown, CircleCheck, CircleX,
-  Database, Download, ExternalLink, Eye, FileText, Filter, Gauge, Globe2, HardDrive,
-  ImageOff, Layers3, Link2, LoaderCircle, RotateCcw, Search, ShieldCheck, SlidersHorizontal,
-  Sparkles, UserRound, X, Zap,
+  Database, Download, FileText, Filter, Gauge, Globe2, ImageOff, Layers3,
+  LoaderCircle, RotateCcw, Search, ShieldCheck, SlidersHorizontal, X, Zap,
 } from 'lucide-react'
 import { providers, type Provider } from './data/providers'
 import { globalSearch, type GlobalSearchResult, type SourceSearchStatus } from './api/search'
 import DiscoveryCarousel from './components/DiscoveryCarousel'
+import ResultDetailView from './components/ResultDetailView'
 import './styles.css'
 
 type KindFilter = 'Todos' | '3D Model' | 'Game Mod'
@@ -49,59 +49,6 @@ function providerSearchUrl(provider: Provider, term: string) {
 
 function toggleValue(list: string[], value: string) {
   return list.includes(value) ? list.filter(item => item !== value) : [...list, value]
-}
-
-function ResultModal({ result, onClose }: { result: GlobalSearchResult; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = previous
-    }
-  }, [onClose])
-
-  return (
-    <div className="modalOverlay" onMouseDown={onClose} role="presentation">
-      <section className="resultModal" role="dialog" aria-modal="true" aria-label={result.title} onMouseDown={event => event.stopPropagation()}>
-        <button className="modalClose" onClick={onClose} aria-label="Fechar"><X size={18}/></button>
-        <div className="modalMedia">
-          {result.imageUrl ? <img src={result.imageUrl} alt={result.title}/> : <div className="modalImageFallback"><ImageOff size={38}/><span>Imagem não disponível</span></div>}
-          <div className="modalMediaShade"/>
-          <span className="modalIndex">VJ / FREE ASSET</span>
-          <span className="modalSourceBadge">{result.source}</span>
-          <span className="modalPriceBadge free">GRÁTIS</span>
-        </div>
-        <div className="modalContent">
-          <div className="modalKicker"><CarFront size={14}/> {result.vehicleClass} {result.brand ? `· ${result.brand}` : ''}</div>
-          <h2>{result.title}</h2>
-          {result.description && <p className="modalDescription">{result.description}</p>}
-          <div className="modalInfoGrid">
-            <div><CarFront size={16}/><span>Categoria</span><strong>{result.vehicleClass}</strong></div>
-            <div><UserRound size={16}/><span>Autor</span><strong>{result.author || 'Não informado'}</strong></div>
-            <div><HardDrive size={16}/><span>Tamanho</span><strong>{result.fileSize || 'Na fonte'}</strong></div>
-            <div><FileText size={16}/><span>Formatos</span><strong>{result.formats.length ? result.formats.join(', ') : 'Na fonte'}</strong></div>
-            <div><Link2 size={16}/><span>Fonte</span><strong>{result.source}</strong></div>
-            <div><ShieldCheck size={16}/><span>Acesso</span><strong>Gratuito</strong></div>
-          </div>
-          <div className="modalFormats">
-            {result.formats.map(format => <span key={format}>{format}</span>)}
-            <span className="downloadableChip">100% GRÁTIS</span>
-            {result.downloadUrl && <span className="downloadableChip">DOWNLOAD DIRETO</span>}
-          </div>
-          <div className="modalActions">
-            {result.downloadUrl
-              ? <a className="primaryAction" href={result.downloadUrl} target="_blank" rel="noreferrer" download><Download size={17}/> Baixar agora</a>
-              : <button className="primaryAction disabled" disabled><Download size={17}/> Download via fonte</button>}
-            <a className="secondaryAction" href={result.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink size={17}/> Abrir página original</a>
-          </div>
-          <p className="modalNote">O VJ 3D Search indexa apenas assets gratuitos. O arquivo permanece hospedado e sujeito às regras da fonte original.</p>
-        </div>
-      </section>
-    </div>
-  )
 }
 
 function SelectFilter({ label, value, onChange, options }: { label: string; value: string; onChange: (value: string) => void; options: string[] }) {
@@ -247,6 +194,11 @@ function App() {
     window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' }), 30)
   }
 
+  const handleEnrichedResult = (enriched: GlobalSearchResult) => {
+    setSelectedResult(enriched)
+    setRemoteResults(current => current.map(result => result.id === enriched.id ? { ...result, ...enriched } : result))
+  }
+
   return (
     <main>
       <div className="pageNoise" aria-hidden="true"/>
@@ -312,7 +264,7 @@ function App() {
             </div>
 
             <div className="filterSection">
-              <span className="filterSectionTitle"><Eye size={13}/> PREVIEW</span>
+              <span className="filterSectionTitle">PREVIEW</span>
               <div className="segmentedFilter">
                 {(['Todos','Com imagem','Sem imagem'] as ImageMode[]).map(option => <button key={option} className={imageMode === option ? 'active' : ''} onClick={() => setImageMode(option)}>{option}</button>)}
               </div>
@@ -368,7 +320,7 @@ function App() {
                 <h3>{result.title}</h3>
                 <div className="vehicleIdentity"><span>{result.brand || 'Marca não identificada'}</span>{result.year && <span>{result.year}</span>}</div>
                 <div className="chips">{result.formats.length ? result.formats.slice(0,5).map(f => <span key={f}>{f}</span>) : <span>FORMATO NA FONTE</span>}{result.fileSize && <span>{result.fileSize}</span>}</div>
-                <div className="cardFooter"><span>{result.downloadUrl ? 'DOWNLOAD DIRETO' : 'DOWNLOAD VIA FONTE'}</span><button onClick={event => { event.stopPropagation(); setSelectedResult(result) }}>DETALHES <ArrowUpRight size={13}/></button></div>
+                <div className="cardFooter"><span>{result.downloadUrl ? 'DOWNLOAD DIRETO' : 'ABRIR PARA RESOLVER DOWNLOAD'}</span><button onClick={event => { event.stopPropagation(); setSelectedResult(result) }}>DETALHES <ArrowUpRight size={13}/></button></div>
               </div>
             </article>)}</div>}
 
@@ -387,7 +339,7 @@ function App() {
       </section>
 
       <footer><span>VJ 3D SEARCH</span><small>FREE AUTOMOTIVE META SEARCH · BUILT FOR DISCOVERY</small></footer>
-      {selectedResult && <ResultModal result={selectedResult} onClose={() => setSelectedResult(null)}/>} 
+      {selectedResult && <ResultDetailView result={selectedResult} onClose={() => setSelectedResult(null)} onEnriched={handleEnrichedResult}/>} 
     </main>
   )
 }
