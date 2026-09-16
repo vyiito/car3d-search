@@ -22,6 +22,9 @@ const NON_REAL_REFERENCE_PATTERNS = [
   /\b(?:3d render|3d rendering|cgi|computer generated|illustration|vector art|drawing|concept art|blueprint)\b/i,
   /\b(?:game screenshot|in[- ]game|screenshot|forza horizon|forza motorsport|gran turismo|assetto corsa|need for speed|beamng|gta v|gta 5|roblox)\b/i,
 ]
+const MOTORCYCLE_EVIDENCE_RE = /\b(?:motorcycle|motorbike|motor bike|bike|scooter|moped|v[- ]?strom|vstrom|hayabusa|gsx(?:-?r)?\d*|gsx\d+[a-z]*|cbr\d*|yzf[- ]?r?\d*|kawasaki ninja|motor cycle)\b/i
+const CAR_BODY_EVIDENCE_RE = /\b(?:suv|sedan|saloon|hatchback|coupe|coupé|wagon|estate|roadster|convertible|cabriolet|minivan|pickup|pick-up|passenger car)\b/i
+const HEAVY_VEHICLE_EVIDENCE_RE = /\b(?:semi[- ]?truck|tractor[- ]?trailer|lorry|coach|city bus|school bus)\b/i
 
 const clean = value => String(value || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/&amp;/gi, '&').replace(/\s+/g, ' ').trim()
 const norm = value => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[‐‑‒–—]/g, '-').replace(/[^a-z0-9-]+/g, ' ').replace(/\s+/g, ' ').trim()
@@ -94,6 +97,30 @@ function strongModelTokens(modelTokens) {
   return modelTokens.filter(token => !GENERIC_WORDS.has(token)).filter(token => token.length > 1 || /^\d{2,}$/.test(token))
 }
 
+function normalizeVehicleKind(vehicleClass) {
+  const value = norm(vehicleClass)
+  if (!value) return null
+  if (/motorcycle|motorbike|bike/.test(value)) return 'motorcycle'
+  if (/truck|pickup|lorry/.test(value)) return 'truck'
+  if (/\bbus\b|coach/.test(value)) return 'bus'
+  if (/\bvan\b|minivan/.test(value)) return 'van'
+  if (/tractor|utility/.test(value)) return 'utility'
+  if (/\bsuv\b/.test(value)) return 'car'
+  if (/\bcar\b|race car|automobile|coupe|sedan|hatchback|wagon|roadster/.test(value)) return 'car'
+  return null
+}
+
+function searchContextFor(identity) {
+  const className = norm(identity.vehicleClass)
+  if (identity.vehicleKind === 'motorcycle') return 'motorcycle'
+  if (identity.vehicleKind === 'truck') return 'truck'
+  if (identity.vehicleKind === 'bus') return 'bus'
+  if (identity.vehicleKind === 'van') return 'van'
+  if (identity.vehicleKind === 'utility') return 'utility vehicle'
+  if (identity.vehicleKind === 'car') return className.includes('suv') ? 'SUV car' : 'car'
+  return null
+}
+
 export function canonicalizeVehicleIdentity(asset = {}) {
   const cleaned = cleanAssetTitle(asset.title)
   const explicitYearMatch = cleaned.match(YEAR_RE)
@@ -122,6 +149,7 @@ export function canonicalizeVehicleIdentity(asset = {}) {
   const yearTrusted = Boolean(explicitYear)
   const year = explicitYear || metadataYear || null
   const canonical = clean([yearTrusted ? year : null, display].filter(Boolean).join(' '))
+  const vehicleClass = clean(asset.vehicleClass)
 
   return {
     brand: brand || null,
@@ -135,6 +163,8 @@ export function canonicalizeVehicleIdentity(asset = {}) {
     primaryModel: primary,
     supporting,
     generationCodes: codes,
+    vehicleClass: vehicleClass || null,
+    vehicleKind: normalizeVehicleKind(vehicleClass),
     sourceTitle: clean(asset.title),
   }
 }
@@ -179,11 +209,21 @@ function nonRealReferenceReason(evidence) {
   return null
 }
 
+function vehicleKindConflict(identity, evidence) {
+  if (!identity.vehicleKind) return null
+  if (identity.vehicleKind === 'car' && MOTORCYCLE_EVIDENCE_RE.test(evidence)) return 'motorcycle-reference'
+  if (identity.vehicleKind === 'motorcycle' && (CAR_BODY_EVIDENCE_RE.test(evidence) || HEAVY_VEHICLE_EVIDENCE_RE.test(evidence))) return 'car-reference'
+  if (identity.vehicleKind === 'truck' && /\b(?:motorcycle|motorbike|scooter|moped)\b/i.test(evidence)) return 'wrong-vehicle-class'
+  return null
+}
+
 export function scoreReferenceIdentity(identity, image) {
   const evidence = clean(`${image?.title || ''} ${image?.sourcePage || ''} ${image?.source || ''} ${image?.creator || ''}`)
   const normalized = norm(evidence)
   const nonReal = nonRealReferenceReason(evidence)
   if (nonReal) return { ok: false, score: 0, reason: 'non-real-reference' }
+  const classConflict = vehicleKindConflict(identity, evidence)
+  if (classConflict) return { ok: false, score: 0, reason: classConflict }
   if (!identity.primaryModel || !anchorMatches(identity.primaryModel, normalized)) return { ok: false, score: 0, reason: 'model-mismatch' }
   if (brandConflict(identity, normalized)) return { ok: false, score: 0, reason: 'brand-conflict' }
   if (samePrefixGenerationConflict(identity.generationCodes, tokenise(normalized))) return { ok: false, score: 0, reason: 'generation-conflict' }
@@ -198,12 +238,16 @@ export function scoreReferenceIdentity(identity, image) {
   const codeHits = identity.generationCodes.filter(code => anchorMatches(code, normalized)).length
   score += codeHits * 2
   if (identity.yearTrusted && identity.year && years.some(value => Math.abs(value - identity.year) <= 1)) score += 2
+  if (identity.vehicleKind === 'car' && CAR_BODY_EVIDENCE_RE.test(evidence)) score += 2
+  if (identity.vehicleKind === 'motorcycle' && MOTORCYCLE_EVIDENCE_RE.test(evidence)) score += 2
 
   return { ok: score >= 5, score, reason: 'matched' }
 }
 
-function cleanWebLinks(display) {
-  const query = encodeURIComponent(display)
+function cleanWebLinks(identity) {
+  const context = searchContextFor(identity)
+  const searchText = clean([identity.display, context].filter(Boolean).join(' '))
+  const query = encodeURIComponent(searchText)
   return [
     { id: 'google', label: 'GOOGLE IMAGES', url: `https://www.google.com/search?tbm=isch&q=${query}` },
     { id: 'bing', label: 'BING IMAGES', url: `https://www.bing.com/images/search?q=${query}` },
@@ -223,7 +267,7 @@ function filterPack(pack, identity) {
       seen.add(key)
       return true
     })
-    .map(row => ({ ...row.image, identityScore: Math.max(row.image.identityScore || 0, row.match.score), identityEngine: 'generic-v3-real-photo' }))
+    .map(row => ({ ...row.image, identityScore: Math.max(row.image.identityScore || 0, row.match.score), identityEngine: 'generic-v4-class-aware' }))
 
   return {
     ...pack,
@@ -233,7 +277,7 @@ function filterPack(pack, identity) {
     images,
     downloadableCount: images.filter(image => image.downloadAllowed).length,
     angleCoverage: uniq(images.map(image => image.angle).filter(Boolean)),
-    webSearch: cleanWebLinks(identity.display),
+    webSearch: cleanWebLinks(identity),
     identity: {
       brand: identity.brand,
       brandSource: identity.brandSource,
@@ -241,7 +285,9 @@ function filterPack(pack, identity) {
       year: identity.yearTrusted ? identity.year : null,
       yearSource: identity.yearSource,
       generationCodes: identity.generationCodes,
-      engine: 'generic-v3-real-photo',
+      vehicleClass: identity.vehicleClass,
+      vehicleKind: identity.vehicleKind,
+      engine: 'generic-v4-class-aware',
     },
   }
 }
@@ -260,12 +306,14 @@ function referenceCandidates(identity) {
 export async function searchReferencePack(asset, options = {}) {
   const identity = canonicalizeVehicleIdentity(asset)
   const candidates = referenceCandidates(identity)
+  const context = searchContextFor(identity)
 
   let best = null
   for (let index = 0; index < candidates.length; index += 1) {
     const title = candidates[index]
+    const searchTitle = clean([title, context].filter(Boolean).join(' '))
     const pack = await searchLegacyReferencePack({
-      title,
+      title: searchTitle,
       brand: identity.brand,
       year: identity.yearTrusted && index === 0 ? identity.year : null,
     }, options)
@@ -275,7 +323,8 @@ export async function searchReferencePack(asset, options = {}) {
   }
 
   if (best) return best
-  const fallback = await searchLegacyReferencePack({ title: identity.display || asset.title, brand: identity.brand, year: null }, options)
+  const fallbackTitle = clean([identity.display || asset.title, context].filter(Boolean).join(' '))
+  const fallback = await searchLegacyReferencePack({ title: fallbackTitle, brand: identity.brand, year: null }, options)
   return filterPack(fallback, identity)
 }
 
