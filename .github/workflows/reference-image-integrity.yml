@@ -1,0 +1,67 @@
+name: Reference image integrity
+
+on:
+  push:
+    paths:
+      - 'server/src/reference-engine.js'
+      - 'server/src/reference-specialized.js'
+      - '.github/workflows/reference-image-integrity.yml'
+  workflow_dispatch:
+
+jobs:
+  strict-gallery-filter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - name: Reject unrelated cars inside valid vehicle pages
+        run: |
+          node --input-type=module <<'EOF'
+          import { canonicalizeVehicleIdentity } from './src/reference-engine.js'
+          import { extractSpecializedImagesForTest } from './src/reference-specialized.js'
+
+          const bmw = canonicalizeVehicleIdentity({ title: 'BMW M3 E46 2004', brand: 'BMW', vehicleClass: 'Car' })
+          const bmwHtml = `
+            <html><head><title>2004 BMW M3 E46</title><meta name="description" content="2004 BMW M3 E46 photo gallery"></head>
+            <body><h1>2004 BMW M3 E46</h1>
+              <div class="vehicle-gallery photos">
+                <img src="https://cdn.example.com/m3-e46-front.jpg" alt="BMW M3 E46 front view">
+                <img src="https://cdn.example.com/002.jpg" alt="Front view">
+                <img src="https://cdn.example.com/003.jpg">
+              </div>
+              <section class="related-cars carousel">
+                <img src="https://cdn.example.com/m5.jpg" alt="2004 BMW M5 E60">
+                <img src="https://cdn.example.com/m4.jpg" alt="BMW M4 F82">
+              </section>
+            </body></html>`
+          const bmwImages = extractSpecializedImagesForTest(bmwHtml, 'https://example.com/2004-bmw-m3-e46/', 'Test Gallery', bmw)
+          const bmwUrls = bmwImages.map(image => image.imageUrl)
+          console.log(JSON.stringify({ bmwUrls, modes: bmwImages.map(image => image.identityMode) }, null, 2))
+          if (!bmwUrls.some(url => url.includes('m3-e46-front.jpg'))) process.exit(1)
+          if (!bmwUrls.some(url => url.includes('002.jpg'))) process.exit(1)
+          if (!bmwUrls.some(url => url.includes('003.jpg'))) process.exit(1)
+          if (bmwUrls.some(url => /m5\.jpg|m4\.jpg/.test(url))) process.exit(1)
+
+          const mustang = canonicalizeVehicleIdentity({ title: '1965 Ford Mustang Fastback', brand: 'Ford', vehicleClass: 'Car' })
+          const mustangHtml = `
+            <html><head><title>1965 Ford Mustang Fastback</title><meta name="description" content="1965 Ford Mustang Fastback gallery"></head>
+            <body><h1>1965 Ford Mustang Fastback</h1>
+              <div class="gallery">
+                <img src="https://cdn.example.com/fastback.jpg" alt="1965 Ford Mustang Fastback side view">
+                <img src="https://cdn.example.com/generic-rear.jpg" alt="Rear view">
+                <img src="https://cdn.example.com/mach-e.jpg" alt="Ford Mustang Mach-E">
+              </div>
+            </body></html>`
+          const mustangImages = extractSpecializedImagesForTest(mustangHtml, 'https://example.com/1965-ford-mustang-fastback/', 'Test Gallery', mustang)
+          const mustangUrls = mustangImages.map(image => image.imageUrl)
+          console.log(JSON.stringify({ mustangUrls, modes: mustangImages.map(image => image.identityMode) }, null, 2))
+          if (!mustangUrls.some(url => url.includes('fastback.jpg'))) process.exit(1)
+          if (!mustangUrls.some(url => url.includes('generic-rear.jpg'))) process.exit(1)
+          if (mustangUrls.some(url => url.includes('mach-e.jpg'))) process.exit(1)
+          EOF
