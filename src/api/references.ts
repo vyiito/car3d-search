@@ -39,6 +39,14 @@ export interface ReferencePack {
   downloadableCount: number
   angleCoverage: string[]
   webSearch?: ReferenceSearchLink[]
+  identity?: {
+    brand?: string | null
+    model?: string | null
+    year?: number | null
+    vehicleClass?: string | null
+    vehicleKind?: string | null
+    engine?: string
+  }
   createdAt: string
   expiresInSeconds: number
 }
@@ -98,6 +106,7 @@ async function requestReferencePack(result: GlobalSearchResult,title:string,incl
   const url=new URL(`${API_BASE}/api/references`)
   url.searchParams.set('title',title)
   if(result.brand)url.searchParams.set('brand',result.brand)
+  if(result.vehicleClass)url.searchParams.set('vehicleClass',result.vehicleClass)
   if(includeYear&&hasTrustedYear(result))url.searchParams.set('year',String(result.year))
   url.searchParams.set('perAngle','4')
   const response=await fetch(url.href,{signal,cache:'no-store',headers:{'cache-control':'no-cache',pragma:'no-cache'}})
