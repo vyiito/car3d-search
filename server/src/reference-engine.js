@@ -1,4 +1,5 @@
 import { searchReferencePack as searchLegacyReferencePack, buildReferenceZip as buildLegacyReferenceZip } from './reference-adapter.js'
+import { searchSpecializedReferences, specializedSearchLinks, modelingCoverage } from './reference-specialized.js'
 
 const YEAR_RE = /\b(19[3-9]\d|20[0-3]\d)\b/
 const LISTING_SUFFIX_RE = /\s*[-–—]\s*(?:lm|lms|hq|hd|lod\d*|pack|asset|mod|render|converted|conversion|rip|ripped)\s*$/i
@@ -19,7 +20,7 @@ const NON_REAL_REFERENCE_PATTERNS = [
   /\b(?:lego|lego technic|technic|bricklink|brickset|moc|brick built|brick-built)\b/i,
   /\b(?:toy|toys|die[- ]?cast|diecast|hot wheels|matchbox|miniature|minicar|scale model|model car|model kit|plastic model|slot car)\b/i,
   /\b(?:rc car|radio[- ]controlled|remote[- ]controlled|papercraft|paper model)\b/i,
-  /\b(?:3d render|3d rendering|cgi|computer generated|illustration|vector art|drawing|concept art|blueprint)\b/i,
+  /\b(?:3d render|3d rendering|cgi|computer generated|illustration|vector art|drawing|concept art)\b/i,
   /\b(?:game screenshot|in[- ]game|screenshot|forza horizon|forza motorsport|gran turismo|assetto corsa|need for speed|beamng|gta v|gta 5|roblox)\b/i,
 ]
 const MOTORCYCLE_EVIDENCE_RE = /\b(?:motorcycle|motorbike|motor bike|bike|scooter|moped|v[- ]?strom|vstrom|hayabusa|gsx(?:-?r)?\d*|gsx\d+[a-z]*|cbr\d*|yzf[- ]?r?\d*|kawasaki ninja|motor cycle)\b/i
@@ -39,17 +40,10 @@ function cleanAssetTitle(title) {
     .replace(/\([^)]*(?:3d\s*model|fbx|obj|blend|stl|3ds|max|c4d|game|mod|forza|assetto|gran turismo|download|\b\d{5,}\b)[^)]*\)/gi, ' ')
     .replace(/\[[^\]]*(?:fbx|obj|blend|stl|game|mod|forza|assetto|gran turismo|csr|carx|download|\b\d{5,}\b)[^\]]*\]/gi, ' ')
     .replace(/\(\s*\d{5,}\s*\)/g, ' ')
-    .replace(GAME_RE, ' ')
-    .replace(FORMAT_RE, ' ')
-    .replace(MARKET_RE, ' ')
-    .replace(CATALOG_RE, ' ')
-    .replace(SOURCE_RE, ' ')
+    .replace(GAME_RE, ' ').replace(FORMAT_RE, ' ').replace(MARKET_RE, ' ').replace(CATALOG_RE, ' ').replace(SOURCE_RE, ' ')
     .replace(/(?:US\$|R\$|\$|€|£)\s*\d+(?:[.,]\d{1,2})?/gi, ' ')
     .replace(/\b(?:IE[- ]?)?\d{1,3}%\b/gi, ' ')
-    .replace(/[|_]+/g, ' ')
-    .replace(/\s*[-–—]\s*$/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+    .replace(/[|_]+/g, ' ').replace(/\s*[-–—]\s*$/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
 function phraseWordIndex(text, phrase) {
@@ -66,7 +60,6 @@ function phraseWordIndex(text, phrase) {
 function inferBrand(noYearTitle, suppliedBrand) {
   const supplied = clean(suppliedBrand)
   if (supplied) return { value: supplied, source: 'metadata', wordIndex: phraseWordIndex(noYearTitle, supplied) }
-
   const ordered = uniq([...MULTIWORD_BRANDS, ...KNOWN_BRANDS]).sort((a, b) => tokenise(b).length - tokenise(a).length)
   let best = null
   for (const brand of ordered) {
@@ -79,23 +72,14 @@ function inferBrand(noYearTitle, suppliedBrand) {
     const count = tokenise(best.value).length
     return { ...best, value: originalWords.slice(best.wordIndex, best.wordIndex + count).join(' ') }
   }
-
   const first = clean(noYearTitle).split(/\s+/)[0] || ''
   return { value: first, source: first ? 'heuristic' : 'unknown', wordIndex: first ? 0 : -1 }
 }
 
 function generationCodes(tokens) {
-  return uniq(tokens.filter(token => {
-    if (/^mk(?:i{1,4}|v|vi{0,3}|\d+)$/i.test(token)) return true
-    if (/^[a-z]{1,4}\d{1,4}[a-z]?$/i.test(token)) return true
-    if (/^\d{3}$/i.test(token)) return true
-    return false
-  }))
+  return uniq(tokens.filter(token => /^mk(?:i{1,4}|v|vi{0,3}|\d+)$/i.test(token) || /^[a-z]{1,4}\d{1,4}[a-z]?$/i.test(token) || /^\d{3}$/i.test(token)))
 }
-
-function strongModelTokens(modelTokens) {
-  return modelTokens.filter(token => !GENERIC_WORDS.has(token)).filter(token => token.length > 1 || /^\d{2,}$/.test(token))
-}
+function strongModelTokens(modelTokens) { return modelTokens.filter(token => !GENERIC_WORDS.has(token)).filter(token => token.length > 1 || /^\d{2,}$/.test(token)) }
 
 function normalizeVehicleKind(vehicleClass) {
   const value = norm(vehicleClass)
@@ -129,17 +113,14 @@ export function canonicalizeVehicleIdentity(asset = {}) {
   const noYearTitleRaw = clean(cleaned.replace(YEAR_RE, ' '))
   const inferredBrand = inferBrand(noYearTitleRaw, asset.brand)
   const words = noYearTitleRaw.split(/\s+/).filter(Boolean)
-
   let brand = clean(inferredBrand.value)
   let vehicleSlice = noYearTitleRaw
   if (brand && inferredBrand.wordIndex >= 0) vehicleSlice = clean(words.slice(inferredBrand.wordIndex).join(' '))
   else if (brand && !norm(vehicleSlice).includes(norm(brand))) vehicleSlice = clean(`${brand} ${vehicleSlice}`)
-
   let modelText = vehicleSlice
   const brandIndex = brand ? phraseWordIndex(vehicleSlice, brand) : -1
   if (brand && brandIndex === 0) modelText = clean(vehicleSlice.split(/\s+/).slice(tokenise(brand).length).join(' '))
   modelText = clean(modelText.replace(CATALOG_RE, ' ').replace(SOURCE_RE, ' ').replace(/\s*[-–—]\s*$/g, ' '))
-
   const modelTokens = strongModelTokens(tokenise(modelText))
   const primary = modelTokens[0] || null
   const supporting = modelTokens.slice(1, 5)
@@ -150,39 +131,18 @@ export function canonicalizeVehicleIdentity(asset = {}) {
   const year = explicitYear || metadataYear || null
   const canonical = clean([yearTrusted ? year : null, display].filter(Boolean).join(' '))
   const vehicleClass = clean(asset.vehicleClass)
-
-  return {
-    brand: brand || null,
-    brandSource: inferredBrand.source,
-    year,
-    yearTrusted,
-    yearSource: explicitYear ? 'title' : metadataYear ? 'metadata-unverified' : null,
-    display,
-    canonical,
-    modelDisplay,
-    primaryModel: primary,
-    supporting,
-    generationCodes: codes,
-    vehicleClass: vehicleClass || null,
-    vehicleKind: normalizeVehicleKind(vehicleClass),
-    sourceTitle: clean(asset.title),
-  }
+  return { brand: brand || null, brandSource: inferredBrand.source, year, yearTrusted, yearSource: explicitYear ? 'title' : metadataYear ? 'metadata-unverified' : null, display, canonical, modelDisplay, primaryModel: primary, supporting, generationCodes: codes, vehicleClass: vehicleClass || null, vehicleKind: normalizeVehicleKind(vehicleClass), sourceTitle: clean(asset.title) }
 }
 
 function containsPhrase(text, phrase) {
-  const normalized = norm(text)
-  const parts = tokenise(phrase)
+  const normalized = norm(text), parts = tokenise(phrase)
   if (!parts.length) return false
   return new RegExp(`(?:^|\\s)${parts.map(escapeRe).join('\\s+')}(?:$|\\s)`, 'i').test(normalized)
 }
-
 function brandConflict(identity, text) {
-  if (!identity.brand) return false
-  if (containsPhrase(text, identity.brand)) return false
-  const found = uniq([...MULTIWORD_BRANDS, ...KNOWN_BRANDS]).find(brand => containsPhrase(text, brand) && norm(brand) !== norm(identity.brand))
-  return Boolean(found)
+  if (!identity.brand || containsPhrase(text, identity.brand)) return false
+  return Boolean(uniq([...MULTIWORD_BRANDS, ...KNOWN_BRANDS]).find(brand => containsPhrase(text, brand) && norm(brand) !== norm(identity.brand)))
 }
-
 function samePrefixGenerationConflict(wantedCodes, evidenceTokens) {
   if (!wantedCodes.length) return false
   const evidenceCodes = generationCodes(evidenceTokens)
@@ -195,20 +155,13 @@ function samePrefixGenerationConflict(wantedCodes, evidenceTokens) {
   }
   return false
 }
-
 function anchorMatches(primary, normalizedEvidence) {
   if (!primary) return false
-  const direct = norm(primary)
-  const parts = tokenise(direct)
+  const parts = tokenise(primary)
   if (!parts.length) return false
   return parts.every(part => new RegExp(`(?:^|\\s)${escapeRe(part)}(?:$|\\s)`, 'i').test(normalizedEvidence))
 }
-
-function nonRealReferenceReason(evidence) {
-  for (const pattern of NON_REAL_REFERENCE_PATTERNS) if (pattern.test(evidence)) return pattern.source
-  return null
-}
-
+function nonRealReferenceReason(evidence) { for (const pattern of NON_REAL_REFERENCE_PATTERNS) if (pattern.test(evidence)) return pattern.source; return null }
 function vehicleKindConflict(identity, evidence) {
   if (!identity.vehicleKind) return null
   if (identity.vehicleKind === 'car' && MOTORCYCLE_EVIDENCE_RE.test(evidence)) return 'motorcycle-reference'
@@ -218,7 +171,7 @@ function vehicleKindConflict(identity, evidence) {
 }
 
 export function scoreReferenceIdentity(identity, image) {
-  const evidence = clean(`${image?.title || ''} ${image?.sourcePage || ''} ${image?.source || ''} ${image?.creator || ''}`)
+  const evidence = clean(`${image?.title || ''} ${image?.galleryTitle || ''} ${image?.sourcePage || ''} ${image?.source || ''} ${image?.creator || ''}`)
   const normalized = norm(evidence)
   const nonReal = nonRealReferenceReason(evidence)
   if (nonReal) return { ok: false, score: 0, reason: 'non-real-reference' }
@@ -227,20 +180,16 @@ export function scoreReferenceIdentity(identity, image) {
   if (!identity.primaryModel || !anchorMatches(identity.primaryModel, normalized)) return { ok: false, score: 0, reason: 'model-mismatch' }
   if (brandConflict(identity, normalized)) return { ok: false, score: 0, reason: 'brand-conflict' }
   if (samePrefixGenerationConflict(identity.generationCodes, tokenise(normalized))) return { ok: false, score: 0, reason: 'generation-conflict' }
-
   const years = [...normalized.matchAll(/\b(19[3-9]\d|20[0-3]\d)\b/g)].map(match => Number(match[1]))
   if (identity.yearTrusted && identity.year && years.length && !years.some(value => Math.abs(value - identity.year) <= 1)) return { ok: false, score: 0, reason: 'year-conflict' }
-
   let score = 5
   if (identity.brand && containsPhrase(normalized, identity.brand)) score += 3
-  const supportingHits = identity.supporting.filter(token => anchorMatches(token, normalized)).length
-  score += Math.min(3, supportingHits)
-  const codeHits = identity.generationCodes.filter(code => anchorMatches(code, normalized)).length
-  score += codeHits * 2
+  score += Math.min(3, identity.supporting.filter(token => anchorMatches(token, normalized)).length)
+  score += identity.generationCodes.filter(code => anchorMatches(code, normalized)).length * 2
   if (identity.yearTrusted && identity.year && years.some(value => Math.abs(value - identity.year) <= 1)) score += 2
   if (identity.vehicleKind === 'car' && CAR_BODY_EVIDENCE_RE.test(evidence)) score += 2
   if (identity.vehicleKind === 'motorcycle' && MOTORCYCLE_EVIDENCE_RE.test(evidence)) score += 2
-
+  if (image?.sourceKind === 'specialized') score += 1
   return { ok: score >= 5, score, reason: 'matched' }
 }
 
@@ -248,27 +197,52 @@ function cleanWebLinks(identity) {
   const context = searchContextFor(identity)
   const searchText = clean([identity.display, context].filter(Boolean).join(' '))
   const query = encodeURIComponent(searchText)
-  return [
-    { id: 'google', label: 'GOOGLE IMAGES', url: `https://www.google.com/search?tbm=isch&q=${query}` },
-    { id: 'bing', label: 'BING IMAGES', url: `https://www.bing.com/images/search?q=${query}` },
-    { id: 'commons', label: 'WIKIMEDIA COMMONS', url: `https://commons.wikimedia.org/w/index.php?search=${query}&title=Special:MediaSearch&type=image` },
+  const base = [
+    { id: 'google', label: 'GOOGLE IMAGES', url: `https://www.google.com/search?tbm=isch&q=${query}`, kind: 'general' },
+    { id: 'bing', label: 'BING IMAGES', url: `https://www.bing.com/images/search?q=${query}`, kind: 'general' },
+    { id: 'commons', label: 'WIKIMEDIA COMMONS', url: `https://commons.wikimedia.org/w/index.php?search=${query}&title=Special:MediaSearch&type=image`, kind: 'licensed' },
   ]
+  return [...specializedSearchLinks(identity), ...base]
 }
 
-function filterPack(pack, identity) {
+function filterImages(images, identity) {
   const seen = new Set()
-  const images = (pack.images || [])
+  return (images || [])
     .map(image => ({ image, match: scoreReferenceIdentity(identity, image) }))
     .filter(row => row.match.ok)
     .sort((a, b) => (b.match.score - a.match.score) || ((b.image.identityScore || 0) - (a.image.identityScore || 0)))
-    .filter(row => {
-      const key = norm(row.image.imageUrl || row.image.sourcePage || row.image.id)
-      if (!key || seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-    .map(row => ({ ...row.image, identityScore: Math.max(row.image.identityScore || 0, row.match.score), identityEngine: 'generic-v4-class-aware' }))
+    .filter(row => { const key = norm(row.image.imageUrl || row.image.sourcePage || row.image.id); if (!key || seen.has(key)) return false; seen.add(key); return true })
+    .map(row => ({ ...row.image, identityScore: Math.max(row.image.identityScore || 0, row.match.score), identityEngine: 'generic-v5-modeling' }))
+}
 
+function sourceGroups(images) {
+  const groups = new Map()
+  for (const image of images) {
+    const key = image.source || image.provider || 'Unknown'
+    if (!groups.has(key)) groups.set(key, { source: key, count: 0, downloadable: 0, referenceOnly: 0, galleries: new Set(), angles: new Set() })
+    const group = groups.get(key)
+    group.count += 1
+    if (image.downloadAllowed) group.downloadable += 1
+    else group.referenceOnly += 1
+    if (image.galleryTitle || image.sourcePage) group.galleries.add(image.galleryTitle || image.sourcePage)
+    if (image.angle) group.angles.add(image.angle)
+  }
+  return [...groups.values()].map(group => ({ ...group, galleries: group.galleries.size, angles: group.angles.size })).sort((a, b) => b.count - a.count)
+}
+
+function primarySet(images) {
+  const sets = new Map()
+  for (const image of images.filter(item => item.sourceKind === 'specialized')) {
+    const key = `${image.source}|${image.galleryTitle || image.sourcePage}`
+    if (!sets.has(key)) sets.set(key, { source: image.source, title: image.galleryTitle || image.title, sourcePage: image.sourcePage, count: 0, angles: new Set() })
+    const row = sets.get(key); row.count += 1; if (image.angle) row.angles.add(image.angle)
+  }
+  const best = [...sets.values()].sort((a, b) => (b.angles.size - a.angles.size) || (b.count - a.count))[0]
+  return best ? { source: best.source, title: best.title, sourcePage: best.sourcePage, count: best.count, angles: best.angles.size } : null
+}
+
+function mergePack(pack, specialized, identity) {
+  const images = filterImages([...(pack?.images || []), ...(specialized?.images || [])], identity).slice(0, 96)
   return {
     ...pack,
     canonicalVehicle: identity.display,
@@ -278,56 +252,37 @@ function filterPack(pack, identity) {
     downloadableCount: images.filter(image => image.downloadAllowed).length,
     angleCoverage: uniq(images.map(image => image.angle).filter(Boolean)),
     webSearch: cleanWebLinks(identity),
-    identity: {
-      brand: identity.brand,
-      brandSource: identity.brandSource,
-      model: identity.modelDisplay,
-      year: identity.yearTrusted ? identity.year : null,
-      yearSource: identity.yearSource,
-      generationCodes: identity.generationCodes,
-      vehicleClass: identity.vehicleClass,
-      vehicleKind: identity.vehicleKind,
-      engine: 'generic-v4-class-aware',
-    },
+    sourceGroups: sourceGroups(images),
+    sourceStatus: specialized?.sourceStatus || [],
+    primarySet: primarySet(images),
+    modelingCoverage: modelingCoverage(images),
+    identity: { brand: identity.brand, brandSource: identity.brandSource, model: identity.modelDisplay, year: identity.yearTrusted ? identity.year : null, yearSource: identity.yearSource, generationCodes: identity.generationCodes, vehicleClass: identity.vehicleClass, vehicleKind: identity.vehicleKind, engine: 'generic-v5-modeling' },
   }
 }
 
 function referenceCandidates(identity) {
   const generation = identity.generationCodes.length ? clean([identity.brand, identity.primaryModel, ...identity.generationCodes].join(' ')) : null
   const family = clean([identity.brand, identity.primaryModel].filter(Boolean).join(' '))
-  return uniq([
-    identity.yearTrusted ? identity.canonical : null,
-    identity.display,
-    generation,
-    family,
-  ]).filter(value => value.length >= 2)
+  return uniq([identity.yearTrusted ? identity.canonical : null, identity.display, generation, family]).filter(value => value.length >= 2)
 }
 
 export async function searchReferencePack(asset, options = {}) {
   const identity = canonicalizeVehicleIdentity(asset)
-  const baseCandidates = referenceCandidates(identity)
-  const context = searchContextFor(identity)
-  const candidates = uniq([
-    ...baseCandidates.map(title => clean([title, context].filter(Boolean).join(' '))),
-    ...baseCandidates,
-  ]).filter(value => value.length >= 2)
-
+  const specializedPromise = searchSpecializedReferences(identity, options).catch(() => ({ images: [], sourceStatus: [] }))
+  const baseCandidates = referenceCandidates(identity), context = searchContextFor(identity)
+  const candidates = uniq([...baseCandidates.map(title => clean([title, context].filter(Boolean).join(' '))), ...baseCandidates]).filter(value => value.length >= 2)
   let best = null
   for (const searchTitle of candidates) {
-    const carriesTrustedYear = Boolean(identity.yearTrusted && identity.year && new RegExp(`\\b${identity.year}\\b`).test(searchTitle))
-    const pack = await searchLegacyReferencePack({
-      title: searchTitle,
-      brand: identity.brand,
-      year: carriesTrustedYear ? identity.year : null,
-    }, options)
-    const filtered = filterPack(pack, identity)
+    const carriesTrustedYear = Boolean(identity.yearTrusted && identity.year && new RegExp(`\b${identity.year}\b`).test(searchTitle))
+    const pack = await searchLegacyReferencePack({ title: searchTitle, brand: identity.brand, year: carriesTrustedYear ? identity.year : null }, options)
+    const filtered = { ...pack, images: filterImages(pack.images, identity) }
+    filtered.angleCoverage = uniq(filtered.images.map(image => image.angle).filter(Boolean))
     if (!best || filtered.images.length > best.images.length || (filtered.images.length === best.images.length && filtered.angleCoverage.length > best.angleCoverage.length)) best = filtered
-    if (filtered.images.length >= 10 && filtered.angleCoverage.length >= 5) break
+    if (filtered.images.length >= 14 && filtered.angleCoverage.length >= 6) break
   }
-
-  if (best) return best
-  const fallback = await searchLegacyReferencePack({ title: identity.display || asset.title, brand: identity.brand, year: null }, options)
-  return filterPack(fallback, identity)
+  if (!best) best = await searchLegacyReferencePack({ title: identity.display || asset.title, brand: identity.brand, year: null }, options)
+  const specialized = await specializedPromise
+  return mergePack(best, specialized, identity)
 }
 
 export const buildReferenceZip = buildLegacyReferenceZip
