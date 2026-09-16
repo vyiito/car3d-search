@@ -6,16 +6,28 @@ import {
 import { globalSearch, type GlobalSearchResult } from '../api/search'
 import '../discovery.css'
 
-type DiscoveryMode = 'Destaques' | 'Download direto' | 'Corrida' | 'Game mods'
+type DiscoveryMode = 'Destaques' | 'Grátis' | 'Premium' | 'Download direto' | 'Corrida' | 'Game mods'
 
 interface DiscoveryCarouselProps {
   onSelect: (result: GlobalSearchResult) => void
   onSearch: (term: string) => void
 }
 
+function marketKind(result: GlobalSearchResult) {
+  if (result.isFree === true || result.price === 0) return 'free'
+  if (result.isFree === false || (typeof result.price === 'number' && result.price > 0)) return 'paid'
+  return 'unknown'
+}
+function marketLabel(result: GlobalSearchResult) {
+  const kind = marketKind(result)
+  if (kind === 'free') return 'GRÁTIS'
+  if (typeof result.price === 'number' && result.price > 0) return `$${result.price.toFixed(result.price % 1 ? 2 : 0)}`
+  return kind === 'paid' ? 'PAGO' : 'VER PREÇO'
+}
+
 function curateResults(results: GlobalSearchResult[]) {
   const sorted = [...results]
-    .filter(result => result.title && result.sourceUrl && result.isFree === true)
+    .filter(result => result.title && result.sourceUrl)
     .sort((a, b) => Number(Boolean(b.imageUrl)) - Number(Boolean(a.imageUrl)) || b.score - a.score)
 
   const sourceCount = new Map<string, number>()
@@ -51,7 +63,7 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
     const controller = new AbortController()
     setLoading(true)
     setError(false)
-    globalSearch('car', controller.signal, 6)
+    globalSearch('car', controller.signal, 8)
       .then(data => setItems(curateResults(data.results)))
       .catch(err => { if (err?.name !== 'AbortError') setError(true) })
       .finally(() => setLoading(false))
@@ -59,6 +71,8 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
   }, [])
 
   const visibleItems = useMemo(() => {
+    if (mode === 'Grátis') return items.filter(item => marketKind(item) === 'free')
+    if (mode === 'Premium') return items.filter(item => marketKind(item) === 'paid')
     if (mode === 'Download direto') return items.filter(item => Boolean(item.downloadUrl))
     if (mode === 'Corrida') return items.filter(item => item.vehicleClass === 'Race Car' || /race|racing|gt3|rally|drift|formula/i.test(item.title))
     if (mode === 'Game mods') return items.filter(item => item.sourceType === 'game-mods')
@@ -76,12 +90,12 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
   }
 
   return (
-    <section className="discoverySection" aria-label="Descobrir modelos 3D automotivos gratuitos">
+    <section className="discoverySection" aria-label="Descobrir modelos 3D automotivos">
       <div className="discoveryHead">
         <div>
           <span className="discoveryEyebrow"><Sparkles size={13}/> DISCOVERY FEED / 01</span>
           <h2>DESCUBRA ANTES DE BUSCAR.</h2>
-          <p>Uma vitrine viva com assets gratuitos encontrados pelo próprio agregador. Nada aqui é mock ou resultado pago.</p>
+          <p>Uma vitrine viva com assets gratuitos e premium encontrados pelo próprio agregador. Nada aqui é mock.</p>
         </div>
         <div className="discoveryActions">
           <button className="surpriseButton" onClick={surprise} disabled={!items.length}><Shuffle size={14}/> SURPREENDA-ME</button>
@@ -91,26 +105,27 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
       </div>
 
       <div className="discoveryModes">
-        {(['Destaques', 'Download direto', 'Corrida', 'Game mods'] as DiscoveryMode[]).map(item => (
+        {(['Destaques', 'Grátis', 'Premium', 'Download direto', 'Corrida', 'Game mods'] as DiscoveryMode[]).map(item => (
           <button key={item} className={mode === item ? 'active' : ''} onClick={() => setMode(item)}>{item}</button>
         ))}
-        <span className="liveIndicator"><i/> LIVE / FREE ONLY</span>
+        <span className="liveIndicator"><i/> LIVE / MARKET</span>
       </div>
 
-      {loading && <div className="discoveryLoading"><LoaderCircle className="spin" size={23}/><div><strong>MONTANDO O FEED</strong><span>coletando previews gratuitos nas fontes indexadas...</span></div></div>}
+      {loading && <div className="discoveryLoading"><LoaderCircle className="spin" size={23}/><div><strong>MONTANDO O FEED</strong><span>coletando previews nas fontes indexadas...</span></div></div>}
       {!loading && error && <div className="discoveryError"><CarFront size={22}/><div><strong>FEED INDISPONÍVEL AGORA</strong><span>A busca principal continua funcionando normalmente.</span></div></div>}
       {!loading && !error && visibleItems.length === 0 && <div className="discoveryError"><CarFront size={22}/><div><strong>NENHUM ITEM NESTE RECORTE</strong><span>Troque o modo acima para explorar outros veículos.</span></div></div>}
 
       {!loading && visibleItems.length > 0 && (
         <div className="discoveryRail" ref={railRef}>
-          {visibleItems.map((result, index) => (
-            <article className="discoveryCard" key={result.id} onClick={() => onSelect(result)} tabIndex={0} onKeyDown={event => event.key === 'Enter' && onSelect(result)}>
+          {visibleItems.map((result, index) => {
+            const kind = marketKind(result)
+            return <article className="discoveryCard" key={result.id} onClick={() => onSelect(result)} tabIndex={0} onKeyDown={event => event.key === 'Enter' && onSelect(result)}>
               <div className="discoveryImage">
                 {result.imageUrl ? <img src={result.imageUrl} alt={result.title} loading="lazy"/> : <div className="discoveryFallback"><ImageOff size={28}/></div>}
                 <div className="discoveryShade"/>
                 <span className="discoveryIndex">{String(index + 1).padStart(2, '0')}</span>
                 <span className="discoveryType"><CarFront size={10}/>{result.vehicleClass}</span>
-                <span className="discoveryPrice free">FREE</span>
+                <span className={`discoveryPrice ${kind}`}>{marketLabel(result)}</span>
                 {result.downloadUrl && <span className="discoveryDownload"><Download size={10}/> DIRETO</span>}
               </div>
               <div className="discoveryBody">
@@ -123,11 +138,11 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
                 </div>
               </div>
             </article>
-          ))}
+          })}
           <button className="discoverMoreCard" onClick={() => onSearch('car')}>
             <span><Search size={23}/></span>
             <strong>ABRIR O CATÁLOGO.</strong>
-            <small>Veja mais veículos gratuitos encontrados pelo agregador.</small>
+            <small>Veja mais veículos gratuitos e premium encontrados pelo agregador.</small>
             <b>PESQUISAR AGORA <ArrowUpRight size={13}/></b>
           </button>
         </div>
