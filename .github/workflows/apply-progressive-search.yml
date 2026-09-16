@@ -1,0 +1,37 @@
+name: Apply progressive search upgrade
+
+on:
+  push:
+    paths:
+      - 'scripts/apply-progressive-search.mjs'
+      - '.github/workflows/apply-progressive-search.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply source transformations
+        run: node scripts/apply-progressive-search.mjs
+      - name: Validate diff
+        run: git diff --check
+      - name: Commit transformed sources
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/src/search.js server/src/index.js src/main-v3.tsx
+          git commit -m "feat: stream search results and paginate catalog"
+          git push
