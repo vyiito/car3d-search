@@ -13,8 +13,39 @@ app.disable('x-powered-by')
 app.use(cors({ origin: [allowedOrigin, 'http://localhost:5173'], methods: ['GET'] }))
 app.use(express.json({ limit: '32kb' }))
 
+function isConfirmedFree(result) {
+  if (!result) return false
+  if (result.isFree === true || result.price === 0) return true
+  if (result.isFree === false || (typeof result.price === 'number' && result.price > 0)) return false
+  if (result.downloadUrl) return true
+  if (result.sourceId === 'sketchfab' && result.downloadable === true) return true
+  return false
+}
+
+function freeOnlyPayload(payload) {
+  const results = (payload.results || [])
+    .filter(isConfirmedFree)
+    .map(result => ({ ...result, isFree: true, price: 0 }))
+
+  const counts = new Map()
+  for (const result of results) counts.set(result.sourceId, (counts.get(result.sourceId) || 0) + 1)
+
+  const sources = (payload.sources || []).map(source => ({
+    ...source,
+    count: counts.get(source.provider) || 0,
+  }))
+
+  return {
+    ...payload,
+    results,
+    sources,
+    total: results.length,
+    freeOnly: true,
+  }
+}
+
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length })
+  res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, freeOnly: true })
 })
 
 app.get('/api/providers', (_req, res) => {
@@ -31,14 +62,15 @@ app.get('/api/search', async (req, res) => {
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
 
   const perSource = Math.max(1, Math.min(Number(req.query.perSource || 20), 50))
-  const cacheKey = `${q.toLowerCase()}|${perSource}`
+  const cacheKey = `free|${q.toLowerCase()}|${perSource}`
   const cached = cache.get(cacheKey)
   if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
     return res.json({ ...cached.payload, cached: true })
   }
 
   try {
-    const payload = await searchAll(q, { perSource })
+    const rawPayload = await searchAll(q, { perSource })
+    const payload = freeOnlyPayload(rawPayload)
     cache.set(cacheKey, { createdAt: Date.now(), payload })
     if (cache.size > 100) {
       const oldest = [...cache.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt).slice(0, 20)
