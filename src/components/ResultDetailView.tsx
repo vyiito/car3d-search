@@ -14,6 +14,20 @@ interface Props {
   onEnriched?: (result: GlobalSearchResult) => void
 }
 
+function marketKind(result: GlobalSearchResult) {
+  if (result.isFree === true || result.price === 0) return 'free'
+  if (result.isFree === false || (typeof result.price === 'number' && result.price > 0)) return 'paid'
+  return 'unknown'
+}
+
+function marketLabel(result: GlobalSearchResult) {
+  const kind = marketKind(result)
+  if (kind === 'free') return 'GRÁTIS'
+  if (typeof result.price === 'number' && result.price > 0) return `$${result.price.toFixed(result.price % 1 ? 2 : 0)}`
+  if (kind === 'paid') return 'PAGO · VER PREÇO NA FONTE'
+  return 'PREÇO NÃO INFORMADO'
+}
+
 export default function ResultDetailView({ result, onClose, onEnriched }: Props) {
   const [detail, setDetail] = useState(result)
   const [loading, setLoading] = useState(true)
@@ -64,6 +78,9 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
     } catch {}
   }
 
+  const priceKind = marketKind(detail)
+  const priceLabel = marketLabel(detail)
+
   return (
     <div className="assetDetail" role="dialog" aria-modal="true" aria-label={detail.title}>
       <header className="assetDetailTopbar">
@@ -78,7 +95,7 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
             {gallery[activeImage] ? <img src={gallery[activeImage]} alt={detail.title}/> : <div className="assetNoImage"><ImageOff size={42}/><span>SEM PREVIEW DISPONÍVEL</span></div>}
             <div className="assetMediaShade"/>
             <span className="assetMediaCode">VJ / {detail.sourceId.toUpperCase()}</span>
-            <span className="assetFreeStamp">FREE</span>
+            <span className={`assetFreeStamp ${priceKind}`}>{priceLabel}</span>
             <div className="assetMediaIdentity"><span>{detail.game || detail.vehicleClass}</span><strong>{detail.brand || 'VEÍCULO'}</strong></div>
           </div>
 
@@ -91,21 +108,21 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
 
         <aside className="assetInfoColumn">
           <div className="assetDetailStatus">{loading ? <><LoaderCircle className="spin" size={15}/> ANALISANDO PÁGINA ORIGINAL</> : error ? <>DETALHES PARCIAIS · FONTE NÃO ANALISADA</> : <><Check size={14}/> DADOS DA FONTE ATUALIZADOS</>}</div>
-          <div className="assetTitleBlock"><span className="assetKicker"><CarFront size={13}/> {detail.vehicleClass} · {detail.game || (detail.sourceType === 'game-mods' ? 'GAME MOD' : '3D ASSET')}</span><h1>{detail.title}</h1><div className="assetTags"><span>100% GRÁTIS</span>{confirmedDownloadHref && <span>DOWNLOAD DIRETO CONFIRMADO</span>}{viewerUrl && <span>VIEWER 3D</span>}{detail.game && <span>{detail.game}</span>}{detail.year && <span>{detail.year}</span>}</div></div>
+          <div className="assetTitleBlock"><span className="assetKicker"><CarFront size={13}/> {detail.vehicleClass} · {detail.game || (detail.sourceType === 'game-mods' ? 'GAME MOD' : '3D ASSET')}</span><h1>{detail.title}</h1><div className="assetTags"><span>{priceLabel}</span>{confirmedDownloadHref && <span>DOWNLOAD DIRETO CONFIRMADO</span>}{viewerUrl && <span>VIEWER 3D</span>}{detail.game && <span>{detail.game}</span>}{detail.year && <span>{detail.year}</span>}</div></div>
 
           <div className="assetPrimaryActions">
             {confirmedDownloadHref && <a href={confirmedDownloadHref} className="assetDownload direct"><Download size={17}/><span><b>BAIXAR DIRETO</b><small>arquivo final confirmado pelo VJ</small></span><ArrowUpRight size={16}/></a>}
             <a href={detail.sourceUrl} target="_blank" rel="noreferrer" className="assetSourceAction"><ExternalLink size={15}/> VER PÁGINA ORIGINAL</a>
           </div>
 
-          <section className="assetSpecSection"><span className="assetSectionCode">METADATA / 02</span><div className="assetSpecGrid"><div><UserRound size={15}/><span>AUTOR</span><strong>{detail.author || 'Não informado'}</strong></div><div><Database size={15}/><span>FONTE</span><strong>{detail.source}</strong></div>{detail.game&&<div><Gamepad2 size={15}/><span>JOGO / SOURCE</span><strong>{detail.game}</strong></div>}<div><Calendar size={15}/><span>ANO</span><strong>{detail.year || 'Não identificado'}</strong></div><div><HardDrive size={15}/><span>TAMANHO</span><strong>{detail.fileSize || 'Não informado'}</strong></div><div><ShieldCheck size={15}/><span>LICENÇA</span><strong>{detail.license || 'Verificar na fonte'}</strong></div><div><Link2 size={15}/><span>DOWNLOAD</span><strong>{confirmedDownloadHref ? 'Direto confirmado' : 'Somente pela fonte'}</strong></div></div></section>
+          <section className="assetSpecSection"><span className="assetSectionCode">METADATA / 02</span><div className="assetSpecGrid"><div><UserRound size={15}/><span>AUTOR</span><strong>{detail.author || 'Não informado'}</strong></div><div><Database size={15}/><span>FONTE</span><strong>{detail.source}</strong></div>{detail.game&&<div><Gamepad2 size={15}/><span>JOGO / SOURCE</span><strong>{detail.game}</strong></div>}<div><Calendar size={15}/><span>ANO</span><strong>{detail.year || 'Não identificado'}</strong></div><div><HardDrive size={15}/><span>TAMANHO</span><strong>{detail.fileSize || 'Não informado'}</strong></div><div><ShieldCheck size={15}/><span>PREÇO</span><strong>{priceLabel}</strong></div><div><Link2 size={15}/><span>DOWNLOAD</span><strong>{confirmedDownloadHref ? 'Direto confirmado' : 'Somente pela fonte'}</strong></div></div></section>
 
           <section className="assetFormatsSection"><span className="assetSectionCode">FORMATS / 03</span><div className="assetFormatList">{detail.formats.length ? detail.formats.map(format => <span key={format}><FileText size={12}/>{format}</span>) : <span><FileText size={12}/>FORMATO NA FONTE</span>}</div></section>
 
-          <section className="assetResolverSection"><span className="assetSectionCode">DOWNLOAD RESOLVER / 04</span><div className={`assetResolverState ${confirmedDownloadHref ? 'resolved' : ''}`}><span className="resolverDot"/><div><strong>{confirmedDownloadHref ? 'ARQUIVO FINAL CONFIRMADO' : detail.downloadActionUrl ? 'A FONTE TEM UMA ETAPA DE DOWNLOAD' : 'SEM LINK DIRETO PÚBLICO'}</strong><small>{confirmedDownloadHref ? 'O botão acima usa o VJ para validar o asset e redirecionar ao arquivo público final.' : 'O VJ não mostra botão de baixar enquanto não encontrar um arquivo final público. Use a página original para downloads intermediários.'}</small></div></div>{detail.downloadCandidates && detail.downloadCandidates.some(candidate => candidate.kind === 'direct') && <details className="assetRoutes"><summary>rotas diretas detectadas</summary><div>{detail.downloadCandidates.filter(candidate => candidate.kind === 'direct').slice(0,6).map(candidate => <a key={candidate.url} href={candidate.url} target="_blank" rel="noreferrer"><span>DIRECT</span><b>{candidate.label}</b><ArrowUpRight size={12}/></a>)}</div></details>}</section>
+          <section className="assetResolverSection"><span className="assetSectionCode">DOWNLOAD RESOLVER / 04</span><div className={`assetResolverState ${confirmedDownloadHref ? 'resolved' : ''}`}><span className="resolverDot"/><div><strong>{confirmedDownloadHref ? 'ARQUIVO FINAL CONFIRMADO' : detail.downloadActionUrl ? 'A FONTE TEM UMA ETAPA DE DOWNLOAD' : 'SEM LINK DIRETO PÚBLICO'}</strong><small>{confirmedDownloadHref ? 'O botão acima usa o VJ para validar o asset e redirecionar ao arquivo público final.' : 'O VJ só mostra botão de baixar quando encontra um arquivo final público. Para compras ou downloads intermediários, use a página original.'}</small></div></div>{detail.downloadCandidates && detail.downloadCandidates.some(candidate => candidate.kind === 'direct') && <details className="assetRoutes"><summary>rotas diretas detectadas</summary><div>{detail.downloadCandidates.filter(candidate => candidate.kind === 'direct').slice(0,6).map(candidate => <a key={candidate.url} href={candidate.url} target="_blank" rel="noreferrer"><span>DIRECT</span><b>{candidate.label}</b><ArrowUpRight size={12}/></a>)}</div></details>}</section>
 
           <div className="assetUtilityActions"><button onClick={copyShare}><Clipboard size={14}/>{copied ? 'LINK VJ COPIADO' : 'COPIAR LINK VJ'}</button><a href={detail.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/> ABRIR FONTE</a></div>
-          <p className="assetLegalNote">O VJ só exibe “Baixar direto” quando encontra um arquivo final público. O arquivo continua hospedado pela fonte original; o VJ não replica nem redistribui o conteúdo. O viewer 3D tenta ler GLB/GLTF/OBJ diretamente da fonte e pode ser bloqueado por CORS.</p>
+          <p className="assetLegalNote">O VJ só exibe “Baixar direto” quando encontra um arquivo final público. O arquivo continua hospedado pela fonte original; o VJ não replica nem redistribui o conteúdo. Modelos premium devem ser adquiridos na fonte original.</p>
         </aside>
       </main>
     </div>
