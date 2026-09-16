@@ -3,6 +3,7 @@ import cors from 'cors'
 import { providers } from './providers.js'
 import { searchAll } from './search.js'
 import { getResultDetails } from './details.js'
+import { probeVertexSearch } from './vertex-probe.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -81,6 +82,7 @@ app.get('/api/search', async (req, res) => {
 
   try {
     const rawPayload = await searchAll(q, { perSource })
+    console.log(`[search] ${q} :: ${rawPayload.sources.map(source => `${source.provider}=${source.status}:${source.count}`).join(' | ')}`)
     const payload = freeOnlyPayload(rawPayload)
     cache.set(cacheKey, { createdAt: Date.now(), payload })
     trimCache(cache)
@@ -116,4 +118,5 @@ app.get('/api/details', async (req, res) => {
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`)
+  setTimeout(() => probeVertexSearch().catch(() => {}), 1500)
 })
