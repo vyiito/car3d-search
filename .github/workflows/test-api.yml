@@ -32,6 +32,7 @@ jobs:
       - run: node --check src/catalog-adapters.js
       - run: node --check src/remaining-adapters.js
       - run: node --check src/commerce-adapters.js
+      - run: node --check src/cgtrader-adapter.js
       - name: Vertex regression · Funco F9
         run: |
           node --input-type=module <<'EOF'
@@ -69,9 +70,10 @@ jobs:
       - name: Commerce adapter diagnostics
         run: |
           node --input-type=module <<'EOF'
-          import { searchCGTraderMarket, searchRenderHubClean, search3dCarClean } from './src/commerce-adapters.js'
+          import { searchCGTraderMarketV2 } from './src/cgtrader-adapter.js'
+          import { searchRenderHubClean, search3dCarClean } from './src/commerce-adapters.js'
           const [cg, render, gallery] = await Promise.all([
-            searchCGTraderMarket('Toyota Supra', 12),
+            searchCGTraderMarketV2('Toyota Supra', 12),
             searchRenderHubClean('Toyota', 12),
             search3dCarClean('Honda NSX', 12),
           ])
@@ -81,16 +83,7 @@ jobs:
           console.log('CGTRADER', JSON.stringify({count:cg.results.length,pages:cg.pagesFetched,paid:paid ? {title:paid.title,price:paid.price} : null}, null, 2))
           console.log('RENDERHUB', JSON.stringify({count:render.results.length,pages:render.pagesFetched,first:render.results[0]?.title||null,badTitle:renderBad?.title||null}, null, 2))
           console.log('3DCAR', JSON.stringify({count:gallery.results.length,pages:gallery.pagesFetched,nsx:nsx?.title||null}, null, 2))
-          if (!cg.results.length || !paid) {
-            console.error('CGTrader paid regression: no paid listing returned.')
-            process.exit(1)
-          }
-          if (renderBad) {
-            console.error(`RenderHub title regression: ${renderBad.title}`)
-            process.exit(1)
-          }
-          if (!nsx) {
-            console.error('3DCar regression: Honda NSX not found in gallery.')
-            process.exit(1)
-          }
+          if (!cg.results.length || !paid) process.exit(1)
+          if (renderBad) process.exit(1)
+          if (!nsx) process.exit(1)
           EOF
