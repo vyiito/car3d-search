@@ -89,6 +89,17 @@ jobs:
           if (selected.length) zip = await buildReferenceZip(pack.packId, selected)
           console.log(JSON.stringify({ query: pack.query, images: pack.images.length, downloadable: pack.downloadableCount, angles: pack.angleCoverage, zipBytes: zip?.buffer?.length || 0, zipIncluded: zip?.included || 0, zipName: zip?.filename || null }, null, 2))
           EOF
+      - name: Production reference API smoke
+        run: |
+          node --input-type=module <<'EOF'
+          const url = 'https://car3d-search-api.onrender.com/api/references?title=Toyota%20Supra%20MK4&brand=Toyota&year=1998&perAngle=2'
+          const response = await fetch(url, { headers: { accept: 'application/json' } })
+          const text = await response.text()
+          let payload = null
+          try { payload = JSON.parse(text) } catch {}
+          console.log(JSON.stringify({ status: response.status, query: payload?.query, images: payload?.images?.length ?? null, downloadable: payload?.downloadableCount ?? null, angles: payload?.angleCoverage ?? null, error: payload?.error ?? (!payload ? text.slice(0,300) : null) }, null, 2))
+          if (!response.ok || !Array.isArray(payload?.images) || payload.images.length === 0) process.exit(1)
+          EOF
       - name: Commerce adapter diagnostics
         continue-on-error: true
         run: |
