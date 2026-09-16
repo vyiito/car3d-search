@@ -1,0 +1,14 @@
+:root{--accent:#9b5cff;--accent2:#c18cff;--violet:#7c3aed;--violet-soft:#b794f6;--accent-deep:#2a1739;--accent-line:#8f63bc66}
+body:before{background:radial-gradient(circle at 13% 12%,#9b5cff18 0,transparent 31%),radial-gradient(circle at 82% 3%,#c18cff0b 0,transparent 27%)}
+.searchBox:focus-within{border-color:#7655a8;box-shadow:0 26px 85px #000d,0 0 0 1px #9b5cff55}
+.yearFilter input:focus{border-color:#7954a5}.facetChips button.active b{color:#261635}
+.downloadBadge,.discoveryDownload{border-color:#8759bd66!important;background:#181020e8!important;color:#decaff!important}
+.globalLoading:after,.discoveryLoading:after{background:linear-gradient(90deg,transparent,#9b5cff22,transparent)!important}
+.apiWarning{border-left-color:var(--accent);background:#17101f;color:#cdb6e8}.sourceError>svg:first-child{color:#a780cf}
+.discoveryEyebrow{color:var(--accent)!important}.surpriseButton:hover,.railButton:hover{background:var(--accent)!important;border-color:var(--accent)!important;color:#0b0810!important}.discoveryModes button:after{background:var(--accent)!important}.discoveryCard:focus-visible{outline-color:var(--accent)!important}.discoveryCard:before{background:var(--accent)!important}.discoveryFooter button:hover{color:var(--accent)!important}.discoverMoreCard{background:linear-gradient(155deg,#9b5cff 0,#5c2c85 39%,#17131d 39.3%,#101012 100%)!important}
+.assetDetail:before{background:linear-gradient(115deg,transparent 0 66%,#9b5cff22 66% 67%,transparent 67% 100%),radial-gradient(circle at 78% 10%,#9b5cff18,transparent 29%)}
+.assetBack:hover,.assetClose:hover{color:var(--accent)!important}.assetClose:hover,.assetGalleryThumbs button:hover,.assetGalleryThumbs button.active,.assetSourceAction:hover,.assetUtilityActions button:hover,.assetUtilityActions a:hover{border-color:var(--accent)!important}
+.assetDetailBrand>span,.assetFreeStamp,.assetTags span:first-child,.assetDownload.direct{background:var(--accent)!important}.assetMediaIdentity span,.assetSectionCode,.assetKicker,.assetRoutes a span{color:var(--accent2)!important}
+.assetResolverState.resolved{border-color:#563184!important;background:#160e20!important}.resolved .resolverDot{background:var(--accent)!important;box-shadow:0 0 0 5px #9b5cff22!important}
+.cardFooter button:hover,.providerGrid>a:hover .providerNumber{color:var(--accent)!important}
+@media(prefers-reduced-motion:no-preference){.brandMark,.loadingMark,.assetDetailBrand>span{transition:background .2s ease,box-shadow .2s ease}.brandMark:hover{box-shadow:0 0 0 5px #9b5cff18}}
