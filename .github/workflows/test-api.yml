@@ -31,6 +31,7 @@ jobs:
       - run: node --check src/market-adapters.js
       - run: node --check src/catalog-adapters.js
       - run: node --check src/remaining-adapters.js
+      - run: node --check src/commerce-adapters.js
       - name: Vertex regression · Funco F9
         run: |
           node --input-type=module <<'EOF'
@@ -38,25 +39,22 @@ jobs:
           const payload = await searchVertexNative('2018 Funco Motorsports F9', 20)
           const hit = payload.results.find(item => /funco\s+motorsports\s+f9/i.test(item.title))
           console.log(JSON.stringify({ pagesFetched: payload.pagesFetched, count: payload.results.length, hit }, null, 2))
-          if (!hit) process.exit(1)
-          if (hit.game !== 'Forza Horizon 5') process.exit(1)
+          if (!hit || hit.game !== 'Forza Horizon 5') process.exit(1)
           EOF
-      - name: New source adapter diagnostics
+      - name: Core new source diagnostics
         continue-on-error: true
         run: |
           node --input-type=module <<'EOF'
           import { searchNativeMarketSources } from './src/market-adapters.js'
           import { search3DBaza, searchWireWheels } from './src/catalog-adapters.js'
-          import { searchCGMoodV2, searchZifir, searchRenderHub, search3ddd, search3dCar } from './src/remaining-adapters.js'
+          import { searchCGMoodV2, searchZifir, search3ddd } from './src/remaining-adapters.js'
           const base = await searchNativeMarketSources('Toyota', 8)
           const tests = [
             ['3D-Baza', () => search3DBaza('Toyota', 8)],
             ['Wire Wheels', () => searchWireWheels('Ford', 8)],
             ['CGMood V2', () => searchCGMoodV2('Toyota', 8)],
             ['ZIFIR', () => searchZifir('Toyota', 8)],
-            ['RenderHub', () => searchRenderHub('Toyota', 8)],
             ['3ddd', () => search3ddd('Toyota Camry', 8)],
-            ['3DCar', () => search3dCar('Honda NSX', 8)],
           ]
           console.log('BASE', JSON.stringify(base.map(x => ({source:x.sourceId,status:x.status,count:x.results.length,pages:x.pagesFetched,error:x.error})), null, 2))
           for (const [name, fn] of tests) {
@@ -66,5 +64,33 @@ jobs:
             } catch (error) {
               console.log(name, JSON.stringify({count:0,pages:0,error:error.message}, null, 2))
             }
+          }
+          EOF
+      - name: Commerce adapter diagnostics
+        run: |
+          node --input-type=module <<'EOF'
+          import { searchCGTraderMarket, searchRenderHubClean, search3dCarClean } from './src/commerce-adapters.js'
+          const [cg, render, gallery] = await Promise.all([
+            searchCGTraderMarket('Toyota Supra', 12),
+            searchRenderHubClean('Toyota', 12),
+            search3dCarClean('Honda NSX', 12),
+          ])
+          const paid = cg.results.find(item => item.isFree === false || (typeof item.price === 'number' && item.price > 0))
+          const renderBad = render.results.find(item => /^✓|extended use license|high poly.*game ready/i.test(item.title))
+          const nsx = gallery.results.find(item => /honda\s+nsx/i.test(item.title))
+          console.log('CGTRADER', JSON.stringify({count:cg.results.length,pages:cg.pagesFetched,paid:paid ? {title:paid.title,price:paid.price} : null}, null, 2))
+          console.log('RENDERHUB', JSON.stringify({count:render.results.length,pages:render.pagesFetched,first:render.results[0]?.title||null,badTitle:renderBad?.title||null}, null, 2))
+          console.log('3DCAR', JSON.stringify({count:gallery.results.length,pages:gallery.pagesFetched,nsx:nsx?.title||null}, null, 2))
+          if (!cg.results.length || !paid) {
+            console.error('CGTrader paid regression: no paid listing returned.')
+            process.exit(1)
+          }
+          if (renderBad) {
+            console.error(`RenderHub title regression: ${renderBad.title}`)
+            process.exit(1)
+          }
+          if (!nsx) {
+            console.error('3DCar regression: Honda NSX not found in gallery.')
+            process.exit(1)
           }
           EOF
