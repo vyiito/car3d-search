@@ -305,17 +305,20 @@ function referenceCandidates(identity) {
 
 export async function searchReferencePack(asset, options = {}) {
   const identity = canonicalizeVehicleIdentity(asset)
-  const candidates = referenceCandidates(identity)
+  const baseCandidates = referenceCandidates(identity)
   const context = searchContextFor(identity)
+  const candidates = uniq([
+    ...baseCandidates.map(title => clean([title, context].filter(Boolean).join(' '))),
+    ...baseCandidates,
+  ]).filter(value => value.length >= 2)
 
   let best = null
-  for (let index = 0; index < candidates.length; index += 1) {
-    const title = candidates[index]
-    const searchTitle = clean([title, context].filter(Boolean).join(' '))
+  for (const searchTitle of candidates) {
+    const carriesTrustedYear = Boolean(identity.yearTrusted && identity.year && new RegExp(`\\b${identity.year}\\b`).test(searchTitle))
     const pack = await searchLegacyReferencePack({
       title: searchTitle,
       brand: identity.brand,
-      year: identity.yearTrusted && index === 0 ? identity.year : null,
+      year: carriesTrustedYear ? identity.year : null,
     }, options)
     const filtered = filterPack(pack, identity)
     if (!best || filtered.images.length > best.images.length || (filtered.images.length === best.images.length && filtered.angleCoverage.length > best.angleCoverage.length)) best = filtered
@@ -323,8 +326,7 @@ export async function searchReferencePack(asset, options = {}) {
   }
 
   if (best) return best
-  const fallbackTitle = clean([identity.display || asset.title, context].filter(Boolean).join(' '))
-  const fallback = await searchLegacyReferencePack({ title: fallbackTitle, brand: identity.brand, year: null }, options)
+  const fallback = await searchLegacyReferencePack({ title: identity.display || asset.title, brand: identity.brand, year: null }, options)
   return filterPack(fallback, identity)
 }
 
