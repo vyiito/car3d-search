@@ -4,6 +4,7 @@ import { providers } from './providers.js'
 import { searchAll } from './search.js'
 import { getResultDetails } from './details.js'
 import { searchBrasilSimulatorMods } from './brasil-adapter.js'
+import { runDynamicProviderProbe } from './dynamic-provider-probe.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -60,16 +61,9 @@ app.get('/api/search', async (req, res) => {
       searchAll(q, { perSource }),
       searchBrasilSimulatorMods(q, perSource).catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : 'BSM search failed' })),
     ])
-
-    rawPayload.results = [
-      ...rawPayload.results.filter(result => result.sourceId !== 'brasil-simulator-mods'),
-      ...brasil.results,
-    ]
-    rawPayload.sources = rawPayload.sources.map(source => source.provider === 'brasil-simulator-mods'
-      ? { ...source, status: brasil.error ? 'error' : 'ok', count: brasil.results.length, pagesFetched: brasil.pagesFetched, error: brasil.error }
-      : source)
+    rawPayload.results = [...rawPayload.results.filter(result => result.sourceId !== 'brasil-simulator-mods'), ...brasil.results]
+    rawPayload.sources = rawPayload.sources.map(source => source.provider === 'brasil-simulator-mods' ? { ...source, status: brasil.error ? 'error' : 'ok', count: brasil.results.length, pagesFetched: brasil.pagesFetched, error: brasil.error } : source)
     rawPayload.total = rawPayload.results.length
-
     console.log(`[search] ${q} :: ${rawPayload.sources.map(source => `${source.provider}=${source.status}:${source.count}@${source.pagesFetched || 0}p`).join(' | ')}`)
     const payload = freeOnlyPayload(rawPayload); cache.set(cacheKey, { createdAt: Date.now(), payload }); trimCache(cache); res.json({ ...payload, cached: false })
   } catch (error) { console.error(error); res.status(500).json({ error: 'Global search failed.' }) }
@@ -93,4 +87,5 @@ app.get('/api/download', async (req, res) => {
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`)
+  setTimeout(() => runDynamicProviderProbe().catch(() => {}), 1200)
 })
