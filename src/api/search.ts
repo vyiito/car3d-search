@@ -27,6 +27,7 @@ export interface GlobalSearchResult {
   description: string | null
   fileSize: string | null
   brand: string | null
+  game?: string | null
   year: number | null
   vehicleClass: 'Car' | 'SUV' | 'Race Car' | 'Motorcycle' | 'Truck / Pickup' | 'Van' | 'Bus' | 'Utility / Tractor' | string
   score: number
@@ -37,6 +38,7 @@ export interface SourceSearchStatus {
   name: string
   status: 'ok' | 'error'
   count: number
+  pagesFetched?: number
   searchUrl: string
   durationMs: number
   error?: string
@@ -57,8 +59,8 @@ export interface GlobalSearchResponse {
 
 const API_BASE = (import.meta.env.VITE_SEARCH_API_URL || 'https://car3d-search-api.onrender.com').replace(/\/$/, '')
 
-export async function globalSearch(query: string, signal?: AbortSignal, perSource = 40): Promise<GlobalSearchResponse> {
-  const safePerSource = Math.max(1, Math.min(perSource, 50))
+export async function globalSearch(query: string, signal?: AbortSignal, perSource = 60): Promise<GlobalSearchResponse> {
+  const safePerSource = Math.max(1, Math.min(perSource, 80))
   const url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}&perSource=${safePerSource}`
   const response = await fetch(url, { signal })
   if (!response.ok) throw new Error(`API ${response.status}`)
@@ -81,6 +83,7 @@ export async function getResultDetails(result: GlobalSearchResult, signal?: Abor
     author: details.author || result.author,
     description: details.description || result.description,
     fileSize: details.fileSize || result.fileSize,
+    game: details.game || result.game || null,
     year: details.year || result.year,
     downloadUrl: details.downloadUrl || result.downloadUrl,
     downloadStatus: details.downloadUrl ? 'direct' : details.downloadActionUrl ? 'source' : (details.downloadStatus || result.downloadStatus || 'unavailable'),
