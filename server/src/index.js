@@ -3,7 +3,6 @@ import cors from 'cors'
 import { providers } from './providers.js'
 import { searchAll } from './search.js'
 import { getResultDetails } from './details.js'
-import { probeVertexPagination } from './vertex-pagination-probe.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -116,5 +115,4 @@ app.get('/api/download', async (req, res) => {
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`)
-  setTimeout(() => probeVertexPagination().catch(() => {}), 1400)
 })
