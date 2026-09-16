@@ -1,33 +1,31 @@
 const UA = 'VJ3DSearch pagination probe'
-
-function snippet(text, marker, radius = 1000) {
-  const lower = text.toLowerCase()
-  const index = lower.indexOf(marker.toLowerCase())
-  if (index < 0) return null
-  return text.slice(Math.max(0, index - radius), Math.min(text.length, index + radius)).replace(/\s+/g, ' ')
-}
+const ACTION_ID = 'c908a748621d476569fea162fbb64dc08ca0fe78'
 
 export async function probeVertexPagination() {
-  try {
-    const page = await fetch('https://www.vertex-warehouse.com/search?query=Toyota%20Supra&type=fts', { headers: { 'user-agent': UA, accept: 'text/html' } })
-    const html = await page.text()
-    const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)].map(m => new URL(m[1], page.url).href)
-    const scriptUrl = scripts.find(url => /\/search\/page-[^/]+\.js/.test(url))
-    if (!scriptUrl) return console.log('[vertex-pagination-probe] search page bundle not found')
-    const response = await fetch(scriptUrl, { headers: { 'user-agent': UA } })
-    const js = await response.text()
-    console.log(`[vertex-pagination-probe] bundle=${scriptUrl} bytes=${js.length}`)
-    for (const marker of ['isNextPage','setPage','page + 1','page+1','z+1','P(z+1)','B(!0)','I(e=>','initialData','serverreference','createServerReference']) {
-      const value = snippet(js, marker, 1300)
-      if (value) console.log(`[vertex-pagination-probe] ${marker} :: ${value}`)
+  const url = 'https://www.vertex-warehouse.com/search?query=Toyota%20Supra&type=fts'
+  const bodies = [
+    { type: 'text/plain;charset=UTF-8', body: JSON.stringify(['Toyota Supra', { page: 2, itemsPerPage: 11 }]) },
+    { type: 'application/json', body: JSON.stringify(['Toyota Supra', { page: 2, itemsPerPage: 11 }]) },
+  ]
+  for (const variant of bodies) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: {
+          'user-agent': UA,
+          accept: 'text/x-component',
+          'content-type': variant.type,
+          'next-action': ACTION_ID,
+          origin: 'https://www.vertex-warehouse.com',
+          referer: url,
+        },
+        body: variant.body,
+      })
+      const text = await response.text()
+      console.log(`[vertex-action-call] type=${variant.type} status=${response.status} ct=${response.headers.get('content-type')} bytes=${text.length} sample=${text.slice(0,3500).replace(/\s+/g,' ')}`)
+    } catch (error) {
+      console.log(`[vertex-action-call] ERROR type=${variant.type} ${error instanceof Error ? error.message : String(error)}`)
     }
-    const refs = [...new Set(js.match(/[a-f0-9]{40}/g) || [])]
-    console.log(`[vertex-pagination-probe] refs=${refs.join(',')}`)
-    for (const ref of refs.slice(0,12)) {
-      const value = snippet(js, ref, 700)
-      if (value) console.log(`[vertex-pagination-probe] ref:${ref} :: ${value}`)
-    }
-  } catch (error) {
-    console.log(`[vertex-pagination-probe] ERROR ${error instanceof Error ? error.message : String(error)}`)
   }
 }
