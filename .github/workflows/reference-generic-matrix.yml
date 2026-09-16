@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'server/src/reference-engine.js'
+      - 'server/src/reference-specialized.js'
       - 'server/src/index.js'
       - 'src/api/references.ts'
       - 'src/components/ReferencePack.tsx'
@@ -22,7 +23,10 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: node --check src/reference-engine.js
+      - name: Syntax check reference engine
+        run: |
+          node --check src/reference-engine.js
+          node --check src/reference-specialized.js
       - name: Canonical identity matrix
         run: |
           node --input-type=module <<'EOF'
@@ -66,7 +70,7 @@ jobs:
           if (wrongBike.ok || wrongBike.reason !== 'motorcycle-reference') process.exit(1)
           if (!rightCar.ok) process.exit(1)
           EOF
-      - name: Live reference diversity
+      - name: Live reference diversity and modeling sources
         run: |
           node --input-type=module <<'EOF'
           import { searchReferencePack } from './src/reference-engine.js'
@@ -78,14 +82,37 @@ jobs:
             { title: 'Sayrx Toyota Supra MK4 Vert - Individual Cars | VOSAN', brand: 'Toyota', year: 1983, vehicleClass: 'Car' },
           ]
           let successes = 0
+          let specializedHits = 0
           for (const asset of cases) {
             const pack = await searchReferencePack(asset, { perAngle: 2 })
             const fake = pack.images.filter(image => /\b(?:lego|technic|die[- ]?cast|hot wheels|matchbox|toy|miniature|model kit|3d render|game screenshot)\b/i.test(`${image.title} ${image.sourcePage}`))
             const bikeLeak = asset.vehicleClass === 'Car' ? pack.images.filter(image => /\b(?:motorcycle|motorbike|v[- ]?strom|vstrom|scooter|moped)\b/i.test(`${image.title} ${image.sourcePage}`)) : []
-            console.log(JSON.stringify({ asset: asset.title, canonical: pack.canonicalVehicle, year: pack.year, images: pack.images.length, angles: pack.angleCoverage, fake: fake.map(x => x.title), bikeLeak: bikeLeak.map(x => x.title), identity: pack.identity }, null, 2))
+            const specialized = pack.images.filter(image => image.sourceKind === 'specialized')
+            specializedHits += specialized.length
+            console.log(JSON.stringify({
+              asset: asset.title,
+              canonical: pack.canonicalVehicle,
+              year: pack.year,
+              images: pack.images.length,
+              specializedImages: specialized.length,
+              angles: pack.angleCoverage,
+              fake: fake.map(x => x.title),
+              bikeLeak: bikeLeak.map(x => x.title),
+              sourceGroups: pack.sourceGroups,
+              sourceStatus: pack.sourceStatus,
+              primarySet: pack.primarySet,
+              modelingCoverage: pack.modelingCoverage,
+              identity: pack.identity,
+            }, null, 2))
             if (fake.length || bikeLeak.length) process.exit(1)
             if (asset.title.startsWith('Sayrx') && (!/^Toyota Supra/i.test(pack.canonicalVehicle) || pack.year)) process.exit(1)
+            if (pack.identity?.engine !== 'generic-v5-modeling') process.exit(1)
+            if (!pack.modelingCoverage || !Number.isFinite(pack.modelingCoverage.readiness)) process.exit(1)
+            if (!Array.isArray(pack.sourceStatus) || pack.sourceStatus.length !== 4) process.exit(1)
+            const linkIds = new Set((pack.webSearch || []).map(link => link.id))
+            for (const required of ['caricos','netcarshow','wheelsage','carsandbids','bringatrailer','blueprints','vehicle-reference','commons']) if (!linkIds.has(required)) process.exit(1)
             if (pack.images.length > 0) successes += 1
           }
+          console.log(JSON.stringify({ specializedHits }, null, 2))
           if (successes < 3) process.exit(1)
           EOF
