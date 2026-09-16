@@ -14,6 +14,7 @@ export interface GlobalSearchResult {
   imageUrl: string | null
   formats: string[]
   price: number | null
+  priceLabel?: string | null
   isFree: boolean | null
   downloadable: boolean | null
   downloadUrl: string | null
@@ -52,6 +53,7 @@ export interface GlobalSearchResponse {
   successfulProviders: number
   automotiveOnly?: boolean
   freeOnly?: boolean
+  marketMode?: 'free+paid' | string
   results: GlobalSearchResult[]
   sources: SourceSearchStatus[]
   cached: boolean
@@ -85,6 +87,7 @@ export async function getResultDetails(result: GlobalSearchResult, signal?: Abor
     fileSize: details.fileSize || result.fileSize,
     game: details.game || result.game || null,
     year: details.year || result.year,
+    priceLabel: details.priceLabel || result.priceLabel || null,
     downloadUrl: details.downloadUrl || result.downloadUrl,
     downloadStatus: details.downloadUrl ? 'direct' : details.downloadActionUrl ? 'source' : (details.downloadStatus || result.downloadStatus || 'unavailable'),
   }
