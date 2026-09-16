@@ -17,12 +17,18 @@ app.disable('x-powered-by')
 app.use(cors({ origin: [allowedOrigin, 'http://localhost:5173'], methods: ['GET'] }))
 app.use(express.json({ limit: '32kb' }))
 
+function providerFor(result) {
+  return providers.find(provider => provider.id === result?.sourceId) || null
+}
+
 function isConfirmedFree(result) {
   if (!result) return false
   if (result.isFree === true || result.price === 0) return true
   if (result.isFree === false || (typeof result.price === 'number' && result.price > 0)) return false
   if (result.downloadUrl) return true
   if (result.sourceId === 'sketchfab' && result.downloadable === true) return true
+  const provider = providerFor(result)
+  if (provider?.freeCatalog === true) return true
   return false
 }
 
@@ -56,17 +62,22 @@ function trimCache(target, max = 120, remove = 20) {
   for (const [key] of oldest) target.delete(key)
 }
 
+async function cachedDetails(sourceId, sourceUrl) {
+  const cacheKey = `${sourceId}|${sourceUrl}`
+  const cached = detailsCache.get(cacheKey)
+  if (cached && Date.now() - cached.createdAt < DETAILS_CACHE_TTL_MS) return cached.payload
+  const payload = await getResultDetails(sourceId, sourceUrl)
+  detailsCache.set(cacheKey, { createdAt: Date.now(), payload })
+  trimCache(detailsCache, 250, 40)
+  return payload
+}
+
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, freeOnly: true, detailsResolver: true })
+  res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, freeOnly: true, detailsResolver: true, directDownloadGate: true })
 })
 
 app.get('/api/providers', (_req, res) => {
-  res.json(providers.map(provider => ({
-    id: provider.id,
-    name: provider.name,
-    type: provider.type,
-    baseUrl: provider.baseUrl,
-  })))
+  res.json(providers.map(provider => ({ id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, freeCatalog: Boolean(provider.freeCatalog) })))
 })
 
 app.get('/api/search', async (req, res) => {
@@ -76,9 +87,7 @@ app.get('/api/search', async (req, res) => {
   const perSource = Math.max(1, Math.min(Number(req.query.perSource || 20), 50))
   const cacheKey = `free|${q.toLowerCase()}|${perSource}`
   const cached = cache.get(cacheKey)
-  if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) {
-    return res.json({ ...cached.payload, cached: true })
-  }
+  if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return res.json({ ...cached.payload, cached: true })
 
   try {
     const rawPayload = await searchAll(q, { perSource })
@@ -98,17 +107,9 @@ app.get('/api/details', async (req, res) => {
   const sourceUrl = String(req.query.url || '').trim().slice(0, 2000)
   if (!sourceId || !sourceUrl) return res.status(400).json({ error: 'sourceId and url are required.' })
 
-  const cacheKey = `${sourceId}|${sourceUrl}`
-  const cached = detailsCache.get(cacheKey)
-  if (cached && Date.now() - cached.createdAt < DETAILS_CACHE_TTL_MS) {
-    return res.json({ ...cached.payload, cached: true })
-  }
-
   try {
-    const payload = await getResultDetails(sourceId, sourceUrl)
-    detailsCache.set(cacheKey, { createdAt: Date.now(), payload })
-    trimCache(detailsCache, 250, 40)
-    res.json({ ...payload, cached: false })
+    const payload = await cachedDetails(sourceId, sourceUrl)
+    res.json({ ...payload, cached: detailsCache.has(`${sourceId}|${sourceUrl}`) })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Details lookup failed.'
     const status = /outside provider host|Unknown provider|required/i.test(message) ? 400 : 502
@@ -116,7 +117,32 @@ app.get('/api/details', async (req, res) => {
   }
 })
 
+app.get('/api/download', async (req, res) => {
+  const sourceId = String(req.query.sourceId || '').trim().slice(0, 80)
+  const sourceUrl = String(req.query.url || '').trim().slice(0, 2000)
+  if (!sourceId || !sourceUrl) return res.status(400).send('Invalid download request.')
+
+  try {
+    const details = await cachedDetails(sourceId, sourceUrl)
+    if (!details.downloadUrl) return res.status(404).send('No confirmed direct download is available for this asset.')
+    const target = new URL(details.downloadUrl)
+    if (!['http:', 'https:'].includes(target.protocol)) return res.status(400).send('Invalid direct download URL.')
+    res.set('Cache-Control', 'no-store')
+    return res.redirect(302, target.href)
+  } catch (error) {
+    return res.status(502).send(error instanceof Error ? error.message : 'Download resolution failed.')
+  }
+})
+
 app.listen(port, '0.0.0.0', () => {
   console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`)
   setTimeout(() => probeVertexSearch().catch(() => {}), 1500)
+  setTimeout(async () => {
+    try {
+      const probe = await searchAll('Toyota Supra', { perSource: 5 })
+      console.log(`[provider-probe] ${probe.sources.map(source => `${source.provider}=${source.status}:${source.count}${source.error ? `(${source.error})` : ''}`).join(' | ')}`)
+    } catch (error) {
+      console.log(`[provider-probe] ERROR ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }, 4500)
 })
