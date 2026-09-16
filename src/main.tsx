@@ -2,17 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   Search, SlidersHorizontal, ExternalLink, CarFront, Database, Globe2, ChevronDown,
-  ImageOff, Sparkles, Gamepad2, Shapes, ArrowUpRight, LoaderCircle, CircleCheck,
-  CircleX, X, Download, HardDrive, UserRound, FileText, Link2, ShieldCheck,
+  ImageOff, ArrowUpRight, LoaderCircle, CircleCheck, CircleX, X, Download,
+  HardDrive, UserRound, FileText, Link2, ShieldCheck,
 } from 'lucide-react'
-import { models } from './data/models'
 import { providers, type Provider } from './data/providers'
 import { globalSearch, type GlobalSearchResult, type SourceSearchStatus } from './api/search'
+import DiscoveryCarousel from './components/DiscoveryCarousel'
 import './styles.css'
 
 type KindFilter = 'Todos' | '3D Model' | 'Game Mod'
 type SortMode = 'Relevância' | 'Grátis primeiro' | 'Nome A-Z' | 'Fonte'
-
 type VehicleGroup = 'Todos' | 'Car' | 'SUV' | 'Race Car' | 'Motorcycle' | 'Truck / Pickup' | 'Van' | 'Bus' | 'Utility / Tractor'
 
 const vehicleGroups: { value: VehicleGroup; label: string }[] = [
@@ -27,6 +26,12 @@ const vehicleGroups: { value: VehicleGroup; label: string }[] = [
   { value: 'Utility / Tractor', label: 'Utilitários / Tratores' },
 ]
 
+const searchIdeas = [
+  'Honda City', 'Toyota Supra MK4', 'BMW E36', 'Porsche 911 GT3', 'Nissan Skyline R34',
+  'Subaru Forester STI', 'Mitsubishi Lancer Evolution', 'Scania R', 'Volkswagen Golf GTI',
+  'Mercedes AMG GT', 'Ferrari F40', 'Mazda RX-7', 'Honda NSX', 'Toyota AE86',
+]
+
 function providerSearchUrl(provider: Provider, term: string) {
   const clean = term.trim()
   if (!clean) return provider.searchUrl || provider.url
@@ -37,18 +42,6 @@ function providerSearchUrl(provider: Provider, term: string) {
   } catch {
     return provider.searchUrl || provider.url
   }
-}
-
-function localVehicleClass(title: string): GlobalSearchResult['vehicleClass'] {
-  const value = title.toLowerCase()
-  if (/motorcycle|motorbike|bike|scooter/.test(value)) return 'Motorcycle'
-  if (/truck|pickup|pick-up/.test(value)) return 'Truck / Pickup'
-  if (/bus|coach/.test(value)) return 'Bus'
-  if (/van|minivan/.test(value)) return 'Van'
-  if (/tractor|harvester/.test(value)) return 'Utility / Tractor'
-  if (/suv|crossover|4x4/.test(value)) return 'SUV'
-  if (/race|racing|gt3|rally|drift|formula/.test(value)) return 'Race Car'
-  return 'Car'
 }
 
 function ResultModal({ result, onClose }: { result: GlobalSearchResult; onClose: () => void }) {
@@ -121,28 +114,6 @@ function App() {
   const [apiError, setApiError] = useState<string | null>(null)
   const [selectedResult, setSelectedResult] = useState<GlobalSearchResult | null>(null)
 
-  const featured: GlobalSearchResult[] = useMemo(() => models.map(model => ({
-    id: model.id,
-    title: model.title,
-    source: model.source,
-    sourceId: model.source.toLowerCase().replace(/\s+/g, '-'),
-    sourceType: model.sourceType === 'Game Mod' ? 'game-mods' : '3d-models',
-    sourceUrl: model.sourceUrl,
-    imageUrl: model.imageUrl,
-    formats: model.formats,
-    price: model.price,
-    isFree: model.isFree,
-    downloadable: null,
-    downloadUrl: null,
-    author: null,
-    description: null,
-    fileSize: null,
-    brand: model.brand || null,
-    year: Number(model.title.match(/\b(19\d{2}|20\d{2})\b/)?.[1]) || null,
-    vehicleClass: localVehicleClass(model.title),
-    score: 0,
-  })), [])
-
   useEffect(() => {
     const clean = query.trim()
     if (clean.length < 2) {
@@ -176,10 +147,10 @@ function App() {
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase()
     if (!q) return []
-    return models.filter(model => `${model.title} ${model.brand} ${model.vehicle}`.toLowerCase().includes(q)).slice(0, 5)
+    return searchIdeas.filter(term => term.toLowerCase().includes(q)).slice(0, 5)
   }, [query])
 
-  const rawResults = submittedQuery ? remoteResults : featured
+  const rawResults = remoteResults
   const formats = ['Todos', ...Array.from(new Set(rawResults.flatMap(result => result.formats))).sort()]
   const sources = ['Todas', ...Array.from(new Set(rawResults.map(result => result.source))).sort()]
 
@@ -212,9 +183,12 @@ function App() {
 
   const runSearch = (term = query) => {
     const clean = term.trim()
-    if (clean.length >= 2) setSubmittedQuery(clean)
+    if (clean.length >= 2) {
+      setQuery(clean)
+      setSubmittedQuery(clean)
+    }
     setSearchFocused(false)
-    window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' }), 20)
+    window.setTimeout(() => document.getElementById('results')?.scrollIntoView({ behavior: 'smooth' }), 30)
   }
 
   return (
@@ -235,25 +209,27 @@ function App() {
             <button onClick={() => runSearch()}>{loading ? <LoaderCircle className="spin" size={19}/> : 'Buscar veículos'}</button>
           </div>
           {searchFocused && query.trim() && <div className="searchSuggestions">
-            {suggestions.map(model => <button className="suggestionItem" key={model.id} onMouseDown={() => { setQuery(model.title); runSearch(model.title) }}><span className="suggestionThumb"><img src={model.imageUrl} alt=""/></span><span className="suggestionText"><strong>{model.title}</strong><small>{model.source}</small></span><ArrowUpRight size={15}/></button>)}
+            {suggestions.map(term => <button className="suggestionItem" key={term} onMouseDown={() => runSearch(term)}><span className="suggestionThumb hintIcon"><CarFront size={18}/></span><span className="suggestionText"><strong>{term}</strong><small>Pesquisar em todas as fontes</small></span><ArrowUpRight size={15}/></button>)}
             <button className="searchAllSuggestion" onMouseDown={() => runSearch()}><Globe2 size={16}/> Buscar “{query}” como veículo em todas as {providers.length} fontes</button>
           </div>}
         </div>
-        <div className="quickSearches"><span>Buscas rápidas</span>{['Honda City','Toyota Supra MK4','BMW E36','Porsche 911 GT3','Scania R'].map(term => <button key={term} onClick={() => { setQuery(term); runSearch(term) }}>{term}</button>)}</div>
+        <div className="quickSearches"><span>Buscas rápidas</span>{['Honda City','Toyota Supra MK4','BMW E36','Porsche 911 GT3','Scania R'].map(term => <button key={term} onClick={() => runSearch(term)}>{term}</button>)}</div>
       </section>
+
+      {!submittedQuery && <DiscoveryCarousel onSelect={setSelectedResult} onSearch={runSearch}/>} 
 
       <section className="stats">
         <div><strong>{providers.length}</strong><span>fontes automotivas</span></div>
         <div><strong>{providers.filter(p => p.sourceType === '3d-models').length}</strong><span>bibliotecas 3D</span></div>
         <div><strong>{providers.filter(p => p.sourceType === 'game-mods').length}</strong><span>bases de mods</span></div>
-        <div><strong>{submittedQuery ? remoteResults.length : featured.length}</strong><span>{submittedQuery ? 'veículos encontrados' : 'destaques'}</span></div>
+        <div><strong>{submittedQuery ? remoteResults.length : 'LIVE'}</strong><span>{submittedQuery ? 'veículos encontrados' : 'vitrine dinâmica'}</span></div>
       </section>
 
-      <section className="vehicleTabs">
+      <section className={`vehicleTabs ${!submittedQuery ? 'searchIdle' : ''}`}>
         {vehicleGroups.map(group => <button key={group.value} className={vehicleClass === group.value ? 'active' : ''} onClick={() => setVehicleClass(group.value)}>{group.label}</button>)}
       </section>
 
-      <section className="content" id="results">
+      <section className={`content ${!submittedQuery ? 'searchIdle' : ''}`} id="results">
         <aside className="filtersPanel">
           <div className="filterTitle"><SlidersHorizontal size={18}/><div><strong>Filtros</strong><small>{activeFilters ? `${activeFilters} ativo(s)` : 'Refine os resultados'}</small></div></div>
           <SelectFilter label="Tipo de conteúdo" value={kind} onChange={value => setKind(value as KindFilter)} options={['Todos','3D Model','Game Mod']} />
@@ -267,7 +243,7 @@ function App() {
         </aside>
 
         <div className="results">
-          <div className="resultsHeader"><div><span className="sectionEyebrow">CATÁLOGO AUTOMOTIVO</span><h2>{submittedQuery ? `Resultados para “${submittedQuery}”` : 'Veículos em destaque'}</h2><p>{loading ? `Consultando ${providers.length} fontes...` : `${filteredResults.length} de ${rawResults.length} resultado(s) exibidos`}</p></div><div className="resultsPill"><CarFront size={15}/> somente veículos</div></div>
+          <div className="resultsHeader"><div><span className="sectionEyebrow">CATÁLOGO AUTOMOTIVO</span><h2>{`Resultados para “${submittedQuery}”`}</h2><p>{loading ? `Consultando ${providers.length} fontes...` : `${filteredResults.length} de ${rawResults.length} resultado(s) exibidos`}</p></div><div className="resultsPill"><CarFront size={15}/> somente veículos</div></div>
 
           {loading && <div className="globalLoading"><LoaderCircle className="spin" size={28}/><div><strong>Buscando veículos em todas as bases</strong><span>Coletando, classificando e removendo resultados não automotivos.</span></div></div>}
           {apiError && <div className="apiWarning"><CircleX size={18}/><span>{apiError}</span></div>}
@@ -289,11 +265,11 @@ function App() {
             </div>
           </article>)}</div>}
 
-          {!loading && submittedQuery && filteredResults.length === 0 && <div className="emptyState"><CarFront size={32}/><h3>Nenhum veículo passou pelos filtros</h3><p>Tente remover algum filtro ou pesquisar com marca + modelo. Resultados não automotivos são descartados propositalmente.</p></div>}
+          {!loading && filteredResults.length === 0 && <div className="emptyState"><CarFront size={32}/><h3>Nenhum veículo passou pelos filtros</h3><p>Tente remover algum filtro ou pesquisar com marca + modelo. Resultados não automotivos são descartados propositalmente.</p></div>}
 
-          {submittedQuery && sourceStatuses.length > 0 && <details className="sourceStatusSection"><summary><Database size={17}/> Status das {sourceStatuses.length} fontes <span>{sourceStatuses.filter(s => s.status === 'ok').length} responderam</span></summary><div className="sourceStatusGrid">{sourceStatuses.map(item => <a key={item.provider} href={item.searchUrl} target="_blank" rel="noreferrer" className={item.status === 'ok' ? 'sourceOk' : 'sourceError'}>{item.status === 'ok' ? <CircleCheck size={15}/> : <CircleX size={15}/>}<span><strong>{item.name}</strong><small>{item.status === 'ok' ? `${item.count} veículo(s) · ${item.durationMs}ms` : 'Abrir busca na fonte'}</small></span><ArrowUpRight size={13}/></a>)}</div></details>}
+          {sourceStatuses.length > 0 && <details className="sourceStatusSection"><summary><Database size={17}/> Status das {sourceStatuses.length} fontes <span>{sourceStatuses.filter(s => s.status === 'ok').length} responderam</span></summary><div className="sourceStatusGrid">{sourceStatuses.map(item => <a key={item.provider} href={item.searchUrl} target="_blank" rel="noreferrer" className={item.status === 'ok' ? 'sourceOk' : 'sourceError'}>{item.status === 'ok' ? <CircleCheck size={15}/> : <CircleX size={15}/>}<span><strong>{item.name}</strong><small>{item.status === 'ok' ? `${item.count} veículo(s) · ${item.durationMs}ms` : 'Abrir busca na fonte'}</small></span><ArrowUpRight size={13}/></a>)}</div></details>}
 
-          {submittedQuery && (apiError || (!loading && remoteResults.length === 0)) && <section className="providerSearchSection"><div className="providerSearchHeading"><div><Globe2 size={18}/><strong>Busca automotiva direta nas {providers.length} fontes</strong></div><span>Abra a pesquisa já contextualizada como carro/veículo.</span></div><div className="providerSearchGrid">{providers.map(provider => <a key={provider.id} href={providerSearchUrl(provider, submittedQuery)} target="_blank" rel="noreferrer"><span className="providerSearchIcon"><CarFront size={17}/></span><span><strong>{provider.name}</strong><small>{provider.categories.slice(0,2).join(' · ')}</small></span><ArrowUpRight size={15}/></a>)}</div></section>}
+          {(apiError || (!loading && remoteResults.length === 0)) && <section className="providerSearchSection"><div className="providerSearchHeading"><div><Globe2 size={18}/><strong>Busca automotiva direta nas {providers.length} fontes</strong></div><span>Abra a pesquisa já contextualizada como carro/veículo.</span></div><div className="providerSearchGrid">{providers.map(provider => <a key={provider.id} href={providerSearchUrl(provider, submittedQuery)} target="_blank" rel="noreferrer"><span className="providerSearchIcon"><CarFront size={17}/></span><span><strong>{provider.name}</strong><small>{provider.categories.slice(0,2).join(' · ')}</small></span><ArrowUpRight size={15}/></a>)}</div></section>}
         </div>
       </section>
 
