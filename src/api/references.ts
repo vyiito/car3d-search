@@ -22,11 +22,20 @@ export interface ReferenceImage {
   height: number | null
   downloadAllowed: boolean
   redistributionNote: string
-  matchLevel?: 'exact' | 'model' | 'generation' | 'family' | 'alias' | string
+  matchLevel?: 'exact' | 'model' | 'generation' | 'family' | 'alias' | 'specialized-gallery' | string
   identityScore?: number
+  identityEngine?: string
+  sourceKind?: 'specialized' | string
+  modelingGroup?: 'exterior' | 'details' | 'interior' | 'mechanical' | 'technical' | 'reference' | string
+  galleryTitle?: string | null
 }
 
-export interface ReferenceSearchLink { id: string; label: string; url: string }
+export interface ReferenceSearchLink { id: string; label: string; url: string; kind?: string }
+export interface ReferenceSourceGroup { source: string; count: number; downloadable: number; referenceOnly: number; galleries: number; angles: number }
+export interface ReferenceSourceStatus { name: string; status: 'ok' | 'error' | string; count: number; durationMs?: number; error?: string }
+export interface ModelingCoverage { groups: Record<string, number>; targets: Record<string, number>; readiness: number }
+export interface PrimaryReferenceSet { source: string; title: string; sourcePage: string; count: number; angles: number }
+
 export interface ReferencePack {
   packId: string
   query: string
@@ -39,6 +48,10 @@ export interface ReferencePack {
   downloadableCount: number
   angleCoverage: string[]
   webSearch?: ReferenceSearchLink[]
+  sourceGroups?: ReferenceSourceGroup[]
+  sourceStatus?: ReferenceSourceStatus[]
+  primarySet?: PrimaryReferenceSet | null
+  modelingCoverage?: ModelingCoverage
   identity?: {
     brand?: string | null
     model?: string | null
@@ -67,67 +80,55 @@ function cleanVehicleReferenceTitle(result: GlobalSearchResult) {
     .replace(/\([^)]*(?:3d\s*model|fbx|obj|blend|stl|3ds|max|c4d|forza|assetto|gran turismo|download|\b\d{5,}\b)[^)]*\)/gi, ' ')
     .replace(/\(\s*\d{5,}\s*\)/g, ' ')
     .replace(/\[[^\]]*(?:fbx|obj|blend|stl|game|mod|download|\b\d{5,}\b)[^\]]*\]/gi, ' ')
-    .replace(GAME_NOISE_RE, ' ')
-    .replace(FORMAT_NOISE_RE, ' ')
-    .replace(MARKET_NOISE_RE, ' ')
-    .replace(CATALOG_NOISE_RE, ' ')
-    .replace(/(?:US\$|R\$|\$|€|£)\s*\d+(?:[.,]\d{1,2})?/gi, ' ')
-    .replace(/\b(?:IE[- ]?)?\d{1,3}%\b/gi, ' ')
-    .replace(/[|_]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-
+    .replace(GAME_NOISE_RE, ' ').replace(FORMAT_NOISE_RE, ' ').replace(MARKET_NOISE_RE, ' ').replace(CATALOG_NOISE_RE, ' ')
+    .replace(/(?:US\$|R\$|\$|€|£)\s*\d+(?:[.,]\d{1,2})?/gi, ' ').replace(/\b(?:IE[- ]?)?\d{1,3}%\b/gi, ' ')
+    .replace(/[|_]+/g, ' ').replace(/\s+/g, ' ').trim()
   value = value.replace(YEAR_RE, ' ').replace(/\s+/g, ' ').trim()
   if (brand) {
-    const lower=value.toLowerCase(), index=lower.indexOf(brand.toLowerCase())
-    if(index>=0){
-      const suffix=value.slice(index+brand.length).trim()
-      const modelTokens=suffix.split(/\s+/).filter(token=>!/^\d{5,}$/.test(token)).filter(token=>!/^(?:car|cars|vehicle|vehicles|automobile|render|scene)$/i.test(token)).slice(0,6)
-      value=[brand,...modelTokens].join(' ').trim()
-    } else if(value&&!value.toLowerCase().startsWith(brand.toLowerCase())) value=`${brand} ${value}`.trim()
+    const lower = value.toLowerCase(), index = lower.indexOf(brand.toLowerCase())
+    if (index >= 0) {
+      const suffix = value.slice(index + brand.length).trim()
+      const modelTokens = suffix.split(/\s+/).filter(token => !/^\d{5,}$/.test(token)).filter(token => !/^(?:car|cars|vehicle|vehicles|automobile|render|scene)$/i.test(token)).slice(0, 6)
+      value = [brand, ...modelTokens].join(' ').trim()
+    } else if (value && !value.toLowerCase().startsWith(brand.toLowerCase())) value = `${brand} ${value}`.trim()
   }
-  return value.replace(/\s+/g,' ').trim().slice(0,100)
+  return value.replace(/\s+/g, ' ').trim().slice(0, 100)
 }
 
 function referenceCandidates(result: GlobalSearchResult) {
-  const raw=String(result.title||'').trim()
-  const cleaned=cleanVehicleReferenceTitle(result)
-  const noYearRaw=raw.replace(YEAR_RE,' ').replace(LISTING_SUFFIX_RE,' ').replace(/\s*\|\s*[^|]{1,40}$/g,' ').replace(/\s+/g,' ').trim()
-  const seen=new Set<string>()
-  return [cleaned,noYearRaw,raw].map(title=>title.trim()).filter(title=>title.length>=2).filter(title=>{const key=title.toLowerCase();if(seen.has(key))return false;seen.add(key);return true})
+  const raw = String(result.title || '').trim(), cleaned = cleanVehicleReferenceTitle(result)
+  const noYearRaw = raw.replace(YEAR_RE, ' ').replace(LISTING_SUFFIX_RE, ' ').replace(/\s*\|\s*[^|]{1,40}$/g, ' ').replace(/\s+/g, ' ').trim()
+  const seen = new Set<string>()
+  return [cleaned, noYearRaw, raw].map(title => title.trim()).filter(title => title.length >= 2).filter(title => { const key = title.toLowerCase(); if (seen.has(key)) return false; seen.add(key); return true })
 }
+function hasTrustedYear(result: GlobalSearchResult) { return Boolean(result.year && new RegExp(`\b${String(result.year)}\b`).test(String(result.title || ''))) }
 
-function hasTrustedYear(result: GlobalSearchResult) {
-  if(!result.year)return false
-  return new RegExp(`\\b${String(result.year)}\\b`).test(String(result.title||''))
-}
-
-async function requestReferencePack(result: GlobalSearchResult,title:string,includeYear:boolean,signal?:AbortSignal):Promise<ReferencePack>{
-  const url=new URL(`${API_BASE}/api/references`)
-  url.searchParams.set('title',title)
-  if(result.brand)url.searchParams.set('brand',result.brand)
-  if(result.vehicleClass)url.searchParams.set('vehicleClass',result.vehicleClass)
-  if(includeYear&&hasTrustedYear(result))url.searchParams.set('year',String(result.year))
-  url.searchParams.set('perAngle','4')
-  const response=await fetch(url.href,{signal,cache:'no-store',headers:{'cache-control':'no-cache',pragma:'no-cache'}})
-  if(!response.ok)throw new Error(`Reference API ${response.status}`)
+async function requestReferencePack(result: GlobalSearchResult, title: string, includeYear: boolean, signal?: AbortSignal): Promise<ReferencePack> {
+  const url = new URL(`${API_BASE}/api/references`)
+  url.searchParams.set('title', title)
+  if (result.brand) url.searchParams.set('brand', result.brand)
+  if (result.vehicleClass) url.searchParams.set('vehicleClass', result.vehicleClass)
+  if (includeYear && hasTrustedYear(result)) url.searchParams.set('year', String(result.year))
+  url.searchParams.set('perAngle', '5')
+  const response = await fetch(url.href, { signal, cache: 'no-store', headers: { 'cache-control': 'no-cache', pragma: 'no-cache' } })
+  if (!response.ok) throw new Error(`Reference API ${response.status}`)
   return response.json()
 }
 
-export async function getReferencePack(result:GlobalSearchResult,signal?:AbortSignal):Promise<ReferencePack>{
-  const candidates=referenceCandidates(result)
-  let lastPack:ReferencePack|null=null
-  for(let index=0;index<candidates.length;index+=1){
-    const pack=await requestReferencePack(result,candidates[index],index===0,signal)
-    lastPack=pack
-    if(pack.images.length>0)return pack
+export async function getReferencePack(result: GlobalSearchResult, signal?: AbortSignal): Promise<ReferencePack> {
+  const candidates = referenceCandidates(result)
+  let lastPack: ReferencePack | null = null
+  for (let index = 0; index < candidates.length; index += 1) {
+    const pack = await requestReferencePack(result, candidates[index], index === 0, signal)
+    lastPack = pack
+    if (pack.images.length > 0) return pack
   }
-  return lastPack||requestReferencePack(result,result.title,false,signal)
+  return lastPack || requestReferencePack(result, result.title, false, signal)
 }
 
-export function referencePackDownloadUrl(packId:string,imageIds:string[]){
-  const url=new URL(`${API_BASE}/api/reference-pack.zip`)
-  url.searchParams.set('packId',packId)
-  if(imageIds.length)url.searchParams.set('ids',imageIds.join(','))
+export function referencePackDownloadUrl(packId: string, imageIds: string[]) {
+  const url = new URL(`${API_BASE}/api/reference-pack.zip`)
+  url.searchParams.set('packId', packId)
+  if (imageIds.length) url.searchParams.set('ids', imageIds.join(','))
   return url.href
 }
