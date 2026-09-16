@@ -43,6 +43,16 @@ jobs:
           console.log(JSON.stringify({ pagesFetched: payload.pagesFetched, count: payload.results.length, hit }, null, 2))
           if (!hit || hit.game !== 'Forza Horizon 5') process.exit(1)
           EOF
+      - name: 3D CAD Browser preview regression
+        run: |
+          node --input-type=module <<'EOF'
+          import { search3DCadBrowser } from './src/market-adapters.js'
+          const payload = await search3DCadBrowser('BMW', 8)
+          const withImage = payload.results.filter(item => Boolean(item.imageUrl))
+          const withFormat = payload.results.filter(item => item.formats?.length)
+          console.log(JSON.stringify({ pagesFetched: payload.pagesFetched, count: payload.results.length, images: withImage.length, formats: withFormat.length, first: payload.results[0] }, null, 2))
+          if (!payload.results.length || withImage.length < Math.min(3, payload.results.length)) process.exit(1)
+          EOF
       - name: Core new source diagnostics
         continue-on-error: true
         run: |
