@@ -1,3 +1,5 @@
+const tagSlug = value => String(value || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/\s+/).filter(Boolean).pop()?.replace(/[^a-z0-9-]+/g, '-') || 'car'
+
 export const providers = [
   { id: 'rigmodels', name: 'RigModels', type: '3d-models', freeCatalog: true, pagination: true, baseUrl: 'https://rigmodels.com', buildUrl: q => `https://rigmodels.com/index.php?searchkeyword=${encodeURIComponent(q)}` },
   { id: 'free3d', name: 'Free3D', type: '3d-models', pagination: true, baseUrl: 'https://free3d.com', buildUrl: q => `https://free3d.com/3d-models/${encodeURIComponent(q.trim().replace(/\s+/g, '-'))}` },
@@ -10,7 +12,7 @@ export const providers = [
   { id: 'ets2lt', name: 'ETS2.lt', type: 'game-mods', freeCatalog: true, defaultGame: 'Euro Truck Simulator 2', pagination: true, baseUrl: 'https://ets2.lt', buildUrl: q => `https://ets2.lt/en/?s=${encodeURIComponent(q)}` },
   { id: 'vosan', name: 'VOSAN', type: 'game-mods', defaultGame: 'Assetto Corsa', pagination: true, baseUrl: 'https://vosan.co', buildUrl: q => `https://vosan.co/explore?search=${encodeURIComponent(q)}` },
   { id: 'sketchfab', name: 'Sketchfab', type: '3d-models', adapter: 'sketchfab', baseUrl: 'https://sketchfab.com', buildUrl: q => `https://sketchfab.com/search?type=models&q=${encodeURIComponent(q)}&features=downloadable` },
-  { id: 'cgtrader', name: 'CGTrader', type: '3d-models', pagination: true, baseUrl: 'https://www.cgtrader.com', buildUrl: q => `https://www.cgtrader.com/3d-models?keywords=${encodeURIComponent(`${q} vehicle`)}` },
+  { id: 'cgtrader', name: 'CGTrader', type: '3d-models', pagination: true, baseUrl: 'https://www.cgtrader.com', buildUrl: q => `https://www.cgtrader.com/3d-models/${encodeURIComponent(tagSlug(q))}` },
   { id: 'done3d', name: 'Done3D', type: '3d-models', pagination: true, baseUrl: 'https://done3d.com', buildUrl: q => `https://done3d.com/?s=${encodeURIComponent(q)}` },
   { id: '3dsky', name: '3DSky', type: '3d-models', pagination: true, baseUrl: 'https://3dsky.org', buildUrl: q => `https://3dsky.org/3dmodels?search=${encodeURIComponent(`${q} car`)}` },
   { id: 'free3dio', name: 'Free3D.io', type: '3d-models', pagination: true, baseUrl: 'https://free3d.io', buildUrl: q => `https://free3d.io/?q=${encodeURIComponent(`${q} vehicle`)}` },
