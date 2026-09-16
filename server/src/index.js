@@ -104,13 +104,13 @@ app.get('/api/details', async (req, res) => {
 app.get('/api/references', async (req, res) => {
   const title = String(req.query.title || '').trim().slice(0, 160)
   const brand = String(req.query.brand || '').trim().slice(0, 80)
+  const vehicleClass = String(req.query.vehicleClass || '').trim().slice(0, 80)
   const yearRaw = Number(req.query.year || 0)
   const year = Number.isInteger(yearRaw) && yearRaw >= 1900 && yearRaw <= 2035 ? yearRaw : null
   const perAngle = Math.max(2, Math.min(Number(req.query.perAngle || 4), 6))
   if (title.length < 2) return res.status(400).json({ error: 'title is required.' })
   try {
-    const payload = await searchReferencePack({ title, brand, year }, { perAngle })
-    // Do not let a browser keep an obsolete empty pack after the identity matcher changes.
+    const payload = await searchReferencePack({ title, brand, year, vehicleClass }, { perAngle })
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
     res.set('Pragma', 'no-cache')
     res.set('Expires', '0')
