@@ -1,0 +1,62 @@
+name: Generic reference matrix
+
+on:
+  push:
+    paths:
+      - 'server/src/reference-engine.js'
+      - 'server/src/index.js'
+      - '.github/workflows/reference-generic-matrix.yml'
+  workflow_dispatch:
+
+jobs:
+  reference-matrix:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: node --check src/reference-engine.js
+      - name: Canonical identity matrix
+        run: |
+          node --input-type=module <<'EOF'
+          import { canonicalizeVehicleIdentity } from './src/reference-engine.js'
+          const cases = [
+            [{ title: 'Honda Civic SI 2014 - LM', brand: 'Honda', year: 2014 }, /honda civic si/i],
+            [{ title: '1998 Toyota Supra RZ JZA80 - Forza Horizon 5 FBX', brand: 'Toyota', year: 1998 }, /toyota supra/i],
+            [{ title: 'BMW M3 E46 2004 3D Model', brand: 'BMW', year: 2004 }, /bmw m3 e46/i],
+            [{ title: '1999 Nissan Skyline GT-R R34', brand: 'Nissan', year: 1999 }, /nissan skyline gt-r r34/i],
+            [{ title: '2018 Funco Motorsports F9', brand: 'Funco Motorsports', year: 2018 }, /funco motorsports f9/i],
+            [{ title: '1965 Ford Mustang Fastback', brand: null, year: 1965 }, /ford mustang/i],
+            [{ title: '2022 Lada Niva Legend', brand: null, year: 2022 }, /lada niva/i],
+            [{ title: '2019 Alfa Romeo Giulia Quadrifoglio', brand: null, year: 2019 }, /alfa romeo giulia/i],
+            [{ title: 'Porsche 911 992 Carrera S 2021', brand: 'Porsche', year: 2021 }, /porsche 911 992/i],
+          ]
+          for (const [asset, expected] of cases) {
+            const identity = canonicalizeVehicleIdentity(asset)
+            console.log(JSON.stringify({ input: asset.title, identity }, null, 2))
+            if (!expected.test(identity.display)) process.exit(1)
+            if (!identity.primaryModel) process.exit(1)
+          }
+          EOF
+      - name: Live reference diversity
+        run: |
+          node --input-type=module <<'EOF'
+          import { searchReferencePack } from './src/reference-engine.js'
+          const cases = [
+            { title: 'Toyota Supra MK4 1998', brand: 'Toyota', year: 1998 },
+            { title: 'BMW M3 E46 2004', brand: 'BMW', year: 2004 },
+            { title: 'Ford Mustang Fastback 1965', brand: 'Ford', year: 1965 },
+          ]
+          let successes = 0
+          for (const asset of cases) {
+            const pack = await searchReferencePack(asset, { perAngle: 2 })
+            console.log(JSON.stringify({ asset: asset.title, canonical: pack.canonicalVehicle, images: pack.images.length, angles: pack.angleCoverage, identity: pack.identity }, null, 2))
+            if (pack.images.length > 0) successes += 1
+          }
+          if (successes < 2) process.exit(1)
+          EOF
