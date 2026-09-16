@@ -12,23 +12,22 @@ export async function runDynamicProviderProbe(){
   }catch(e){console.log(`[bsm-native] ERROR ${e instanceof Error?e.message:String(e)}`)}
 
   try{
+    const response=await fetch('https://3dsky.org/api/models',{
+      method:'POST',redirect:'follow',
+      headers:{'user-agent':UA,accept:'application/json','content-type':'application/json','accept-language':'en-US,en;q=0.9'},
+      body:JSON.stringify({query:'Toyota Supra',order:'relevance',page:1}),
+    })
+    const body=await response.text()
+    console.log(`[3dsky-post] status=${response.status} ct=${response.headers.get('content-type')||''} bytes=${body.length} snippet=${compact(body).slice(0,4200)}`)
+  }catch(e){console.log(`[3dsky-post] ERROR ${e instanceof Error?e.message:String(e)}`)}
+
+  try{
     const {r,t:html}=await text('https://3dwarehouse.sketchup.com/search/?q=Toyota%20Supra%20car%20vehicle')
     const $=cheerio.load(html)
     const main=$('script[src]').map((_,e)=>{try{return new URL($(e).attr('src'),r.url).href}catch{return null}}).get().filter(Boolean).find(u=>/\/assets\/index-.*\.js/.test(u))
     if(main){
       const {t:js}=await text(main,'application/javascript,*/*')
-      const lazy=[...js.matchAll(/assets\/[A-Za-z0-9_.-]*SearchResults[A-Za-z0-9_.-]*\.js/g)].map(m=>m[0])
-      console.log(`[3dw-probe] main=${main} lazy=${[...new Set(lazy)].join(',')}`)
-      for(const path of [...new Set(lazy)].slice(0,5)){
-        const url=new URL(`/${path.replace(/^\//,'')}`,r.url).href
-        const {t:chunk}=await text(url,'application/javascript,*/*')
-        console.log(`[3dw-chunk] url=${url} bytes=${chunk.length} contexts=${contexts(chunk,['api.sketchup.com','/api/','searchService','search?','query=','graphql','axios','fetch(','pageSize','offset','cursor'],900).join(' || ')}`)
-      }
+      console.log(`[3dw-main] bytes=${js.length} contexts=${contexts(js,['fetchModels','fetchSearch','/search','api.','baseURL','baseUrl','cards','offset','pageSize','searchText'],900).join(' || ')}`)
     }
   }catch(e){console.log(`[3dw-probe] ERROR ${e instanceof Error?e.message:String(e)}`)}
-
-  try{
-    const {t:js}=await text('https://3dsky.org/base-assets/main.89a1826cc03b2765.js','application/javascript,*/*')
-    console.log(`[3dsky-probe2] bytes=${js.length} contexts=${contexts(js,['modelRequest','getModels(','loadModels','y0.models','modelsListService','apiModelUrl+','filter_models'],1250).join(' || ')}`)
-  }catch(e){console.log(`[3dsky-probe2] ERROR ${e instanceof Error?e.message:String(e)}`)}
 }
