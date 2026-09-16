@@ -4,7 +4,7 @@ import {
   Download, ExternalLink, FileText, HardDrive, ImageOff, Images, Link2,
   LoaderCircle, ShieldCheck, UserRound, X,
 } from 'lucide-react'
-import { getResultDetails, type GlobalSearchResult } from '../api/search'
+import { getResultDetails, vjDirectDownloadUrl, type GlobalSearchResult } from '../api/search'
 import '../detail.css'
 
 interface Props {
@@ -46,9 +46,7 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
     return [...new Set(images.filter(Boolean))]
   }, [detail.gallery, detail.imageUrl])
 
-  const primaryDownloadUrl = detail.downloadUrl || detail.downloadActionUrl || null
-  const primaryDownloadLabel = detail.downloadUrl ? 'BAIXAR DIRETO' : detail.downloadActionUrl ? 'BAIXAR NA FONTE' : 'ABRIR FONTE'
-  const primaryDownloadHref = primaryDownloadUrl || detail.sourceUrl
+  const confirmedDownloadHref = vjDirectDownloadUrl(detail)
 
   const copyShare = async () => {
     try {
@@ -83,18 +81,21 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
 
         <aside className="assetInfoColumn">
           <div className="assetDetailStatus">{loading ? <><LoaderCircle className="spin" size={15}/> ANALISANDO PÁGINA ORIGINAL</> : error ? <>DETALHES PARCIAIS · FONTE NÃO ANALISADA</> : <><Check size={14}/> DADOS DA FONTE ATUALIZADOS</>}</div>
-          <div className="assetTitleBlock"><span className="assetKicker"><CarFront size={13}/> {detail.vehicleClass} · {detail.sourceType === 'game-mods' ? 'GAME MOD' : '3D ASSET'}</span><h1>{detail.title}</h1><div className="assetTags"><span>100% GRÁTIS</span>{detail.downloadUrl && <span>DOWNLOAD DIRETO</span>}{detail.year && <span>{detail.year}</span>}</div></div>
+          <div className="assetTitleBlock"><span className="assetKicker"><CarFront size={13}/> {detail.vehicleClass} · {detail.sourceType === 'game-mods' ? 'GAME MOD' : '3D ASSET'}</span><h1>{detail.title}</h1><div className="assetTags"><span>100% GRÁTIS</span>{confirmedDownloadHref && <span>DOWNLOAD DIRETO CONFIRMADO</span>}{detail.year && <span>{detail.year}</span>}</div></div>
 
-          <div className="assetPrimaryActions"><a href={primaryDownloadHref} target="_blank" rel="noreferrer" className={detail.downloadUrl ? 'assetDownload direct' : 'assetDownload'}><Download size={17}/><span><b>{primaryDownloadLabel}</b><small>{detail.downloadUrl ? 'arquivo público resolvido' : detail.downloadActionUrl ? 'ação de download encontrada' : 'nenhum link direto encontrado'}</small></span><ArrowUpRight size={16}/></a><a href={detail.sourceUrl} target="_blank" rel="noreferrer" className="assetSourceAction"><ExternalLink size={15}/> VER PÁGINA ORIGINAL</a></div>
+          <div className="assetPrimaryActions">
+            {confirmedDownloadHref && <a href={confirmedDownloadHref} className="assetDownload direct"><Download size={17}/><span><b>BAIXAR DIRETO</b><small>arquivo final confirmado pelo VJ</small></span><ArrowUpRight size={16}/></a>}
+            <a href={detail.sourceUrl} target="_blank" rel="noreferrer" className="assetSourceAction"><ExternalLink size={15}/> VER PÁGINA ORIGINAL</a>
+          </div>
 
-          <section className="assetSpecSection"><span className="assetSectionCode">METADATA / 02</span><div className="assetSpecGrid"><div><UserRound size={15}/><span>AUTOR</span><strong>{detail.author || 'Não informado'}</strong></div><div><Database size={15}/><span>FONTE</span><strong>{detail.source}</strong></div><div><Calendar size={15}/><span>ANO</span><strong>{detail.year || 'Não identificado'}</strong></div><div><HardDrive size={15}/><span>TAMANHO</span><strong>{detail.fileSize || 'Não informado'}</strong></div><div><ShieldCheck size={15}/><span>LICENÇA</span><strong>{detail.license || 'Verificar na fonte'}</strong></div><div><Link2 size={15}/><span>DOWNLOAD</span><strong>{detail.downloadUrl ? 'Direto' : detail.downloadActionUrl ? 'Via fonte' : 'Página original'}</strong></div></div></section>
+          <section className="assetSpecSection"><span className="assetSectionCode">METADATA / 02</span><div className="assetSpecGrid"><div><UserRound size={15}/><span>AUTOR</span><strong>{detail.author || 'Não informado'}</strong></div><div><Database size={15}/><span>FONTE</span><strong>{detail.source}</strong></div><div><Calendar size={15}/><span>ANO</span><strong>{detail.year || 'Não identificado'}</strong></div><div><HardDrive size={15}/><span>TAMANHO</span><strong>{detail.fileSize || 'Não informado'}</strong></div><div><ShieldCheck size={15}/><span>LICENÇA</span><strong>{detail.license || 'Verificar na fonte'}</strong></div><div><Link2 size={15}/><span>DOWNLOAD</span><strong>{confirmedDownloadHref ? 'Direto confirmado' : 'Somente pela fonte'}</strong></div></div></section>
 
           <section className="assetFormatsSection"><span className="assetSectionCode">FORMATS / 03</span><div className="assetFormatList">{detail.formats.length ? detail.formats.map(format => <span key={format}><FileText size={12}/>{format}</span>) : <span><FileText size={12}/>FORMATO NA FONTE</span>}</div></section>
 
-          <section className="assetResolverSection"><span className="assetSectionCode">DOWNLOAD RESOLVER / 04</span><div className={`assetResolverState ${detail.downloadUrl ? 'resolved' : ''}`}><span className="resolverDot"/><div><strong>{detail.downloadUrl ? 'LINK DIRETO RESOLVIDO' : detail.downloadActionUrl ? 'DOWNLOAD ENCONTRADO NA FONTE' : 'SEM LINK DIRETO PÚBLICO'}</strong><small>{detail.downloadUrl ? 'O endereço aponta diretamente para um arquivo público detectado.' : 'O VJ não contorna login, paywall, proteção anti-bot ou URLs privadas.'}</small></div></div>{detail.downloadCandidates && detail.downloadCandidates.length > 1 && <details className="assetRoutes"><summary>{detail.downloadCandidates.length} rotas de download detectadas</summary><div>{detail.downloadCandidates.slice(0,6).map(candidate => <a key={candidate.url} href={candidate.url} target="_blank" rel="noreferrer"><span>{candidate.kind === 'direct' ? 'DIRECT' : 'SOURCE'}</span><b>{candidate.label}</b><ArrowUpRight size={12}/></a>)}</div></details>}</section>
+          <section className="assetResolverSection"><span className="assetSectionCode">DOWNLOAD RESOLVER / 04</span><div className={`assetResolverState ${confirmedDownloadHref ? 'resolved' : ''}`}><span className="resolverDot"/><div><strong>{confirmedDownloadHref ? 'ARQUIVO FINAL CONFIRMADO' : detail.downloadActionUrl ? 'A FONTE TEM UMA ETAPA DE DOWNLOAD' : 'SEM LINK DIRETO PÚBLICO'}</strong><small>{confirmedDownloadHref ? 'O botão acima usa o VJ para validar o asset e redirecionar ao arquivo público final.' : 'O VJ não mostra botão de baixar enquanto não encontrar um arquivo final público. Use a página original para downloads intermediários.'}</small></div></div>{detail.downloadCandidates && detail.downloadCandidates.some(candidate => candidate.kind === 'direct') && <details className="assetRoutes"><summary>rotas diretas detectadas</summary><div>{detail.downloadCandidates.filter(candidate => candidate.kind === 'direct').slice(0,6).map(candidate => <a key={candidate.url} href={candidate.url} target="_blank" rel="noreferrer"><span>DIRECT</span><b>{candidate.label}</b><ArrowUpRight size={12}/></a>)}</div></details>}</section>
 
           <div className="assetUtilityActions"><button onClick={copyShare}><Clipboard size={14}/>{copied ? 'LINK VJ COPIADO' : 'COPIAR LINK VJ'}</button><a href={detail.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/> ABRIR FONTE</a></div>
-          <p className="assetLegalNote">O link VJ preserva a pesquisa e este asset para compartilhamento. Licença, autoria e condições de uso continuam sendo definidas pela fonte original.</p>
+          <p className="assetLegalNote">O VJ só exibe “Baixar direto” quando encontra um arquivo final público. O arquivo continua hospedado pela fonte original; o VJ não replica nem redistribui o conteúdo.</p>
         </aside>
       </main>
     </div>
