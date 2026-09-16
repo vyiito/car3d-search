@@ -110,7 +110,10 @@ app.get('/api/references', async (req, res) => {
   if (title.length < 2) return res.status(400).json({ error: 'title is required.' })
   try {
     const payload = await searchReferencePack({ title, brand, year }, { perAngle })
-    res.set('Cache-Control', 'private, max-age=300')
+    // Do not let a browser keep an obsolete empty pack after the identity matcher changes.
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    res.set('Pragma', 'no-cache')
+    res.set('Expires', '0')
     res.json(payload)
   } catch (error) {
     res.status(502).json({ error: error instanceof Error ? error.message : 'Reference search failed.' })
@@ -138,7 +141,7 @@ app.get('/api/reference-pack.zip', async (req, res) => {
 app.get('/api/download', async (req, res) => {
   const sourceId = String(req.query.sourceId || '').trim().slice(0, 80), sourceUrl = String(req.query.url || '').trim().slice(0, 2000)
   if (!sourceId || !sourceUrl) return res.status(400).send('Invalid download request.')
-  try { const details = await cachedDetails(sourceId, sourceUrl); if (!details.downloadUrl) return res.status(404).send('No confirmed direct download is available for this asset.'); const target = new URL(details.downloadUrl); if (!['http:', 'https:'].includes(target.protocol)) return res.status(400).send('Invalid direct download URL.'); res.set('Cache-Control', 'no-store'); return res.redirect(302, target.href) }
+  try { const details = await cachedDetails(sourceId, sourceUrl); if (!details.downloadUrl) return res.status(404).send('No confirmed direct download is available for this asset.'); const target = new URL(details.downloadUrl); if (!['http:', 'https:'].includes(target.protocol)) return res.status(400).send('Invalid direct download URL.'); res.set('Cache-Control', 'no-store'); return res.redirect(302,target.href) }
   catch (error) { return res.status(502).send(error instanceof Error ? error.message : 'Download resolution failed.') }
 })
 app.listen(port, '0.0.0.0', () => console.log(`VJ 3D Search API listening on 0.0.0.0:${port}`))
