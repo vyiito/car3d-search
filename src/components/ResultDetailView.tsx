@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft, ArrowUpRight, Calendar, CarFront, Check, Clipboard, Database,
-  Download, ExternalLink, FileText, HardDrive, ImageOff, Images, Link2,
+  Download, ExternalLink, FileText, Gamepad2, HardDrive, ImageOff, Images, Link2,
   LoaderCircle, ShieldCheck, UserRound, X,
 } from 'lucide-react'
 import { getResultDetails, vjDirectDownloadUrl, type GlobalSearchResult } from '../api/search'
@@ -71,7 +71,7 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
             <div className="assetMediaShade"/>
             <span className="assetMediaCode">VJ / {detail.sourceId.toUpperCase()}</span>
             <span className="assetFreeStamp">FREE</span>
-            <div className="assetMediaIdentity"><span>{detail.vehicleClass}</span><strong>{detail.brand || 'VEÍCULO'}</strong></div>
+            <div className="assetMediaIdentity"><span>{detail.game || detail.vehicleClass}</span><strong>{detail.brand || 'VEÍCULO'}</strong></div>
           </div>
 
           {gallery.length > 1 && <div className="assetGalleryRail"><span className="assetGalleryLabel"><Images size={13}/> GALERIA / {gallery.length}</span><div className="assetGalleryThumbs">{gallery.map((image, index) => <button key={image} className={index === activeImage ? 'active' : ''} onClick={() => setActiveImage(index)}><img src={image} alt=""/><span>{String(index + 1).padStart(2,'0')}</span></button>)}</div></div>}
@@ -81,14 +81,14 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
 
         <aside className="assetInfoColumn">
           <div className="assetDetailStatus">{loading ? <><LoaderCircle className="spin" size={15}/> ANALISANDO PÁGINA ORIGINAL</> : error ? <>DETALHES PARCIAIS · FONTE NÃO ANALISADA</> : <><Check size={14}/> DADOS DA FONTE ATUALIZADOS</>}</div>
-          <div className="assetTitleBlock"><span className="assetKicker"><CarFront size={13}/> {detail.vehicleClass} · {detail.sourceType === 'game-mods' ? 'GAME MOD' : '3D ASSET'}</span><h1>{detail.title}</h1><div className="assetTags"><span>100% GRÁTIS</span>{confirmedDownloadHref && <span>DOWNLOAD DIRETO CONFIRMADO</span>}{detail.year && <span>{detail.year}</span>}</div></div>
+          <div className="assetTitleBlock"><span className="assetKicker"><CarFront size={13}/> {detail.vehicleClass} · {detail.game || (detail.sourceType === 'game-mods' ? 'GAME MOD' : '3D ASSET')}</span><h1>{detail.title}</h1><div className="assetTags"><span>100% GRÁTIS</span>{confirmedDownloadHref && <span>DOWNLOAD DIRETO CONFIRMADO</span>}{detail.game && <span>{detail.game}</span>}{detail.year && <span>{detail.year}</span>}</div></div>
 
           <div className="assetPrimaryActions">
             {confirmedDownloadHref && <a href={confirmedDownloadHref} className="assetDownload direct"><Download size={17}/><span><b>BAIXAR DIRETO</b><small>arquivo final confirmado pelo VJ</small></span><ArrowUpRight size={16}/></a>}
             <a href={detail.sourceUrl} target="_blank" rel="noreferrer" className="assetSourceAction"><ExternalLink size={15}/> VER PÁGINA ORIGINAL</a>
           </div>
 
-          <section className="assetSpecSection"><span className="assetSectionCode">METADATA / 02</span><div className="assetSpecGrid"><div><UserRound size={15}/><span>AUTOR</span><strong>{detail.author || 'Não informado'}</strong></div><div><Database size={15}/><span>FONTE</span><strong>{detail.source}</strong></div><div><Calendar size={15}/><span>ANO</span><strong>{detail.year || 'Não identificado'}</strong></div><div><HardDrive size={15}/><span>TAMANHO</span><strong>{detail.fileSize || 'Não informado'}</strong></div><div><ShieldCheck size={15}/><span>LICENÇA</span><strong>{detail.license || 'Verificar na fonte'}</strong></div><div><Link2 size={15}/><span>DOWNLOAD</span><strong>{confirmedDownloadHref ? 'Direto confirmado' : 'Somente pela fonte'}</strong></div></div></section>
+          <section className="assetSpecSection"><span className="assetSectionCode">METADATA / 02</span><div className="assetSpecGrid"><div><UserRound size={15}/><span>AUTOR</span><strong>{detail.author || 'Não informado'}</strong></div><div><Database size={15}/><span>FONTE</span><strong>{detail.source}</strong></div>{detail.game&&<div><Gamepad2 size={15}/><span>JOGO / SOURCE</span><strong>{detail.game}</strong></div>}<div><Calendar size={15}/><span>ANO</span><strong>{detail.year || 'Não identificado'}</strong></div><div><HardDrive size={15}/><span>TAMANHO</span><strong>{detail.fileSize || 'Não informado'}</strong></div><div><ShieldCheck size={15}/><span>LICENÇA</span><strong>{detail.license || 'Verificar na fonte'}</strong></div><div><Link2 size={15}/><span>DOWNLOAD</span><strong>{confirmedDownloadHref ? 'Direto confirmado' : 'Somente pela fonte'}</strong></div></div></section>
 
           <section className="assetFormatsSection"><span className="assetSectionCode">FORMATS / 03</span><div className="assetFormatList">{detail.formats.length ? detail.formats.map(format => <span key={format}><FileText size={12}/>{format}</span>) : <span><FileText size={12}/>FORMATO NA FONTE</span>}</div></section>
 
