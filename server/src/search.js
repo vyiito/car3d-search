@@ -4,11 +4,13 @@ import { providers } from './providers.js'
 
 const limiter = pLimit(Number(process.env.SEARCH_CONCURRENCY || 5))
 const collectionLimiter = pLimit(3)
-const USER_AGENT = 'VJ3DSearch/0.7 (+https://github.com/vyiito/car3d-search)'
-const FORMAT_RE = /\b(blend|fbx|obj|stl|3ds|max|c4d|dae|gltf|glb|3mf|skp|ma|mb|step|stp|dwg|dxf|unitypackage|kn5|zip|rar|7z)\b/gi
+const USER_AGENT = 'VJ3DSearch/0.9 (+https://github.com/vyiito/car3d-search)'
+const MAX_HTML_PAGES = Math.max(1, Math.min(Number(process.env.MAX_PROVIDER_PAGES || 5), 10))
+const MAX_VERTEX_PAGES = Math.max(1, Math.min(Number(process.env.MAX_VERTEX_PAGES || 8), 20))
+const FORMAT_RE = /\b(blend|fbx|obj|stl|3ds|max|c4d|dae|gltf|glb|3mf|skp|ma|mb|step|stp|dwg|dxf|unitypackage|kn5|dds|png|jpg|jpeg|textures|zip|rar|7z)\b/gi
 const PRICE_RE = /(?:US\$|R\$|\$|€|£)\s?\d+(?:[.,]\d{1,2})?|\b(?:free|grátis|gratis)\b/i
 const FILE_SIZE_RE = /\b\d+(?:[.,]\d+)?\s?(?:KB|MB|GB|TB)\b/i
-const DIRECT_FILE_RE = /\.(?:zip|rar|7z|blend|fbx|obj|stl|3ds|max|c4d|dae|gltf|glb|3mf|kn5)(?:$|[?#])/i
+const DIRECT_FILE_RE = /\.(?:zip|rar|7z|blend|fbx|obj|stl|3ds|max|c4d|dae|gltf|glb|3mf|kn5|skp)(?:$|[?#])/i
 const YEAR_RE = /\b(19[3-9]\d|20[0-3]\d)\b/
 
 const VEHICLE_ONLY_PROVIDERS = new Set([
@@ -34,6 +36,32 @@ const NEGATIVE_TERMS = [
   'cityscape','city block','city hall','city center','city centre','downtown','skyline','building','buildings','architecture','architectural','house','apartment','skyscraper','street scene','urban scene','terrain','landscape','village','town','furniture','chair','sofa','table','room','interior scene','airport terminal','train station'
 ]
 
+const GAMES = [
+  ['Forza Horizon 5',['forza horizon 5','fh5']],
+  ['Forza Horizon 4',['forza horizon 4','fh4']],
+  ['Forza Horizon 6',['forza horizon 6','fh6']],
+  ['Forza Motorsport',['forza motorsport','fm8']],
+  ['Assetto Corsa Competizione',['assetto corsa competizione','acc']],
+  ['Assetto Corsa',['assetto corsa']],
+  ['CarX Drift Racing 2',['carx drift racing 2','cxdr 2']],
+  ['CarX Street',['carx street']],
+  ['CSR Racing 2',['csr racing 2','csr2']],
+  ['CSR Racing 3',['csr racing 3','csr3']],
+  ['Real Racing 3',['real racing 3','rr3']],
+  ['Need for Speed No Limits',['need for speed no limits','nfs no limits','nfsnl']],
+  ['Need for Speed Mobile',['need for speed mobile']],
+  ['Need for Speed Heat',['need for speed heat']],
+  ['Need for Speed Unbound',['need for speed unbound']],
+  ['Need for Speed',['need for speed','nfs']],
+  ['BeamNG.drive',['beamng.drive','beamng']],
+  ['Euro Truck Simulator 2',['euro truck simulator 2','ets2']],
+  ['American Truck Simulator',['american truck simulator','ats']],
+  ['Automobilista 2',['automobilista 2','ams2']],
+  ['rFactor 2',['rfactor 2']],
+  ['GTA V',['gta v','gta 5','grand theft auto v']],
+  ['GTA IV',['gta iv','gta 4','grand theft auto iv']],
+]
+
 const clean = value => String(value || '').replace(/\s+/g, ' ').trim()
 const norm = value => clean(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -47,6 +75,14 @@ function absoluteUrl(value, base) {
   try { return new URL(value, base).href } catch { return null }
 }
 
+function sameSite(url, baseUrl) {
+  try {
+    const a = new URL(url).hostname.replace(/^www\./,'')
+    const b = new URL(baseUrl).hostname.replace(/^www\./,'')
+    return a === b || a.endsWith(`.${b}`)
+  } catch { return false }
+}
+
 function scoreText(text, query) {
   const source = norm(text)
   const tokens = norm(query).split(/\s+/).filter(t => t.length > 1)
@@ -58,7 +94,7 @@ function scoreText(text, query) {
 }
 
 function parseFormats(text) {
-  return [...new Set((text.match(FORMAT_RE) || []).map(x => x.toUpperCase()))].slice(0, 10)
+  return [...new Set((String(text || '').match(FORMAT_RE) || []).map(x => x.toUpperCase()))].slice(0, 12)
 }
 
 function parsePrice(text) {
@@ -74,6 +110,13 @@ function parseFileSize(text) { return clean(text).match(FILE_SIZE_RE)?.[0] || nu
 function findBrand(text) { const value = norm(text); for (const [brand, pattern] of BRAND_PATTERNS) if (pattern.test(value)) return brand; return null }
 function matchingVehicleTerms(text) { const value = norm(text); return VEHICLE_PATTERNS.filter(([, pattern]) => pattern.test(value)).map(([term]) => term) }
 function negativeCount(text) { const value = norm(text); return NEGATIVE_PATTERNS.reduce((count, [, pattern]) => count + (pattern.test(value) ? 1 : 0), 0) }
+
+function inferGame(provider, text) {
+  if (provider.defaultGame) return provider.defaultGame
+  const value = norm(text)
+  for (const [game, aliases] of GAMES) if (aliases.some(alias => value.includes(norm(alias)))) return game
+  return null
+}
 
 function inferVehicleClass(text, providerId) {
   const value = norm(text)
@@ -106,7 +149,14 @@ function automotiveMeta(title, description, provider) {
 function decorateResult(result, provider) {
   const meta = automotiveMeta(result.title, result.description, provider)
   if (!meta.automotive) return null
-  return { ...result, brand: meta.brand, year: meta.year, vehicleClass: meta.vehicleClass, score: result.score + Math.max(meta.autoSignalScore, 0) }
+  return {
+    ...result,
+    brand: meta.brand,
+    year: result.year || meta.year,
+    vehicleClass: result.vehicleClass || meta.vehicleClass,
+    game: result.game || inferGame(provider, `${result.title} ${result.description || ''}`),
+    score: result.score + Math.max(meta.autoSignalScore, 0),
+  }
 }
 
 function bestImage($, card, baseUrl) {
@@ -140,7 +190,7 @@ function directDownloadUrl($, card, baseUrl) {
 function descriptionFromText(text, title) {
   let value = clean(text)
   if (title) value = value.replace(title, '').trim()
-  return value ? value.slice(0, 420) : null
+  return value ? value.slice(0, 520) : null
 }
 
 function candidateCards($) {
@@ -150,7 +200,7 @@ function candidateCards($) {
     $(selector).each((_, el) => {
       if (seen.has(el)) return
       const text = clean($(el).text())
-      if (text.length < 5 || text.length > 2500) return
+      if (text.length < 5 || text.length > 3000) return
       seen.add(el); cards.push($(el))
     })
   }
@@ -162,7 +212,7 @@ async function fetchHtml(url, timeoutMs = 10000) {
   try {
     const response = await fetch(url, { signal: controller.signal, redirect: 'follow', headers: { 'user-agent': USER_AGENT, accept: 'text/html,application/xhtml+xml', 'accept-language': 'en-US,en;q=0.9,pt-BR;q=0.8' } })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    return await response.text()
+    return { html: await response.text(), finalUrl: response.url || url }
   } finally { clearTimeout(timer) }
 }
 
@@ -214,6 +264,29 @@ function extractHtmlResults(provider, query, limit, html) {
   return results
 }
 
+function paginationUrls(html, currentUrl, provider) {
+  if (provider.pagination === false) return []
+  const $ = cheerio.load(html), found = new Map()
+  $('a[href]').each((_, element) => {
+    const node = $(element)
+    const href = absoluteUrl(node.attr('href'), currentUrl)
+    if (!href || href === currentUrl || !sameSite(href, provider.baseUrl)) return
+    const label = clean(`${node.text()} ${node.attr('aria-label') || ''} ${node.attr('title') || ''}`)
+    const rel = clean(node.attr('rel'))
+    let target
+    try { target = new URL(href) } catch { return }
+    const pageLike = /(?:^|[?&])(page|paged|p)=\d+/i.test(target.search) || /\/page\/\d+/i.test(target.pathname) || /(?:offset|start)=\d+/i.test(target.search)
+    const nextLike = /next|próxim|proxim|older|mais|›|»|→/i.test(label) || /next/i.test(rel)
+    const numeric = /^\s*\d+\s*$/.test(node.text())
+    if (!pageLike && !nextLike && !numeric) return
+    let score = nextLike ? 10 : numeric ? 5 : 3
+    const pageValue = Number(target.searchParams.get('page') || target.searchParams.get('paged') || target.searchParams.get('p') || 0)
+    score += Number.isFinite(pageValue) ? Math.min(pageValue, 50) / 100 : 0
+    if (!found.has(href) || found.get(href) < score) found.set(href, score)
+  })
+  return [...found.entries()].sort((a,b) => b[1]-a[1]).map(([url]) => url).slice(0, 8)
+}
+
 function extractFlightStrings(html) {
   const $ = cheerio.load(html), payloads = []
   $('script').each((_, element) => {
@@ -255,84 +328,190 @@ function extractJsonArrayAfter(text, marker) {
   return null
 }
 
+function parseBalancedObject(text, start) {
+  let depth = 0, inString = false, escaped = false
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (char === '\\') escaped = true
+      else if (char === '"') inString = false
+      continue
+    }
+    if (char === '"') { inString = true; continue }
+    if (char === '{') depth += 1
+    else if (char === '}') {
+      depth -= 1
+      if (depth === 0) {
+        try { return JSON.parse(text.slice(start, index + 1)) } catch { return null }
+      }
+    }
+  }
+  return null
+}
+
+function extractCgTraderListings(html) {
+  const results = [], re = /\{"id":"?[A-Za-z0-9_-]+"?,"type":"listingItem","attributes":\{/g
+  let match
+  while ((match = re.exec(html)) && results.length < 100) {
+    const object = parseBalancedObject(html, match.index)
+    if (object?.type === 'listingItem' && object?.attributes) results.push(object.attributes)
+    re.lastIndex = Math.max(re.lastIndex, match.index + 1)
+  }
+  return results
+}
+
 function vertexSlug(value) {
   return norm(value).replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 120)
 }
 
-async function searchVertex(provider, query, limit) {
-  const html = await fetchHtml(provider.buildUrl(query), 12000)
+function parseVertexPage(html) {
   const payloads = extractFlightStrings(html)
-  let items = null
   for (const payload of payloads) {
     if (!payload.includes('initialData')) continue
-    items = extractJsonArrayAfter(payload, '"initialData":')
-    if (Array.isArray(items)) break
+    const items = extractJsonArrayAfter(payload, '"initialData":')
+    if (Array.isArray(items)) return { items, hasNext: /"isNextPage":true/.test(payload) }
   }
-  if (!Array.isArray(items)) return []
+  return { items: [], hasNext: false }
+}
 
-  return items.slice(0, limit).map(item => {
-    const title = clean(item?.name)
-    if (!title || !item?.id || !item?.pages?.key) return null
-    const shortId = String(item.id).split('-')[0]
-    const sourceUrl = `${provider.baseUrl}/models/${encodeURIComponent(item.pages.key)}/${encodeURIComponent(shortId)}/${vertexSlug(title)}`
-    const description = [item.pages?.name, Array.isArray(item.tags) && item.tags.length ? `Tags: ${item.tags.join(', ')}` : null].filter(Boolean).join(' · ')
-    return decorateResult({
-      id: `${provider.id}:${item.id}`, title, source: provider.name, sourceId: provider.id, sourceType: provider.type, sourceUrl,
-      imageUrl: Array.isArray(item.images) ? item.images[0] || null : null,
-      formats: Array.isArray(item.formats) ? [...new Set(item.formats.map(value => String(value).toUpperCase()))].slice(0, 10) : [],
-      price: 0, isFree: true, downloadable: true, downloadUrl: null,
-      author: item.created_by?.username || null, description: description || null, fileSize: null,
-      score: scoreText(`${title} ${(item.tags || []).join(' ')} ${item.pages?.name || ''}`, query) + 5,
-    }, provider)
-  }).filter(Boolean)
+async function searchVertex(provider, query, limit) {
+  const merged = [], seen = new Set()
+  let pagesFetched = 0
+  for (let page = 1; page <= MAX_VERTEX_PAGES && merged.length < limit; page += 1) {
+    const url = new URL(provider.buildUrl(query))
+    if (page > 1) url.searchParams.set('page', String(page))
+    const { html } = await fetchHtml(url.href, 12000)
+    pagesFetched += 1
+    const parsed = parseVertexPage(html)
+    let newItems = 0
+    for (const item of parsed.items) {
+      if (!item?.id || seen.has(item.id)) continue
+      seen.add(item.id); newItems += 1
+      const title = clean(item?.name)
+      if (!title || !item?.pages?.key) continue
+      const shortId = String(item.id).split('-')[0]
+      const sourceUrl = `${provider.baseUrl}/models/${encodeURIComponent(item.pages.key)}/${encodeURIComponent(shortId)}/${vertexSlug(title)}`
+      const game = clean(item.pages?.name) || null
+      const description = [game, Array.isArray(item.tags) && item.tags.length ? `Tags: ${item.tags.join(', ')}` : null].filter(Boolean).join(' · ')
+      const candidate = decorateResult({
+        id: `${provider.id}:${item.id}`, title, source: provider.name, sourceId: provider.id, sourceType: provider.type, sourceUrl,
+        imageUrl: Array.isArray(item.images) ? item.images[0] || null : null,
+        formats: Array.isArray(item.formats) ? [...new Set(item.formats.map(value => String(value).toUpperCase()))].slice(0, 12) : [],
+        price: 0, isFree: true, downloadable: true, downloadUrl: null, game,
+        author: item.created_by?.username || null, description: description || null, fileSize: null,
+        score: scoreText(`${title} ${(item.tags || []).join(' ')} ${game || ''}`, query) + 5,
+      }, provider)
+      if (candidate) merged.push(candidate)
+      if (merged.length >= limit) break
+    }
+    if (!parsed.hasNext || newItems === 0) break
+  }
+  return { results: dedupe(merged).slice(0, limit), pagesFetched }
 }
 
 async function searchSketchfab(provider, query, limit) {
   const url = new URL('https://api.sketchfab.com/v3/search')
-  url.searchParams.set('type', 'models'); url.searchParams.set('q', query); url.searchParams.set('downloadable', 'true'); url.searchParams.set('sort_by', '-relevance')
+  url.searchParams.set('type', 'models'); url.searchParams.set('q', query); url.searchParams.set('downloadable', 'true'); url.searchParams.set('sort_by', '-relevance'); url.searchParams.set('count', String(Math.min(limit, 48)))
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10000)
   try {
     const response = await fetch(url, { signal: controller.signal, headers: { 'user-agent': USER_AGENT } })
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const data = await response.json()
-    return (data.results || []).map(model => decorateResult({
+    const results = (data.results || []).map(model => decorateResult({
       id: `${provider.id}:${model.uid}`, title: clean(model.name), source: provider.name, sourceId: provider.id, sourceType: provider.type,
       sourceUrl: model.viewerUrl || `https://sketchfab.com/3d-models/${model.uid}`,
       imageUrl: model.thumbnails?.images?.slice().sort((a, b) => (b.width || 0) - (a.width || 0))[0]?.url || null,
       formats: [], price: model.price ?? null, isFree: model.price === 0 ? true : null, downloadable: Boolean(model.isDownloadable), downloadUrl: null,
-      author: model.user?.displayName || model.user?.username || null, description: clean(model.description).slice(0, 420) || null, fileSize: null,
+      author: model.user?.displayName || model.user?.username || null, description: clean(model.description).slice(0, 520) || null, fileSize: null,
       score: scoreText(`${model.name} ${model.description || ''}`, query) + 3,
     }, provider)).filter(Boolean).slice(0, limit)
+    return { results, pagesFetched: 1 }
   } finally { clearTimeout(timer) }
 }
 
-async function searchHtmlProvider(provider, query, limit) { return extractHtmlResults(provider, query, limit, await fetchHtml(provider.buildUrl(query))) }
+async function searchCgTrader(provider, query, limit) {
+  const merged = []
+  let pagesFetched = 0
+  for (let page = 1; page <= MAX_HTML_PAGES && merged.length < limit; page += 1) {
+    const url = new URL(provider.buildUrl(query))
+    if (page > 1) url.searchParams.set('page', String(page))
+    const { html } = await fetchHtml(url.href, 12000)
+    pagesFetched += 1
+    const listings = extractCgTraderListings(html)
+    if (!listings.length && page === 1) merged.push(...extractHtmlResults(provider, query, limit, html))
+    let added = 0
+    for (const item of listings) {
+      if (typeof item.price === 'number' && item.price > 0) continue
+      const title = clean(item.title)
+      const sourceUrl = absoluteUrl(item.url || item.modelInfo?.modelUrl, provider.baseUrl)
+      if (!title || !sourceUrl) continue
+      const types = item.modelInfo?.types || {}
+      const signals = [types.pbr ? 'PBR' : null, types.rigged ? 'Rigged' : null, types.lowPoly ? 'Low poly' : null, types.animated ? 'Animated' : null, types.printReady ? 'Print ready' : null].filter(Boolean)
+      const descriptionHtml = String(item.description || '')
+      const descriptionText = clean(cheerio.load(descriptionHtml).text())
+      const candidate = decorateResult({
+        id: `${provider.id}:${item.id || Buffer.from(sourceUrl).toString('base64url').slice(0,20)}`,
+        title, source: provider.name, sourceId: provider.id, sourceType: provider.type, sourceUrl,
+        imageUrl: item.primaryImage?.gridUrl || item.primaryImage?.gridFallbackUrl || item.schemaImageUrl || null,
+        formats: Array.isArray(item.metaverseFormatsList) ? [...new Set(item.metaverseFormatsList.map(format => String(format?.name || '').replace(/^\./,'').toUpperCase()).filter(Boolean))].slice(0,12) : [],
+        price: Number(item.price || 0), isFree: Number(item.price || 0) === 0, downloadable: null, downloadUrl: null,
+        author: null, description: clean(`${descriptionText} ${signals.join(' ')}`).slice(0,520) || null, fileSize: null,
+        score: scoreText(`${title} ${descriptionText}`, query) + 4,
+      }, provider)
+      if (candidate) { merged.push(candidate); added += 1 }
+      if (merged.length >= limit) break
+    }
+    if (listings.length === 0 || added === 0) break
+  }
+  return { results: dedupe(merged).slice(0, limit), pagesFetched }
+}
+
+async function searchHtmlProvider(provider, query, limit) {
+  const queue = [provider.buildUrl(query)], visited = new Set(), merged = []
+  let pagesFetched = 0
+  while (queue.length && visited.size < MAX_HTML_PAGES && merged.length < limit) {
+    const url = queue.shift()
+    if (!url || visited.has(url)) continue
+    visited.add(url)
+    const { html, finalUrl } = await fetchHtml(url, 12000)
+    pagesFetched += 1
+    merged.push(...extractHtmlResults(provider, query, limit, html))
+    if (provider.pagination !== false) {
+      for (const nextUrl of paginationUrls(html, finalUrl, provider)) if (!visited.has(nextUrl) && !queue.includes(nextUrl)) queue.push(nextUrl)
+    }
+  }
+  return { results: dedupe(merged).slice(0, limit), pagesFetched }
+}
 
 async function searchCollectionProvider(provider, query, limit) {
   const urls = [provider.collectionUrl, ...(provider.extraCollectionUrls || [])].filter(Boolean)
   if (provider.id === 'open3dlab') {
     const carCollection = 'https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/'
-    for (let page = 2; page <= 7; page += 1) urls.push(`${carCollection}?page=${page}`)
+    for (let page = 2; page <= 10; page += 1) urls.push(`${carCollection}?page=${page}`)
   }
   const documents = await Promise.allSettled([...new Set(urls)].map(url => collectionLimiter(() => fetchHtml(url, 12000))))
   const merged = []
-  for (const document of documents) if (document.status === 'fulfilled') merged.push(...extractHtmlResults(provider, query, limit, document.value))
-  return dedupe(merged).slice(0, limit)
+  let pagesFetched = 0
+  for (const document of documents) if (document.status === 'fulfilled') { pagesFetched += 1; merged.push(...extractHtmlResults(provider, query, limit, document.value.html)) }
+  return { results: dedupe(merged).slice(0, limit), pagesFetched }
 }
 
 async function searchProvider(provider, query, limit) {
   const started = Date.now()
   try {
-    const results = provider.id === 'vertex-warehouse'
+    const payload = provider.adapter === 'vertex'
       ? await searchVertex(provider, query, limit)
       : provider.adapter === 'sketchfab'
         ? await searchSketchfab(provider, query, limit)
-        : provider.adapter === 'collection'
-          ? await searchCollectionProvider(provider, query, limit)
-          : await searchHtmlProvider(provider, query, limit)
-    return { provider: provider.id, name: provider.name, status: 'ok', count: results.length, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, results }
+        : provider.id === 'cgtrader'
+          ? await searchCgTrader(provider, query, limit)
+          : provider.adapter === 'collection'
+            ? await searchCollectionProvider(provider, query, limit)
+            : await searchHtmlProvider(provider, query, limit)
+    return { provider: provider.id, name: provider.name, status: 'ok', count: payload.results.length, pagesFetched: payload.pagesFetched || 1, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, results: payload.results }
   } catch (error) {
-    return { provider: provider.id, name: provider.name, status: 'error', count: 0, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, error: error instanceof Error ? error.message : 'Unknown error', results: [] }
+    return { provider: provider.id, name: provider.name, status: 'error', count: 0, pagesFetched: 0, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, error: error instanceof Error ? error.message : 'Unknown error', results: [] }
   }
 }
 
@@ -347,7 +526,7 @@ function dedupe(results) {
 }
 
 export async function searchAll(query, options = {}) {
-  const perSource = Math.max(1, Math.min(Number(options.perSource || 20), 50))
+  const perSource = Math.max(1, Math.min(Number(options.perSource || 40), 80))
   const sources = await Promise.all(providers.map(provider => limiter(() => searchProvider(provider, query, perSource))))
   const results = dedupe(sources.flatMap(source => source.results))
   return { query, total: results.length, providerCount: providers.length, searchedProviders: sources.length, successfulProviders: sources.filter(x => x.status === 'ok').length, automotiveOnly: true, results, sources: sources.map(({ results: _results, ...source }) => source) }
