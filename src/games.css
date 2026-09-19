@@ -2,3 +2,9 @@
 @media(max-width:980px){.gameGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.gamesHeader{grid-template-columns:1fr}.gamesHeaderBadge{justify-self:start}.gameGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.gamesHeader h2{font-size:34px}}
 @media(max-width:520px){.gamesSection{padding:0 16px}.gameGrid{grid-template-columns:1fr 1fr}.gameTile{min-height:116px}.gameTile strong{font-size:12px}.gamesHeader h2{font-size:30px}}
+
+
+/* performance containment */
+.gamesSection{content-visibility:auto;contain-intrinsic-size:620px}
+.gameGrid{contain:layout style}
+.gameTile{contain:layout paint style}
