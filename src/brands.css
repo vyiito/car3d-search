@@ -2,3 +2,9 @@
 @media(max-width:1080px){.brandGrid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:780px){.brandsHeader{grid-template-columns:1fr}.brandsStat{text-align:left;display:flex;align-items:baseline;gap:8px}.brandGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.brandsHeader h2{font-size:34px}}
 @media(max-width:560px){.brandsSection{padding:0 16px}.brandGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.brandTile{min-height:84px}.brandsHeader h2{font-size:30px}}
+
+
+/* performance containment */
+.brandsSection{content-visibility:auto;contain-intrinsic-size:900px}
+.brandGrid{contain:layout style}
+.brandTile{contain:layout paint style}
