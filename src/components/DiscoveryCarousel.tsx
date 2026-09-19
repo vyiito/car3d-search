@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, CarFront, Download, ImageOff,
   LoaderCircle, Search, Shuffle, Sparkles,
@@ -52,7 +52,7 @@ function curateResults(results: GlobalSearchResult[]) {
   return chosen
 }
 
-export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarouselProps) {
+function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarouselProps) {
   const [items, setItems] = useState<GlobalSearchResult[]>([])
   const [mode, setMode] = useState<DiscoveryMode>('Destaques')
   const [loading, setLoading] = useState(true)
@@ -121,7 +121,7 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
             const kind = marketKind(result)
             return <article className="discoveryCard" key={result.id} onClick={() => onSelect(result)} tabIndex={0} onKeyDown={event => event.key === 'Enter' && onSelect(result)}>
               <div className="discoveryImage">
-                {result.imageUrl ? <img src={result.imageUrl} alt={result.title} loading="lazy"/> : <div className="discoveryFallback"><ImageOff size={28}/></div>}
+                {result.imageUrl ? <img src={result.imageUrl} alt={result.title} loading="lazy" decoding="async"/> : <div className="discoveryFallback"><ImageOff size={28}/></div>}
                 <div className="discoveryShade"/>
                 <span className="discoveryIndex">{String(index + 1).padStart(2, '0')}</span>
                 <span className="discoveryType"><CarFront size={10}/>{result.vehicleClass}</span>
@@ -150,3 +150,5 @@ export default function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarou
     </section>
   )
 }
+
+export default memo(DiscoveryCarousel)
