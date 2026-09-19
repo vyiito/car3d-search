@@ -15,7 +15,7 @@ const YEAR_RE = /\b(19[3-9]\d|20[0-3]\d)\b/
 
 const VEHICLE_ONLY_PROVIDERS = new Set([
   '3drush', 'brasil-simulator-mods', 'assettomods', 'assettohub', 'ets2lt', 'vosan',
-  'done3d', 'free3dio', 'vertex-warehouse', 'mediafire-rr3', 'open3dlab', 'vk-3d-car-models'
+  'done3d', 'free3dio', 'vertex-warehouse', '3d-models-destination', 'mediafire-rr3', 'open3dlab', 'vk-3d-car-models'
 ])
 
 const BRANDS = [
@@ -50,6 +50,13 @@ const GAMES = [
   ['CSR Racing 2',['csr racing 2','csr2']],
   ['CSR Racing 3',['csr racing 3','csr3']],
   ['Real Racing 3',['real racing 3','rr3']],
+  ['Asphalt 9: Legends',['asphalt 9 legends','asphalt 9: legends']],
+  ['Asphalt 8 Airborne',['asphalt 8 airborne','asphalt 8']],
+  ['Asphalt Xtreme',['asphalt xtreme']],
+  ['CarX Drift Racing',['carx drift racing']],
+  ['Assoluto Racing',['assoluto racing']],
+  ['Drift Max Pro',['drift max pro']],
+  ['F1 Mobile Racing',['f1 mobile racing']],
   ['Need for Speed No Limits',['need for speed no limits','nfs no limits','nfsnl']],
   ['Need for Speed Mobile',['need for speed mobile']],
   ['Need for Speed Heat',['need for speed heat']],
