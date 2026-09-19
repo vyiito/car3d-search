@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Gamepad2, ArrowUpRight, Sparkles } from 'lucide-react'
 import '../games.css'
 
@@ -16,7 +17,7 @@ const games = [
   { name: 'GTA', code: 'GTA', note: 'vehicle assets' },
 ]
 
-export default function GamesExplorer({ onSearch }: { onSearch: (game: string) => void }) {
+function GamesExplorer({ onSearch }: { onSearch: (game: string) => void }) {
   return <section className="gamesSection" id="games">
     <div className="gamesHeader">
       <div>
@@ -37,3 +38,5 @@ export default function GamesExplorer({ onSearch }: { onSearch: (game: string) =
     </div>
   </section>
 }
+
+export default memo(GamesExplorer)
