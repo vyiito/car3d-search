@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { ArrowUpRight, CarFront, Search, Sparkles } from 'lucide-react'
 import '../brands.css'
 
@@ -13,7 +14,7 @@ interface BrandsExplorerProps {
   recent?: string[]
 }
 
-export default function BrandsExplorer({ onSearch, recent = [] }: BrandsExplorerProps) {
+function BrandsExplorer({ onSearch, recent = [] }: BrandsExplorerProps) {
   const visible = brands
 
   return (
@@ -42,3 +43,5 @@ export default function BrandsExplorer({ onSearch, recent = [] }: BrandsExplorer
     </section>
   )
 }
+
+export default memo(BrandsExplorer)
