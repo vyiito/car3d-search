@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import {
   ArrowUpRight, CalendarRange, CarFront, Check, ChevronDown, CircleCheck, CircleX,
@@ -137,7 +137,18 @@ function buildDuplicateGroups(items:GlobalSearchResult[]) {
   features.forEach((feature,index)=>feature.tokens.forEach(token=>{const list=tokenIndex.get(token)||[];list.push(index);tokenIndex.set(token,list)}))
   features.forEach((feature,index)=>{
     const candidates=new Set<number>()
-    feature.tokens.forEach(token=>(tokenIndex.get(token)||[]).forEach(other=>{if(other>index)candidates.add(other)}))
+    const usefulTokens=[...feature.tokens]
+      .map(token=>[token,tokenIndex.get(token)||[]] as const)
+      .filter(([,matches])=>matches.length>1&&matches.length<=80)
+      .sort((a,b)=>a[1].length-b[1].length)
+      .slice(0,3)
+    for(const [,matches] of usefulTokens){
+      for(const other of matches){
+        if(other>index)candidates.add(other)
+        if(candidates.size>=120)break
+      }
+      if(candidates.size>=120)break
+    }
     candidates.forEach(other=>{if(likelyDuplicate(feature,features[other]))union(index,other)})
   })
   const keyById=new Map<string,string>(), sourceSets=new Map<string,Set<string>>(), itemCounts=new Map<string,number>()
@@ -153,6 +164,22 @@ function buildDuplicateGroups(items:GlobalSearchResult[]) {
 }
 function duplicateRepresentativeScore(result:GlobalSearchResult) {
   return result.score + (result.imageUrl?3:0) + (result.downloadUrl?2:0) + Math.min(result.formats.length,4) * .25 + (result.description?0.5:0)
+}
+function quickDuplicateKey(result:GlobalSearchResult) {
+  const tokens=duplicateTokens(result).slice(0,6)
+  return `${duplicateNormalize(result.brand||'')}|${result.year||''}|${result.vehicleClass||''}|${tokens.join(' ')}`
+}
+function buildQuickDuplicateCounts(items:GlobalSearchResult[]) {
+  const sourceSets=new Map<string,Set<string>>()
+  for(const item of items){
+    const key=quickDuplicateKey(item)
+    const sources=sourceSets.get(key)||new Set<string>()
+    sources.add(item.sourceId||item.source)
+    sourceSets.set(key,sources)
+  }
+  const counts=new Map<string,number>()
+  sourceSets.forEach((sources,key)=>counts.set(key,sources.size))
+  return counts
 }
 function marketKind(result: GlobalSearchResult): 'free' | 'paid' | 'unknown' {
   if (result.isFree === true || result.price === 0) return 'free'
@@ -263,7 +290,9 @@ function App(){
 
   const suggestions=useMemo(()=>{const q=query.trim().toLowerCase();return q?searchIdeas.filter(term=>term.toLowerCase().includes(q)).slice(0,5):[]},[query])
   const rawResults=remoteResults
-  const yearBounds=useMemo(()=>{const years=rawResults.map(r=>r.year).filter((y):y is number=>Boolean(y));return years.length?{min:Math.min(...years),max:Math.max(...years)}:{min:1950,max:new Date().getFullYear()+1}},[rawResults])
+  const deferredResults=useDeferredValue(rawResults)
+  const uiResults=loading?deferredResults:rawResults
+  const yearBounds=useMemo(()=>{const years=uiResults.map(r=>r.year).filter((y):y is number=>Boolean(y));return years.length?{min:Math.min(...years),max:Math.max(...years)}:{min:1950,max:new Date().getFullYear()+1}},[uiResults])
 
   const applyFilters=(items:GlobalSearchResult[],skip:FacetSkip=null)=>{
     const from=yearFrom?Number(yearFrom):null,to=yearTo?Number(yearTo):null
@@ -282,17 +311,18 @@ function App(){
     })
   }
 
-  const sourceCounts=useMemo(()=>countValues(applyFilters(rawResults,'source'),r=>[r.source]),[rawResults,priceMode,kind,vehicleClass,selectedFormats,selectedGames,downloadMode,imageMode,yearFrom,yearTo])
-  const gameCounts=useMemo(()=>countValues(applyFilters(rawResults,'game'),r=>r.game?[r.game]:[]),[rawResults,priceMode,kind,vehicleClass,selectedFormats,selectedSources,downloadMode,imageMode,yearFrom,yearTo])
-  const formatCounts=useMemo(()=>countValues(applyFilters(rawResults,'format'),r=>r.formats),[rawResults,priceMode,kind,vehicleClass,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo])
-  const priceCounts=useMemo(()=>{const map=new Map<string,number>();applyFilters(rawResults,'price').forEach(r=>map.set(marketKind(r),(map.get(marketKind(r))||0)+1));return map},[rawResults,kind,vehicleClass,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo])
-  const vehicleCounts=useMemo(()=>countValues(applyFilters(rawResults,'vehicle'),r=>[r.vehicleClass]),[rawResults,priceMode,kind,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo])
+  const sourceCounts=useMemo(()=>countValues(applyFilters(uiResults,'source'),r=>[r.source]),[uiResults,priceMode,kind,vehicleClass,selectedFormats,selectedGames,downloadMode,imageMode,yearFrom,yearTo])
+  const gameCounts=useMemo(()=>countValues(applyFilters(uiResults,'game'),r=>r.game?[r.game]:[]),[uiResults,priceMode,kind,vehicleClass,selectedFormats,selectedSources,downloadMode,imageMode,yearFrom,yearTo])
+  const formatCounts=useMemo(()=>countValues(applyFilters(uiResults,'format'),r=>r.formats),[uiResults,priceMode,kind,vehicleClass,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo])
+  const priceCounts=useMemo(()=>{const map=new Map<string,number>();applyFilters(uiResults,'price').forEach(r=>map.set(marketKind(r),(map.get(marketKind(r))||0)+1));return map},[uiResults,kind,vehicleClass,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo])
+  const vehicleCounts=useMemo(()=>countValues(applyFilters(uiResults,'vehicle'),r=>[r.vehicleClass]),[uiResults,priceMode,kind,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo])
   const sourceRows=useMemo(()=>facetRows(sourceCounts,selectedSources),[sourceCounts,selectedSources])
   const gameRows=useMemo(()=>facetRows(gameCounts,selectedGames),[gameCounts,selectedGames])
   const formatRows=useMemo(()=>facetRows(formatCounts,selectedFormats),[formatCounts,selectedFormats])
 
-  const duplicateGroups=useMemo(()=>buildDuplicateGroups(rawResults),[rawResults])
-  const filteredResults=useMemo(()=>{let items=applyFilters(rawResults);if(groupDuplicates){const best=new Map<string,GlobalSearchResult>();for(const item of items){const key=duplicateGroups.keyById.get(item.id)||item.id,current=best.get(key);if(!current||duplicateRepresentativeScore(item)>duplicateRepresentativeScore(current))best.set(key,item)}items=[...best.values()]}if(sortMode==='Mix de fontes')return mixBySource(items);return [...items].sort((a,b)=>sortMode==='Mais recentes'?(b.year||0)-(a.year||0)||b.score-a.score:sortMode==='Menor preço'?(a.price??Number.MAX_SAFE_INTEGER)-(b.price??Number.MAX_SAFE_INTEGER):sortMode==='Maior preço'?(b.price??-1)-(a.price??-1):sortMode==='Nome A-Z'?a.title.localeCompare(b.title):sortMode==='Fonte'?a.source.localeCompare(b.source)||a.title.localeCompare(b.title):b.score-a.score)},[rawResults,priceMode,kind,vehicleClass,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo,sortMode,groupDuplicates,duplicateGroups])
+  const quickDuplicateCounts=useMemo(()=>buildQuickDuplicateCounts(uiResults),[uiResults])
+  const duplicateGroups=useMemo(()=>groupDuplicates?buildDuplicateGroups(uiResults):null,[uiResults,groupDuplicates])
+  const filteredResults=useMemo(()=>{let items=applyFilters(uiResults);if(groupDuplicates&&duplicateGroups){const best=new Map<string,GlobalSearchResult>();for(const item of items){const key=duplicateGroups.keyById.get(item.id)||item.id,current=best.get(key);if(!current||duplicateRepresentativeScore(item)>duplicateRepresentativeScore(current))best.set(key,item)}items=[...best.values()]}if(sortMode==='Mix de fontes')return mixBySource(items);return [...items].sort((a,b)=>sortMode==='Mais recentes'?(b.year||0)-(a.year||0)||b.score-a.score:sortMode==='Menor preço'?(a.price??Number.MAX_SAFE_INTEGER)-(b.price??Number.MAX_SAFE_INTEGER):sortMode==='Maior preço'?(b.price??-1)-(a.price??-1):sortMode==='Nome A-Z'?a.title.localeCompare(b.title):sortMode==='Fonte'?a.source.localeCompare(b.source)||a.title.localeCompare(b.title):b.score-a.score)},[uiResults,priceMode,kind,vehicleClass,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo,sortMode,groupDuplicates,duplicateGroups])
 
   const pageCount=Math.max(1,Math.ceil(filteredResults.length/PAGE_SIZE))
   const safePage=Math.min(currentPage,pageCount)
@@ -334,7 +364,7 @@ function App(){
 
         <div className="results"><div className="resultsToolbar"><div className="activeFilterStrip"><span className="freeChip"><Zap size={12}/> {priceMode==='Todos'?'FREE + PREMIUM':priceMode.toUpperCase()}</span>{downloadMode!=='Todos'&&<span>{downloadMode}</span>}{selectedGames.length>0&&<span>{selectedGames.join(' / ')}</span>}{selectedSources.length>0&&<span>{selectedSources.length} fonte(s)</span>}{selectedFormats.length>0&&<span>{selectedFormats.join(' / ')}</span>}</div><div className="viewTools"><button className={viewMode==='grid'?'active':''} onClick={()=>setViewMode('grid')}><Grid2X2 size={14}/></button><button className={viewMode==='compact'?'active':''} onClick={()=>setViewMode('compact')}><List size={15}/></button><button className={viewMode==='showcase'?'active':''} onClick={()=>setViewMode('showcase')}><Columns3 size={15}/></button><span className="sortReadout"><Gauge size={13}/> {sortMode}</span></div></div>
           {loading&&<div className="globalLoading progressive"><div className="loadingMark"><LoaderCircle className="spin" size={26}/></div><div><strong>BUSCA PROGRESSIVA <b>{searchedSourceCount}/{providers.length}</b></strong><span>{rawResults.length?`${rawResults.length} resultados já encontrados. Novos carros aparecem assim que cada fonte responde.`:'consultando as primeiras fontes…'}</span></div></div>}{apiError&&<div className="apiWarning"><CircleX size={17}/><span>{apiError}</span></div>}
-          {filteredResults.length>0&&<div className={`grid view-${viewMode} progressiveResults`}>{pagedResults.map((result,index)=>{const signals=qualitySignals(result),dupKey=duplicateGroups.keyById.get(result.id),dups=dupKey?(duplicateGroups.sourceCounts.get(dupKey)||1):1,favored=favorites.some(r=>r.id===result.id),market=marketKind(result);return <article className="card" key={result.id} style={{'--delay':`${Math.min(index,12)*32}ms`} as React.CSSProperties} onClick={()=>openResult(result)} tabIndex={0}><div className="thumb">{result.imageUrl?<img src={result.imageUrl} alt={result.title} loading="lazy"/>:<span className="imageFallback show"><ImageOff size={29}/><small>SEM PREVIEW</small></span>}<span className="thumbShade"/><span className="cardIndex">{String((safePage-1)*PAGE_SIZE+index+1).padStart(2,'0')}</span><span className="vehicleBadge"><CarFront size={11}/>{result.vehicleClass}</span><span className={`priceBadge ${market}`}>{formatPrice(result)}</span>{result.downloadUrl&&<span className="downloadBadge"><Download size={11}/> DIRETO</span>}{dups>1&&<span className="duplicateBadge">{dups} FONTES</span>}<button className={`favoriteButton ${favored?'active':''}`} onClick={e=>{e.stopPropagation();toggleFavorite(result)}}><Heart size={14} fill={favored?'currentColor':'none'}/></button></div><div className="cardBody"><div className="sourceRow"><span>{result.source}</span><span>{result.game||(result.sourceType==='game-mods'?'GAME MOD':'3D ASSET')}</span></div><h3>{result.title}</h3><div className="vehicleIdentity"><span>{result.brand||'Marca não identificada'}</span>{result.year&&<span>{result.year}</span>}</div>{signals.length>0&&<div className="qualitySignals">{signals.map(s=><span key={s}>{s}</span>)}</div>}<div className="chips">{result.formats.length?result.formats.slice(0,5).map(f=><span key={f}>{f}</span>):<span>FORMATO NA FONTE</span>}</div><div className="cardFooter"><span>{result.downloadUrl?'DOWNLOAD DIRETO':'DETALHES / FONTE'}</span><button onClick={e=>{e.stopPropagation();openResult(result)}}>ABRIR <ArrowUpRight size={13}/></button></div></div></article>})}</div>}
+          {filteredResults.length>0&&<div className={`grid view-${viewMode} progressiveResults`}>{pagedResults.map((result,index)=>{const signals=qualitySignals(result),dupKey=duplicateGroups?.keyById.get(result.id),dups=dupKey?(duplicateGroups?.sourceCounts.get(dupKey)||1):(quickDuplicateCounts.get(quickDuplicateKey(result))||1),favored=favorites.some(r=>r.id===result.id),market=marketKind(result);return <article className="card" key={result.id} style={{'--delay':`${Math.min(index,12)*32}ms`} as React.CSSProperties} onClick={()=>openResult(result)} tabIndex={0}><div className="thumb">{result.imageUrl?<img src={result.imageUrl} alt={result.title} loading="lazy"/>:<span className="imageFallback show"><ImageOff size={29}/><small>SEM PREVIEW</small></span>}<span className="thumbShade"/><span className="cardIndex">{String((safePage-1)*PAGE_SIZE+index+1).padStart(2,'0')}</span><span className="vehicleBadge"><CarFront size={11}/>{result.vehicleClass}</span><span className={`priceBadge ${market}`}>{formatPrice(result)}</span>{result.downloadUrl&&<span className="downloadBadge"><Download size={11}/> DIRETO</span>}{dups>1&&<span className="duplicateBadge">{dups} FONTES</span>}<button className={`favoriteButton ${favored?'active':''}`} onClick={e=>{e.stopPropagation();toggleFavorite(result)}}><Heart size={14} fill={favored?'currentColor':'none'}/></button></div><div className="cardBody"><div className="sourceRow"><span>{result.source}</span><span>{result.game||(result.sourceType==='game-mods'?'GAME MOD':'3D ASSET')}</span></div><h3>{result.title}</h3><div className="vehicleIdentity"><span>{result.brand||'Marca não identificada'}</span>{result.year&&<span>{result.year}</span>}</div>{signals.length>0&&<div className="qualitySignals">{signals.map(s=><span key={s}>{s}</span>)}</div>}<div className="chips">{result.formats.length?result.formats.slice(0,5).map(f=><span key={f}>{f}</span>):<span>FORMATO NA FONTE</span>}</div><div className="cardFooter"><span>{result.downloadUrl?'DOWNLOAD DIRETO':'DETALHES / FONTE'}</span><button onClick={e=>{e.stopPropagation();openResult(result)}}>ABRIR <ArrowUpRight size={13}/></button></div></div></article>})}</div>}
           {filteredResults.length>PAGE_SIZE&&<nav className="catalogPagination" aria-label="Paginação do catálogo"><button onClick={()=>goToPage(safePage-1)} disabled={safePage<=1}>‹</button>{pageLinks.map((page,index)=>page==='…'?<span className="ellipsis" key={`ellipsis-${index}`}>…</span>:<button key={page} className={page===safePage?'active':''} onClick={()=>goToPage(page)}>{page}</button>)}<button onClick={()=>goToPage(safePage+1)} disabled={safePage>=pageCount}>›</button><div className="catalogPaginationInfo">PÁGINA {safePage} DE {pageCount} · {Math.min(PAGE_SIZE,Math.max(0,filteredResults.length-(safePage-1)*PAGE_SIZE))} ITENS NESTA PÁGINA · {filteredResults.length} RESULTADOS</div></nav>}
           {!loading&&submittedQuery&&filteredResults.length===0&&<div className="emptyState"><span>FILTER / 00</span><CarFront size={31}/><h3>NENHUM ASSET NESTA COMBINAÇÃO</h3><p>Os filtros são cumulativos. Remova uma faceta ou use “Todos”.</p><button onClick={clearFilters}><RotateCcw size={13}/> limpar filtros</button></div>}
           {sourceStatuses.length>0&&<details className="sourceStatusSection"><summary><Database size={16}/> STATUS DAS FONTES <span>{sourceStatuses.filter(s=>s.status==='ok').length}/{sourceStatuses.length} responderam</span></summary><div className="sourceStatusGrid">{sourceStatuses.map(item=><a key={item.provider} href={item.searchUrl} target="_blank" rel="noreferrer" className={item.status==='ok'?'sourceOk':'sourceError'}>{item.status==='ok'?<CircleCheck size={14}/>:<CircleX size={14}/>}<span><strong>{item.name}</strong><small>{item.status==='ok'?`${item.count} asset(s) · ${item.pagesFetched||1} pág.`:'abrir fonte'}</small></span><ArrowUpRight size={12}/></a>)}</div></details>}
