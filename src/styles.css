@@ -86,3 +86,10 @@ body:before,.pageNoise{display:none!important}
   -webkit-backdrop-filter:none!important;
   background:rgba(17,17,19,.985)!important;
 }
+
+
+/* defer the heavy source matrix until it approaches the viewport */
+.sources{content-visibility:auto;contain-intrinsic-size:900px}
+.providerGrid{contain:layout style}
+.providerGrid>a{contain:layout paint style}
+footer{content-visibility:auto;contain-intrinsic-size:100px}
