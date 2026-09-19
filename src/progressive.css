@@ -10,3 +10,28 @@
 /* 841px used to hide the entire filter sidebar. Keep it docked on medium desktop/zoomed views. */
 @media(min-width:721px) and (max-width:840px){.content{grid-template-columns:220px minmax(0,1fr)!important;gap:16px!important}.filtersPanel{display:block!important;position:sticky!important;left:auto!important;right:auto!important;top:12px!important;bottom:auto!important;z-index:25!important;max-height:calc(100vh - 24px)!important;box-shadow:none!important}.filterClose{display:none!important}.mobileFilterButton{display:none!important}.resultsShell{padding-left:18px!important;padding-right:18px!important}.grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.grid.view-compact,.grid.view-showcase{grid-template-columns:1fr!important}.view-compact .card{grid-template-columns:125px 1fr!important}.view-compact .chips{display:none!important}}
 @media(max-width:720px){.catalogPagination{gap:5px;padding-inline:2px}.catalogPagination button{min-width:34px;height:34px;padding:0 8px}.catalogPaginationInfo{font-size:9px}.globalLoading.progressive>div:last-child{display:block}.globalLoading.progressive strong{white-space:normal}.globalLoading.progressive span{margin-top:3px!important}.resultsToolbar{top:0}}
+
+/* perf-pass */
+.grid.progressiveResults .card{
+  content-visibility:auto;
+  contain:layout paint style;
+  contain-intrinsic-size:390px;
+}
+.resultsToolbar{
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  background:rgba(10,10,11,.97)!important;
+}
+.favoriteButton{
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+}
+.grid.progressiveResults .thumb img{
+  filter:none!important;
+}
+.grid.progressiveResults .card:hover .thumb img{
+  filter:none!important;
+}
+@media (prefers-reduced-motion: reduce){
+  .card,.globalLoading:after,.spin{animation:none!important;transition:none!important}
+}
