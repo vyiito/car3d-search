@@ -1,6 +1,9 @@
 import * as cheerio from 'cheerio'
 import pLimit from 'p-limit'
 import { providers } from './providers.js'
+import { prepareResults, relevanceScore } from './search-core.js'
+import { searchFetch as fetch, searchCheckpoint, searchPageLimit, searchContext } from './search-context.js'
+import { crawlCatalog, sameCatalogHost } from './catalog-crawler.js'
 
 const limiter = pLimit(Number(process.env.SEARCH_CONCURRENCY || 5))
 const collectionLimiter = pLimit(3)
@@ -108,7 +111,7 @@ function parseFormats(text) {
 }
 
 function parsePrice(text) {
-  const match = clean(text).match(PRICE_RE)
+  const match = clean(text).replace(/royalty[\s-]?free/gi, '').match(PRICE_RE)
   if (!match) return { price: null, isFree: null }
   const raw = match[0]
   if (/free|grátis|gratis/i.test(raw)) return { price: 0, isFree: true }
@@ -157,12 +160,12 @@ function automotiveMeta(title, description, provider) {
   return { automotive, brand, year: inferYear(titleText), vehicleClass: inferVehicleClass(fullText, provider.id), autoSignalScore: (dedicated ? 2 : 0) + (brand ? 4 : 0) + titleVehicleTerms.length * 2 + Math.min(fullVehicleTerms.length, 3) - negatives * 2 }
 }
 
-function decorateResult(result, provider) {
+export function decorateResult(result, provider) {
   const meta = automotiveMeta(result.title, result.description, provider)
   if (!meta.automotive) return null
   return {
     ...result,
-    brand: meta.brand,
+    brand: result.brand || meta.brand,
     year: result.year || meta.year,
     vehicleClass: result.vehicleClass || meta.vehicleClass,
     game: result.game || inferGame(provider, `${result.title} ${result.description || ''}`),
@@ -179,7 +182,7 @@ function bestImage($, card, baseUrl) {
 function bestTitle($, card, anchor) {
   const heading = card.find('h1,h2,h3,h4,h5,.title,.name').first().text()
   const aria = anchor.attr('aria-label') || anchor.attr('title')
-  return clean(heading || aria || anchor.text())
+  return clean(heading || aria || anchor.find('img').attr('alt') || anchor.text())
 }
 
 function bestAuthor($, card) {
@@ -227,7 +230,7 @@ async function fetchHtml(url, timeoutMs = 10000) {
   } finally { clearTimeout(timer) }
 }
 
-function extractHtmlResults(provider, query, limit, html) {
+export function extractHtmlResults(provider, query, limit, html) {
   const $ = cheerio.load(html)
   $('script,style,noscript,svg').remove()
   const results = [], seen = new Set()
@@ -244,7 +247,7 @@ function extractHtmlResults(provider, query, limit, html) {
       imageUrl: bestImage($, card, provider.baseUrl), formats: parseFormats(text), price, isFree, downloadable: downloadUrl ? true : null, downloadUrl,
       author: bestAuthor($, card), description: descriptionFromText(text, title), fileSize: parseFileSize(text), score: relevance,
     }, provider)
-    if (!candidate) return
+    if (!candidate || !relevanceScore(candidate, query)) return
     results.push(candidate); seen.add(sourceUrl)
   }
 
@@ -269,7 +272,7 @@ function extractHtmlResults(provider, query, limit, html) {
         imageUrl: null, formats: [], price: null, isFree: null, downloadable: DIRECT_FILE_RE.test(sourceUrl) ? true : null,
         downloadUrl: DIRECT_FILE_RE.test(sourceUrl) ? sourceUrl : null, author: null, description: null, fileSize: null, score: relevance,
       }, provider)
-      if (candidate) { results.push(candidate); seen.add(sourceUrl) }
+      if (candidate && relevanceScore(candidate, query)) { results.push(candidate); seen.add(sourceUrl) }
     })
   }
   return results
@@ -494,24 +497,32 @@ async function searchVertex(provider, query, limit) {
   return { results: dedupe(merged).slice(0, limit), pagesFetched }
 }
 
-async function searchSketchfab(provider, query, limit) {
-  const url = new URL('https://api.sketchfab.com/v3/search')
-  url.searchParams.set('type', 'models'); url.searchParams.set('q', query); url.searchParams.set('downloadable', 'true'); url.searchParams.set('sort_by', '-relevance'); url.searchParams.set('count', String(Math.min(limit, 48)))
-  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10000)
-  try {
-    const response = await fetch(url, { signal: controller.signal, headers: { 'user-agent': USER_AGENT } })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const data = await response.json()
-    const results = (data.results || []).map(model => decorateResult({
-      id: `${provider.id}:${model.uid}`, title: clean(model.name), source: provider.name, sourceId: provider.id, sourceType: provider.type,
-      sourceUrl: model.viewerUrl || `https://sketchfab.com/3d-models/${model.uid}`,
-      imageUrl: model.thumbnails?.images?.slice().sort((a, b) => (b.width || 0) - (a.width || 0))[0]?.url || null,
-      formats: [], price: model.price ?? null, isFree: model.price === 0 ? true : null, downloadable: Boolean(model.isDownloadable), downloadUrl: null,
-      author: model.user?.displayName || model.user?.username || null, description: clean(model.description).slice(0, 520) || null, fileSize: null,
-      score: scoreText(`${model.name} ${model.description || ''}`, query) + 3,
-    }, provider)).filter(Boolean).slice(0, limit)
-    return { results, pagesFetched: 1 }
-  } finally { clearTimeout(timer) }
+export async function searchSketchfab(provider, query, limit) {
+  const first = new URL('https://api.sketchfab.com/v3/search')
+  first.searchParams.set('type','models');first.searchParams.set('q',query);first.searchParams.set('sort_by','-relevance');first.searchParams.set('count','24')
+  let next=first.href,pagesFetched=0
+  const visited=new Set(),items=[]
+  while(next&&!visited.has(next)&&pagesFetched<searchPageLimit()&&items.length<limit){
+    if(!sameCatalogHost(next,first.href))throw new Error('Invalid Sketchfab pagination URL')
+    visited.add(next)
+    const response=await fetch(next,{signal:AbortSignal.timeout(10000),headers:{'user-agent':USER_AGENT}})
+    if(!response.ok)throw new Error('HTTP '+response.status)
+    const data=await response.json()
+    if(!Array.isArray(data.results))throw new Error('Invalid Sketchfab search response')
+    pagesFetched++
+    for(const model of data.results){
+      const result=decorateResult({id:'sketchfab:'+model.uid,title:clean(model.name),source:provider.name,sourceId:provider.id,sourceType:provider.type,
+        sourceUrl:model.viewerUrl||'https://sketchfab.com/3d-models/'+model.uid,imageUrl:model.thumbnails?.images?.slice().sort((a,b)=>(b.width||0)-(a.width||0))[0]?.url||null,
+        formats:model.isDownloadable?['GLTF']:[],price:model.price??null,isFree:model.price===0?true:model.isDownloadable&&model.license?.slug?.startsWith('cc')?true:null,
+        downloadable:typeof model.isDownloadable==='boolean'?model.isDownloadable:null,downloadUrl:null,author:model.user?.displayName||model.user?.username||null,
+        description:clean(model.description).slice(0,800)||null,license:model.license?.label||null,fileSize:null,score:0},provider)
+      if(result&&relevanceScore(result,query))items.push(result)
+    }
+    next=data.next?new URL(data.next,first.href).href:null
+    searchCheckpoint({results:items,pagesFetched,hasMore:Boolean(next),sections:[first.href]})
+  }
+  const hasMore=Boolean(next)||items.length>limit
+  return {results:prepareResults(items,query,provider,limit),pagesFetched,hasMore,sections:[first.href],stopReason:hasMore?items.length>=limit?'result-limit':'page-limit':'exhausted'}
 }
 
 async function searchCgTrader(provider, query, limit) {
@@ -552,36 +563,17 @@ async function searchCgTrader(provider, query, limit) {
 }
 
 async function searchHtmlProvider(provider, query, limit) {
-  const queue = [provider.buildUrl(query)], visited = new Set(), merged = []
-  let pagesFetched = 0
-  while (queue.length && visited.size < MAX_HTML_PAGES && merged.length < limit) {
-    const url = queue.shift()
-    if (!url || visited.has(url)) continue
-    visited.add(url)
-    const { html, finalUrl } = await fetchHtml(url, 12000)
-    pagesFetched += 1
-    merged.push(...extractHtmlResults(provider, query, limit, html))
-    if (provider.pagination !== false) {
-      for (const nextUrl of paginationUrls(html, finalUrl, provider)) if (!visited.has(nextUrl) && !queue.includes(nextUrl)) queue.push(nextUrl)
-    }
-  }
-  return { results: dedupe(merged).slice(0, limit), pagesFetched }
+  return crawlCatalog({ seeds:[provider.buildUrl(query),...(provider.catalogUrls||[])],query,limit,provider,
+    parse:html=>extractHtmlResults(provider,query,Number.MAX_SAFE_INTEGER,html),
+  })
 }
 
 async function searchCollectionProvider(provider, query, limit) {
-  const urls = [provider.collectionUrl, ...(provider.extraCollectionUrls || [])].filter(Boolean)
-  if (provider.id === 'open3dlab') {
-    const carCollection = 'https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/'
-    for (let page = 2; page <= 10; page += 1) urls.push(`${carCollection}?page=${page}`)
-  }
-  const documents = await Promise.allSettled([...new Set(urls)].map(url => collectionLimiter(() => fetchHtml(url, 12000))))
-  const merged = []
-  let pagesFetched = 0
-  for (const document of documents) if (document.status === 'fulfilled') { pagesFetched += 1; merged.push(...extractHtmlResults(provider, query, limit, document.value.html)) }
-  return { results: dedupe(merged).slice(0, limit), pagesFetched }
+  const seeds=[provider.buildUrl(query),provider.collectionUrl,...(provider.extraCollectionUrls||[])].filter(Boolean)
+  return crawlCatalog({seeds,query,limit,provider,parse:html=>extractHtmlResults(provider,query,Number.MAX_SAFE_INTEGER,html)})
 }
 
-async function searchProvider(provider, query, limit) {
+export async function searchProvider(provider, query, limit) {
   const started = Date.now()
   try {
     const payload = provider.adapter === 'vertex'
@@ -593,9 +585,13 @@ async function searchProvider(provider, query, limit) {
           : provider.adapter === 'collection'
             ? await searchCollectionProvider(provider, query, limit)
             : await searchHtmlProvider(provider, query, limit)
-    return { provider: provider.id, name: provider.name, status: 'ok', count: payload.results.length, pagesFetched: payload.pagesFetched || 1, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, results: payload.results }
+    const results = prepareResults(payload.results, query, provider, limit)
+    if(provider.id==='vk-3d-car-models'&&!results.length)return {provider:provider.id,name:provider.name,status:'error',count:0,pagesFetched:payload.pagesFetched,searchUrl:provider.buildUrl(query),durationMs:Date.now()-started,error:'A comunidade não expõe um catálogo pesquisável ao leitor atual; a cobertura precisa de integração própria.',results:[],stopReason:'unsupported-catalog'}
+    return { ...payload, provider: provider.id, name: provider.name, status: payload.error ? 'error' : 'ok', count: results.length, pagesFetched: payload.pagesFetched ?? 1, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, results }
   } catch (error) {
-    return { provider: provider.id, name: provider.name, status: 'error', count: 0, pagesFetched: 0, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, error: error instanceof Error ? error.message : 'Unknown error', results: [] }
+    const progress = searchContext()?.progress || {}
+    const results = prepareResults(progress.results, query, provider, limit)
+    return { ...progress, provider: provider.id, name: provider.name, status: 'error', count: results.length, pagesFetched: progress.pagesFetched || 0, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, error: error instanceof Error ? error.message : 'Unknown error', results }
   }
 }
 

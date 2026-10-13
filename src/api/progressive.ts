@@ -1,6 +1,6 @@
 import type { GlobalSearchResult, SourceSearchStatus } from './search'
-
-const API_BASE = (import.meta.env.VITE_SEARCH_API_URL || 'https://car3d-search-api.onrender.com').replace(/\/$/, '')
+import { API_BASE, requestSignal, responseError } from './config'
+import { normalizeSearchResult } from '../../server/src/search-core.js'
 
 export interface ProgressiveSourceEvent {
   type: 'source'
@@ -17,9 +17,11 @@ export interface ProgressiveDoneEvent {
   completed: number
   totalResults: number
   finishedAt: string
+  successfulProviders?: number
 }
 
 export interface ProgressiveCallbacks {
+  onStart?: (event: { providerCount: number }) => void
   onSource?: (event: ProgressiveSourceEvent) => void
   onDone?: (event: ProgressiveDoneEvent) => void
   onError?: (message: string) => void
@@ -32,28 +34,35 @@ function parseEventBlock(block: string) {
     .map(line => line.slice(5).trimStart())
     .join('\n')
   if (!data) return null
-  try { return JSON.parse(data) } catch { return null }
+  return JSON.parse(data)
 }
 
-export async function progressiveSearch(query: string, callbacks: ProgressiveCallbacks = {}, signal?: AbortSignal, perSource = 60) {
+export async function progressiveSearch(query: string, callbacks: ProgressiveCallbacks = {}, signal?: AbortSignal, perSource = 60, refresh = false) {
   const safePerSource = Math.max(1, Math.min(perSource, 80))
-  const url = `${API_BASE}/api/search/stream?q=${encodeURIComponent(query)}&perSource=${safePerSource}`
-  const response = await fetch(url, { signal, headers: { Accept: 'text/event-stream' } })
-  if (!response.ok) throw new Error(`API ${response.status}`)
+  const url = `${API_BASE}/api/search/stream?q=${encodeURIComponent(query)}&perSource=${safePerSource}${refresh ? '&refresh=1' : ''}`
+  const response = await fetch(url, { signal: requestSignal(signal), headers: { Accept: 'text/event-stream' } })
+  if (!response.ok) throw await responseError(response)
+  if (!response.headers.get('content-type')?.includes('text/event-stream')) throw new Error('Resposta progressiva inválida.')
   if (!response.body) throw new Error('Streaming response unavailable.')
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let completed = false
 
   const handle = (payload: any) => {
     if (!payload || typeof payload !== 'object') return
-    if (payload.type === 'source') callbacks.onSource?.(payload as ProgressiveSourceEvent)
-    else if (payload.type === 'done') callbacks.onDone?.(payload as ProgressiveDoneEvent)
-    else if (payload.type === 'error') callbacks.onError?.(String(payload.error || 'Progressive search failed.'))
+    if (payload.type === 'start') callbacks.onStart?.(payload)
+    else if (payload.type === 'source') {
+      if (!payload.source || !Array.isArray(payload.results)) throw new Error('Evento de fonte inválido.')
+      payload.results = payload.results.map((item: GlobalSearchResult) => normalizeSearchResult(item)).filter(Boolean)
+      callbacks.onSource?.(payload as ProgressiveSourceEvent)
+    }
+    else if (payload.type === 'done') { completed = true; callbacks.onDone?.(payload as ProgressiveDoneEvent) }
+    else if (payload.type === 'error') { const message = String(payload.error || 'A busca falhou.'); callbacks.onError?.(message); throw new Error(message) }
   }
 
-  while (true) {
+  try { while (true) {
     const { done, value } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
@@ -64,4 +73,6 @@ export async function progressiveSearch(query: string, callbacks: ProgressiveCal
 
   buffer += decoder.decode()
   if (buffer.trim()) handle(parseEventBlock(buffer))
+  if (!completed) throw new Error('A conexão terminou antes de concluir a pesquisa. Os resultados recebidos foram preservados.')
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock() }
 }

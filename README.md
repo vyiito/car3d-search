@@ -1,60 +1,72 @@
-# Car3D Search
+# VJ 3D Search
 
-Metabuscador especializado em modelos 3D de carros e veículos.
+Metabuscador automotivo de modelos 3D e mods, com frontend React/Vite e API Node/Express. O catálogo consulta 32 fontes; a disponibilidade de cada uma é informada em cada busca.
 
-## Arquitetura atual
+## Desenvolvimento local
 
-- Frontend: React + Vite publicado no GitHub Pages
-- Busca global: API Node/Express em `server/`
-- Agregador: consulta todos os providers em paralelo, normaliza e deduplica resultados
-- Providers cadastrados: RigModels, Free3D, 3D Rush, Brasil Simulator Mods, OverTake.gg, Assetto Mods, ModDB, Assetto Hub, ETS2.lt, VOSAN, Sketchfab, CGTrader, Done3D, 3DSky, Free3D.io e Vertex Warehouse
-- Sketchfab usa a API pública de busca
-- Outras fontes começam com extração HTML tolerante a layouts diferentes e fallback para busca direta
-
-## Frontend
+Requer Node.js 22.18 ou mais recente.
 
 ```bash
-npm install
+npm ci
+npm ci --prefix server
+```
+
+Inicie a API em um terminal e o frontend em outro:
+
+```bash
+npm start --prefix server
 npm run dev
 ```
+
+O Vite encaminha `/api` para `http://127.0.0.1:10000`. Em produção, o frontend usa `https://car3d-search-api.onrender.com`. Defina `VITE_SEARCH_API_URL` no build para usar outra API.
+
+## Pesquisa e filtros
+
+- REST (`/api/search`) e streaming (`/api/search/stream`) usam o mesmo motor, adapters, normalização e cache. Cada fonte é consultada uma vez.
+- Marca, modelo e geração precisam corresponder à identidade do resultado. Descrições que mencionam outros carros não estabelecem correspondência. Aliases como `E 36`/`E36`, `MK IV`/`MK4`, `GT-R`/`GTR` e `VW`/`Volkswagen` são normalizados.
+- Páginas de categoria e peças/acessórios avulsos são excluídos da pesquisa de veículos completos.
+- Identificadores usam a URL completa da fonte, eliminando colisões entre cartões e favoritos. URLs com parâmetros de rastreamento são deduplicadas.
+- Filtros combinam AND entre categorias e OR dentro de uma categoria. As contagens ignoram a própria faceta, permitindo combinar suas opções.
+- Jogos e formatos são normalizados. Famílias como Need for Speed incluem seus títulos específicos; Assetto Corsa e Competizione continuam distintos.
+- Preço desconhecido tem uma opção própria e não é considerado grátis. Rótulos publicados pelas fontes são preservados; o adapter 3DSky usa `price_usd` quando disponível, sem tratar seu preço local como dólares. Não há conversão cambial entre fontes.
+- O ano é o ano do veículo, não a data de publicação. Aplicar intervalo exclui resultados sem ano informado.
+- Novas pesquisas limpam os filtros por padrão. Marque **Manter filtros na próxima pesquisa** para preservá-los. Repetir a mesma consulta executa uma nova busca.
+- Pesquisa, filtros e asset selecionado ficam no link. Recarregar e Voltar/Avançar restauram o estado. Links de assets abrem detalhes mesmo quando o item não está entre os resultados atuais.
+- A vitrine inicial exibe resultados progressivamente. Uma interrupção preserva os itens recebidos e oferece nova tentativa; indisponibilidade de streaming tem fallback para REST.
+
+As fontes podem bloquear consultas (403/429), estar offline ou não expor dados ao agregador. Isso aparece como falha de fonte, com o motivo e link para consulta manual. Resultados vazios por filtros têm uma mensagem diferente de pesquisas sem correspondências.
+
+## Cobertura das fontes
+
+A [auditoria das 32 fontes](docs/source-coverage-audit.md) documenta rotas, categorias, coleções, resultados observados e limitações de acesso. O painel **Status e cobertura das fontes** distingue paginação concluída, cobertura limitada, parcial e não confirmada. **Aprofundar nesta fonte** amplia somente a fonte selecionada e preserva os resultados já recebidos.
+
+Cada status da API contém `coverage`, com profundidade, motivo da parada, páginas/seções pendentes, total informado pela fonte, rotas verificadas e falhas. “Paginação concluída” vale para a consulta nas entradas verificadas, sem prometer cobertura de áreas protegidas ou não expostas. Páginas sem matches não encerram a coleta quando há próximas páginas. APIs públicas, catálogos, coleções e subpastas são percorridos conforme a estrutura de cada fonte; metadados e conteúdos confirmados de packs são preservados.
+
+Para repetir a inspeção pública das entradas: `node scripts/audit-source-coverage.mjs`. O mapa de navegação e as respostas ficam em `.qa/source-audit`, fora do Git.
 
 ## API
-
-```bash
-cd server
-npm install
-npm run dev
-```
-
-Endpoints:
 
 ```text
 GET /health
 GET /api/providers
 GET /api/search?q=BMW%20E36&perSource=20
+GET /api/search/stream?q=BMW%20E36&perSource=20
+GET /api/search?q=BMW%20E36&source=3dwarehouse&depth=expanded&perSource=200
+GET /api/details?sourceId=sketchfab&url=...
 ```
 
-## Deploy da API
+`perSource` aceita de 1 a 80 na busca inicial (padrão 60). Com `depth=expanded`, aceita até 200 (padrão 200). `source` seleciona uma fonte ou IDs separados por vírgula; IDs desconhecidos retornam 400. `refresh=1` ignora o cache de busca. Respostas sem falhas ficam em cache por até dez minutos; respostas com falhas ou cobertura parcial por até trinta segundos.
 
-O repositório inclui `render.yaml` para criar o serviço `car3d-search-api` no Render.
+As consultas têm prazo de 20 segundos por fonte na busca inicial e 50 segundos na ampliada, com 55 segundos para a busca completa. A busca inicial consulta até 8 páginas por fonte, 16 no MediaFire e 24 no VOSAN; a ampliada consulta até 40. Limites de resultado e tempo também podem encerrar a coleta. Cancelar a busca interrompe também as requisições externas dos adapters. `SEARCH_CONCURRENCY` controla a concorrência (padrão 8), e `CACHE_TTL_MS` controla o cache. O Blueprint existente em `render.yaml` configura a API no Render.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/vyiito/car3d-search)
+## Validação
 
-O frontend usa por padrão:
-
-```text
-https://car3d-search-api.onrender.com
+```bash
+npm run typecheck
+npm test
+npx playwright install chromium
+npm run test:ui
+npm run build
 ```
 
-Você também pode definir `VITE_SEARCH_API_URL` durante o build para usar outro backend.
-
-## Como a busca funciona
-
-1. O usuário digita um veículo.
-2. O frontend chama `/api/search`.
-3. O backend dispara a consulta para todas as fontes cadastradas em paralelo.
-4. Cada resultado é convertido para um formato comum: título, imagem, fonte, URL, formatos, preço e disponibilidade.
-5. Resultados duplicados são removidos e a lista é ordenada por relevância.
-6. O frontend mostra também o status de cada fonte, inclusive quando uma delas bloqueia ou falha.
-
-Algumas fontes usam JavaScript, autenticação, API própria ou mecanismos anti-bot. Esses providers precisam de adapters específicos para atingir cobertura máxima; o agregador foi estruturado para isso sem alterar o frontend.
+Os testes da API usam fixtures e dependências controladas para verificar correspondência, preço, filtros, IDs, cache, cancelamento, prazos, entrega SSE, páginas tardias, seções, subpastas públicas, cursores e limites de cobertura. Os testes de navegador verificam filtros combinados, paginação, favoritos, navegação, preservação de filtros, links compartilhados, celular, fallback REST, respostas atrasadas e ampliação por fonte. A CI executa esses testes sem depender da disponibilidade dos sites externos.

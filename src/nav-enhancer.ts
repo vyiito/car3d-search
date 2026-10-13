@@ -21,13 +21,13 @@ function currentQuery() {
 }
 
 function navigate(params: Record<string,string>) {
-  const search = new URLSearchParams(params)
-  window.location.assign(`${window.location.pathname}?${search.toString()}`)
+  closeHub()
+  window.dispatchEvent(new CustomEvent('vj:navigate', { detail: { query: params.q || params.brand, brand: params.brand, game: params.game } }))
 }
 
 function goHome() {
-  window.history.pushState({}, '', window.location.pathname)
-  window.location.reload()
+  closeHub()
+  window.dispatchEvent(new Event('vj:home'))
 }
 
 function closeHub() {
@@ -38,10 +38,9 @@ function closeHub() {
   document.body.style.overflow = previousOverflow
 }
 
-function sourceAction(name: string, url: string) {
-  const facet = [...document.querySelectorAll<HTMLButtonElement>('.sourceFacets button')].find(button => button.textContent?.includes(name))
-  if (facet && currentQuery()) {
-    facet.click()
+function sourceAction(id: string, url: string) {
+  if (currentQuery()) {
+    window.dispatchEvent(new CustomEvent('vj:source', { detail: id }))
     closeHub()
     document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     return
@@ -87,11 +86,11 @@ function openHub(mode: HubMode) {
 
   const grid = overlay.querySelector<HTMLDivElement>('.vjHubGrid')!
   if (mode === 'brands') {
-    brands.forEach((brand, index) => grid.appendChild(card(brand, 'todos os veículos gratuitos', () => navigate({ brand }), index)))
+    brands.forEach((brand, index) => grid.appendChild(card(brand, 'veículos gratuitos e premium', () => navigate({ brand }), index)))
   } else if (mode === 'games') {
     games.forEach((game, index) => grid.appendChild(card(game, 'jogo de origem', () => navigate({ q: game, game }), index)))
   } else {
-    providers.forEach((provider, index) => grid.appendChild(card(provider.name, provider.categories.slice(0,3).join(' · '), () => sourceAction(provider.name, provider.searchUrl || provider.url), index)))
+    providers.forEach((provider, index) => grid.appendChild(card(provider.name, provider.categories.slice(0,3).join(' · '), () => sourceAction(provider.id, provider.url), index)))
   }
 
   const input = overlay.querySelector<HTMLInputElement>('input')!

@@ -1,3 +1,5 @@
+import { relevanceScore } from './search-core.js'
+import { searchFetch as fetch, searchPageLimit, searchCheckpoint } from './search-context.js'
 import * as cheerio from 'cheerio'
 
 const BASE = 'https://www.vertex-warehouse.com'
@@ -203,7 +205,7 @@ export async function searchVertexNative(query, limit = 80) {
       if (!item?.id || seen.has(item.id)) continue
       seen.add(item.id)
       const result = mapItem(item, q)
-      if (result) { merged.push(result); added += 1 }
+      if (result && relevanceScore(result,query)) { merged.push(result); added += 1 }
       if (merged.length >= limit) break
     }
     return added
@@ -212,16 +214,18 @@ export async function searchVertexNative(query, limit = 80) {
   add(parsed.items)
   let pagesFetched = 1
   let hasNext = parsed.hasNext
-  if (!hasNext || merged.length >= limit) return { results: merged.slice(0, limit), pagesFetched }
+  searchCheckpoint({results:merged,pagesFetched,hasMore:hasNext})
+  if (!hasNext || merged.length >= limit) return { results: merged.slice(0, limit), pagesFetched, hasMore:hasNext, stopReason:hasNext?'result-limit':'exhausted' }
 
   const actionId = await discoverActionId(first.text, first.finalUrl)
-  if (!actionId) return { results: merged.slice(0, limit), pagesFetched }
-  for (let page = 2; page <= MAX_PAGES && hasNext && merged.length < limit; page += 1) {
+  if (!actionId) return { results: merged.slice(0, limit), pagesFetched, hasMore:true, stopReason:'pagination-unavailable' }
+  for (let page = 2; page <= searchPageLimit(MAX_PAGES) && hasNext && merged.length < limit; page += 1) {
     const payload = await fetchActionPage(actionId, q, page, parsed.itemsPerPage)
-    if (!payload) break
+    if (!payload) return {results:merged,pagesFetched,hasMore:true,stopReason:'pagination-unavailable'}
     pagesFetched += 1
     add(payload.data)
     hasNext = Boolean(payload.isNextPage)
+    searchCheckpoint({results:merged,pagesFetched,hasMore:hasNext})
   }
-  return { results: merged.slice(0, limit), pagesFetched }
+  return { results: merged.slice(0, limit), pagesFetched,hasMore:hasNext,stopReason:hasNext?merged.length>=limit?'result-limit':'page-limit':'exhausted' }
 }

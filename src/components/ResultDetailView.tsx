@@ -8,25 +8,12 @@ import { getResultDetails, vjDirectDownloadUrl, type GlobalSearchResult } from '
 import ModelViewer from './ModelViewer'
 import ReferencePack from './ReferencePack'
 import '../detail.css'
+import { marketKind, formatPrice } from '../../server/src/search-core.js'
 
 interface Props {
   result: GlobalSearchResult
   onClose: () => void
   onEnriched?: (result: GlobalSearchResult) => void
-}
-
-function marketKind(result: GlobalSearchResult) {
-  if (result.isFree === true || result.price === 0) return 'free'
-  if (result.isFree === false || (typeof result.price === 'number' && result.price > 0)) return 'paid'
-  return 'unknown'
-}
-
-function marketLabel(result: GlobalSearchResult) {
-  const kind = marketKind(result)
-  if (kind === 'free') return 'GRÁTIS'
-  if (typeof result.price === 'number' && result.price > 0) return `$${result.price.toFixed(result.price % 1 ? 2 : 0)}`
-  if (kind === 'paid') return 'PAGO · VER PREÇO NA FONTE'
-  return 'PREÇO NÃO INFORMADO'
 }
 
 export default function ResultDetailView({ result, onClose, onEnriched }: Props) {
@@ -43,9 +30,9 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
     setLoading(true)
     setError(false)
     getResultDetails(result, controller.signal)
-      .then(enriched => { setDetail(enriched); onEnriched?.(enriched) })
+      .then(enriched => { if (!controller.signal.aborted) { setDetail(enriched); onEnriched?.(enriched) } })
       .catch(err => { if (err?.name !== 'AbortError') setError(true) })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [result.id])
 
@@ -80,7 +67,7 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
   }
 
   const priceKind = marketKind(detail)
-  const priceLabel = marketLabel(detail)
+  const priceLabel = formatPrice(detail)
 
   return (
     <div className="assetDetail" role="dialog" aria-modal="true" aria-label={detail.title}>
