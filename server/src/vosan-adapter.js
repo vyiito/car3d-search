@@ -1,3 +1,4 @@
+import { searchFetch as fetch } from './search-context.js'
 import * as cheerio from 'cheerio'
 import pLimit from 'p-limit'
 

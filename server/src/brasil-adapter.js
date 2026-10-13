@@ -1,3 +1,5 @@
+import { relevanceScore } from './search-core.js'
+import { searchFetch as fetch } from './search-context.js'
 import * as cheerio from 'cheerio'
 
 const UA = 'VJ3DSearch/1.2 (+https://github.com/vyiito/car3d-search)'
@@ -99,6 +101,7 @@ export async function searchBrasilSimulatorMods(query, limit = 60) {
       const combined = `${title} ${description}`
       const yearMatch = combined.match(YEAR_RE)
       const game = inferGame(combined)
+      if (!relevanceScore({title,brand:brandOf(title),game},query)) continue
       merged.push({
         id: `brasil-simulator-mods:${item.id}`,
         title,

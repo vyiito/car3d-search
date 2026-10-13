@@ -1,0 +1,28 @@
+.activeFilterStrip{flex-wrap:wrap;gap:6px}
+.activeFilterStrip>button{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:6px 8px;border:1px solid #764c9e;background:#1c1425;color:#dac4ef;font-size:11px;cursor:pointer}
+.activeFilterStrip>button:hover{background:#382347;border-color:#b87cff}
+.keepFilters{display:flex;gap:8px;align-items:center;color:#c1b5cb;font-size:12px;line-height:1.5}
+.keepFilters input{accent-color:#a36bea}
+.filterError,.searchInputError{color:#ffb4b4;font-size:13px;line-height:1.5}
+.facetHelp{display:block;margin-top:8px;font-size:11px;color:#b2a7bb;line-height:1.5}
+.marketSegment{flex-wrap:wrap}
+.marketSegment>button{flex:1 1 40%}
+.apiWarning button{flex-shrink:0;padding:8px 12px;background:#332043;border:1px solid #a36bea;color:#fff;cursor:pointer}
+.sourceStatusGrid small{white-space:normal!important;overflow-wrap:anywhere;line-height:1.5}
+.globalLoading.progressive strong{font-size:11px!important}
+.globalLoading.progressive span{font-size:12px!important;color:#c1b5cb!important}
+.filterBackdrop{display:none}
+.hero.searchActive{padding-top:28px;padding-bottom:24px}
+.hero.searchActive h1{font-size:clamp(24px,3vw,36px);margin:12px 0}
+.hero.searchActive h1 br{display:none}
+.hero.searchActive h1 span:before{content:' '}
+.hero.searchActive .heroCode,.hero.searchActive .eyebrow,.hero.searchActive>p:not(.searchInputError),.hero.searchActive:before,.hero.searchActive:after{display:none}
+.hero.searchActive .searchArea{margin-top:0}
+.hero.searchActive .heroMetrics{margin-top:14px}
+.card .sourceRow,.card .vehicleIdentity,.card .chips span,.card .qualitySignals span,.card .cardFooter,.card .cardFooter button,.card .vehicleBadge,.card .downloadBadge,.card .priceBadge{font-size:10px}
+.card h3{font-size:14px}
+.sourceFacets button,.facetChips button,.filterSectionTitle{font-size:12px}
+button:focus-visible,a:focus-visible,[role="button"]:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #c89cff;outline-offset:3px}
+@media(max-width:720px){.filterBackdrop{display:block;position:fixed;inset:0;z-index:90;background:#000b;border:0}.filtersPanel.open{z-index:100!important}.apiWarning{flex-wrap:wrap}.topStatus{font-size:8px}.activeFilterStrip{max-width:100%}.globalLoading.progressive>div:last-child{display:block}}
+
+.sourceAvailabilityNotice{padding:12px 14px;margin-bottom:12px;border:1px solid #6d527d;background:#201628;color:#dbc8e8;font-size:12px;line-height:1.6}

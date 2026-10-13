@@ -3,7 +3,9 @@ import {
   ArrowLeft, ArrowRight, ArrowUpRight, CarFront, Download, ImageOff,
   LoaderCircle, Search, Shuffle, Sparkles,
 } from 'lucide-react'
-import { globalSearch, type GlobalSearchResult } from '../api/search'
+import { type GlobalSearchResult } from '../api/search'
+import { progressiveSearch } from '../api/progressive'
+import { formatPrice, marketKind, resultKey } from '../../server/src/search-core.js'
 import '../discovery.css'
 
 type DiscoveryMode = 'Destaques' | 'Grátis' | 'Premium' | 'Download direto' | 'Corrida' | 'Game mods'
@@ -11,18 +13,6 @@ type DiscoveryMode = 'Destaques' | 'Grátis' | 'Premium' | 'Download direto' | '
 interface DiscoveryCarouselProps {
   onSelect: (result: GlobalSearchResult) => void
   onSearch: (term: string) => void
-}
-
-function marketKind(result: GlobalSearchResult) {
-  if (result.isFree === true || result.price === 0) return 'free'
-  if (result.isFree === false || (typeof result.price === 'number' && result.price > 0)) return 'paid'
-  return 'unknown'
-}
-function marketLabel(result: GlobalSearchResult) {
-  const kind = marketKind(result)
-  if (kind === 'free') return 'GRÁTIS'
-  if (typeof result.price === 'number' && result.price > 0) return `$${result.price.toFixed(result.price % 1 ? 2 : 0)}`
-  return kind === 'paid' ? 'PAGO' : 'VER PREÇO'
 }
 
 function curateResults(results: GlobalSearchResult[]) {
@@ -63,20 +53,28 @@ function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarouselProps) {
     const controller = new AbortController()
     setLoading(true)
     setError(false)
-    globalSearch('car', controller.signal, 8)
-      .then(data => setItems(curateResults(data.results)))
+    progressiveSearch('car', {
+      onSource: event => {
+        if (controller.signal.aborted) return
+        setItems(current => {
+          const merged = new Map(current.map(item => [resultKey(item), item]))
+          event.results.forEach(item => merged.set(resultKey(item), item))
+          return [...merged.values()]
+        })
+      },
+    }, controller.signal, 8)
       .catch(err => { if (err?.name !== 'AbortError') setError(true) })
-      .finally(() => setLoading(false))
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [])
 
   const visibleItems = useMemo(() => {
-    if (mode === 'Grátis') return items.filter(item => marketKind(item) === 'free')
-    if (mode === 'Premium') return items.filter(item => marketKind(item) === 'paid')
-    if (mode === 'Download direto') return items.filter(item => Boolean(item.downloadUrl))
-    if (mode === 'Corrida') return items.filter(item => item.vehicleClass === 'Race Car' || /race|racing|gt3|rally|drift|formula/i.test(item.title))
-    if (mode === 'Game mods') return items.filter(item => item.sourceType === 'game-mods')
-    return items
+    const filtered = items.filter(item => mode === 'Grátis' ? marketKind(item) === 'free'
+      : mode === 'Premium' ? marketKind(item) === 'paid'
+      : mode === 'Download direto' ? Boolean(item.downloadUrl)
+      : mode === 'Corrida' ? item.vehicleClass === 'Race Car'
+      : mode === 'Game mods' ? item.sourceType === 'game-mods' : true)
+    return curateResults(filtered)
   }, [items, mode])
 
   const scroll = (direction: -1 | 1) => {
@@ -112,10 +110,10 @@ function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarouselProps) {
       </div>
 
       {loading && <div className="discoveryLoading"><LoaderCircle className="spin" size={23}/><div><strong>MONTANDO O FEED</strong><span>coletando previews nas fontes indexadas...</span></div></div>}
-      {!loading && error && <div className="discoveryError"><CarFront size={22}/><div><strong>FEED INDISPONÍVEL AGORA</strong><span>A busca principal continua funcionando normalmente.</span></div></div>}
+      {!loading && error && !items.length && <div className="discoveryError"><CarFront size={22}/><div><strong>FEED INDISPONÍVEL AGORA</strong><span>Use a pesquisa ou abra uma fonte diretamente.</span></div></div>}
       {!loading && !error && visibleItems.length === 0 && <div className="discoveryError"><CarFront size={22}/><div><strong>NENHUM ITEM NESTE RECORTE</strong><span>Troque o modo acima para explorar outros veículos.</span></div></div>}
 
-      {!loading && visibleItems.length > 0 && (
+      {visibleItems.length > 0 && (
         <div className="discoveryRail" ref={railRef}>
           {visibleItems.map((result, index) => {
             const kind = marketKind(result)
@@ -125,7 +123,7 @@ function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarouselProps) {
                 <div className="discoveryShade"/>
                 <span className="discoveryIndex">{String(index + 1).padStart(2, '0')}</span>
                 <span className="discoveryType"><CarFront size={10}/>{result.vehicleClass}</span>
-                <span className={`discoveryPrice ${kind}`}>{marketLabel(result)}</span>
+                <span className={`discoveryPrice ${kind}`}>{formatPrice(result)}</span>
                 {result.downloadUrl && <span className="discoveryDownload"><Download size={10}/> DIRETO</span>}
               </div>
               <div className="discoveryBody">

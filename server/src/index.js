@@ -1,34 +1,21 @@
 import express from 'express'
 import cors from 'cors'
 import { providers } from './providers.js'
-import { searchAll } from './search.js'
+import { progressiveSearch, progressiveNativeIds } from './progressive-search.js'
+import { searchOptions } from './search-options.js'
 import { getResultDetails } from './details.js'
-import { searchBrasilSimulatorMods } from './brasil-adapter.js'
-import { search3DSky } from './3dsky-adapter.js'
-import { searchVosan } from './vosan-adapter.js'
-import { searchOvertake } from './overtake-adapter.js'
-import { searchVertexNative } from './vertex-adapter.js'
-import { searchNativeMarketSources, nativeMarketAdapters } from './market-adapters.js'
-import { search3DBaza, searchWireWheels } from './catalog-adapters.js'
-import { searchCGMoodV2, searchZifir, search3ddd } from './remaining-adapters.js'
-import { searchRenderHubClean, search3dCarClean } from './commerce-adapters.js'
-import { searchCGTraderMarketV2 } from './cgtrader-adapter.js'
 import { searchReferencePack, buildReferenceZip } from './reference-engine.js'
 import { registerProgressiveSearchRoute } from './progressive-route.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
 const allowedOrigin = process.env.CORS_ORIGIN || 'https://vyiito.github.io'
-const cache = new Map()
 const detailsCache = new Map()
-const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS || 10 * 60 * 1000)
 const DETAILS_CACHE_TTL_MS = Number(process.env.DETAILS_CACHE_TTL_MS || 30 * 60 * 1000)
-const MARKET_NATIVE_IDS = Object.keys(nativeMarketAdapters)
-const EXTRA_NATIVE_IDS = ['3d-baza','wire-wheels-club','zifir3d','renderhub','3ddd-ru','3dcar-ru','cgtrader']
-const ALL_NATIVE_IDS = [...new Set(['vertex-warehouse','brasil-simulator-mods','3dsky','vosan','overtake',...MARKET_NATIVE_IDS,...EXTRA_NATIVE_IDS])]
+const ALL_NATIVE_IDS = progressiveNativeIds
 
 app.disable('x-powered-by')
-app.use(cors({ origin: [allowedOrigin, 'http://localhost:5173'], methods: ['GET'] }))
+app.use(cors({ origin: [...allowedOrigin.split(',').map(origin => origin.trim()), 'http://localhost:5173', 'http://127.0.0.1:5173'], methods: ['GET'] }))
 app.use(express.json({ limit: '32kb' }))
 registerProgressiveSearchRoute(app)
 
@@ -44,54 +31,20 @@ async function cachedDetails(sourceId, sourceUrl) {
   const payload = await getResultDetails(sourceId, sourceUrl)
   detailsCache.set(cacheKey, { createdAt: Date.now(), payload }); trimCache(detailsCache, 250, 40); return payload
 }
-function normalizeMarketResult(result) {
-  if (!result) return result
-  const price = typeof result.price === 'number' && Number.isFinite(result.price) ? result.price : null
-  let isFree = result.isFree
-  if (price === 0) isFree = true
-  else if (price !== null && price > 0) isFree = false
-  return { ...result, price, isFree }
-}
-function safeAdapter(fn, label) { return fn().catch(error => ({ results: [], pagesFetched: 0, error: error instanceof Error ? error.message : `${label} search failed` })) }
-
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, marketMode: 'free+paid', detailsResolver: true, directDownloadGate: true, paginatedSearch: true, gameFacets: true, referencePacks: true, progressiveSearch: true, nativeAdapters: ALL_NATIVE_IDS }))
 app.get('/api/providers', (_req, res) => res.json(providers.map(provider => ({ id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, browseUrl: provider.browseUrl || provider.baseUrl, freeCatalog: Boolean(provider.freeCatalog), defaultGame: provider.defaultGame || null, pagination: Boolean(provider.pagination), nativeAdapter: ALL_NATIVE_IDS.includes(provider.id) }))))
 
 app.get('/api/search', async (req, res) => {
-  const q = String(req.query.q || '').trim().slice(0, 120)
+  const { q, perSource } = searchOptions(req.query)
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
-  const perSource = Math.max(1, Math.min(Number(req.query.perSource || 60), 80))
-  const cacheKey = `market-v12|${q.toLowerCase()}|${perSource}`
-  const cached = cache.get(cacheKey)
-  if (cached && Date.now() - cached.createdAt < CACHE_TTL_MS) return res.json({ ...cached.payload, cached: true })
+  const controller = new AbortController()
+  res.on('close', () => { if (!res.writableEnded) controller.abort() })
   try {
-    const [rawPayload, brasil, sky, vosan, overtake, vertex, nativeMarketsRaw, baza, wire, cgmood, zifir, renderhub, ddd, carGallery, cgtrader] = await Promise.all([
-      searchAll(q, { perSource }),
-      safeAdapter(() => searchBrasilSimulatorMods(q, perSource), 'BSM'), safeAdapter(() => search3DSky(q, perSource), '3DSky'), safeAdapter(() => searchVosan(q, perSource), 'VOSAN'), safeAdapter(() => searchOvertake(q, perSource), 'OverTake'), safeAdapter(() => searchVertexNative(q, perSource), 'Vertex'),
-      searchNativeMarketSources(q, perSource), safeAdapter(() => search3DBaza(q, perSource), '3D-Baza'), safeAdapter(() => searchWireWheels(q, perSource), 'Wire Wheels'), safeAdapter(() => searchCGMoodV2(q, perSource), 'CGMood'), safeAdapter(() => searchZifir(q, perSource), 'ZIFIR'), safeAdapter(() => searchRenderHubClean(q, perSource), 'RenderHub'), safeAdapter(() => search3ddd(q, perSource), '3ddd'), safeAdapter(() => search3dCarClean(q, perSource), '3DCar'), safeAdapter(() => searchCGTraderMarketV2(q, perSource), 'CGTrader'),
-    ])
-    const nativeMarkets = nativeMarketsRaw.filter(item => !['cgmood'].includes(item.sourceId))
-    const nativeMap = new Map(nativeMarkets.map(item => [item.sourceId, item]))
-    const explicit = new Map([
-      ['brasil-simulator-mods', brasil], ['3dsky', sky], ['vosan', vosan], ['overtake', overtake], ['vertex-warehouse', vertex], ['3d-baza', baza], ['wire-wheels-club', wire], ['cgmood', cgmood], ['zifir3d', zifir], ['renderhub', renderhub], ['3ddd-ru', ddd], ['3dcar-ru', carGallery], ['cgtrader', cgtrader],
-    ])
-    const replacedIds = new Set(ALL_NATIVE_IDS)
-    rawPayload.results = [
-      ...rawPayload.results.filter(result => !replacedIds.has(result.sourceId)),
-      ...brasil.results, ...sky.results, ...vosan.results, ...overtake.results, ...vertex.results,
-      ...nativeMarkets.flatMap(item => item.results || []), ...baza.results, ...wire.results, ...cgmood.results, ...zifir.results, ...renderhub.results, ...ddd.results, ...carGallery.results, ...cgtrader.results,
-    ].map(normalizeMarketResult)
-    rawPayload.sources = rawPayload.sources.map(source => {
-      const custom = explicit.get(source.provider)
-      if (custom) return { ...source, status: custom.error ? 'error' : 'ok', count: custom.results.length, pagesFetched: custom.pagesFetched, error: custom.error }
-      const native = nativeMap.get(source.provider)
-      if (native) return { ...source, status: native.status, count: native.results.length, pagesFetched: native.pagesFetched, durationMs: native.durationMs, error: native.error }
-      return source
-    })
-    rawPayload.total = rawPayload.results.length; rawPayload.freeOnly = false; rawPayload.marketMode = 'free+paid'
-    console.log(`[search] ${q} :: ${rawPayload.sources.map(source => `${source.provider}=${source.status}:${source.count}@${source.pagesFetched || 0}p`).join(' | ')}`)
-    cache.set(cacheKey, { createdAt: Date.now(), payload: rawPayload }); trimCache(cache); res.json({ ...rawPayload, cached: false })
-  } catch (error) { console.error(error); res.status(500).json({ error: 'Global search failed.' }) }
+    const payload = await progressiveSearch(q, { perSource, signal: controller.signal, refresh: req.query.refresh === '1' })
+    if (!controller.signal.aborted) res.json(payload)
+  } catch (error) {
+    if (!controller.signal.aborted) { console.error(error); res.status(500).json({ error: 'Global search failed.' }) }
+  }
 })
 
 app.get('/api/details', async (req, res) => {

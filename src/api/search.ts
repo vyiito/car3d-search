@@ -1,3 +1,6 @@
+import { API_BASE, requestSignal, responseError } from './config'
+import { normalizeSearchResult } from '../../server/src/search-core.js'
+
 export interface DownloadCandidate {
   url: string
   label: string
@@ -59,20 +62,20 @@ export interface GlobalSearchResponse {
   cached: boolean
 }
 
-const API_BASE = (import.meta.env.VITE_SEARCH_API_URL || 'https://car3d-search-api.onrender.com').replace(/\/$/, '')
-
 export async function globalSearch(query: string, signal?: AbortSignal, perSource = 60): Promise<GlobalSearchResponse> {
-  const safePerSource = Math.max(1, Math.min(perSource, 80))
+  const safePerSource = Number.isFinite(perSource) ? Math.max(1, Math.min(Math.floor(perSource), 80)) : 60
   const url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}&perSource=${safePerSource}`
-  const response = await fetch(url, { signal })
-  if (!response.ok) throw new Error(`API ${response.status}`)
-  return response.json()
+  const response = await fetch(url, { signal: requestSignal(signal) })
+  if (!response.ok) throw await responseError(response)
+  const payload = await response.json()
+  if (!Array.isArray(payload.results) || !Array.isArray(payload.sources)) throw new Error('Resposta de pesquisa inválida.')
+  return { ...payload, results: payload.results.map((item: GlobalSearchResult) => normalizeSearchResult(item)).filter(Boolean) }
 }
 
 export async function getResultDetails(result: GlobalSearchResult, signal?: AbortSignal): Promise<GlobalSearchResult> {
   const url = `${API_BASE}/api/details?sourceId=${encodeURIComponent(result.sourceId)}&url=${encodeURIComponent(result.sourceUrl)}`
-  const response = await fetch(url, { signal })
-  if (!response.ok) throw new Error(`API ${response.status}`)
+  const response = await fetch(url, { signal: requestSignal(signal, 30000) })
+  if (!response.ok) throw await responseError(response)
   const details = await response.json()
 
   return {
@@ -80,7 +83,7 @@ export async function getResultDetails(result: GlobalSearchResult, signal?: Abor
     ...details,
     title: details.title || result.title,
     imageUrl: details.imageUrl || result.imageUrl,
-    gallery: details.gallery?.length ? details.gallery : (result.imageUrl ? [result.imageUrl] : []),
+    gallery: details.gallery?.length ? details.gallery : (result.gallery?.length ? result.gallery : result.imageUrl ? [result.imageUrl] : []),
     formats: details.formats?.length ? details.formats : result.formats,
     author: details.author || result.author,
     description: details.description || result.description,
@@ -88,8 +91,8 @@ export async function getResultDetails(result: GlobalSearchResult, signal?: Abor
     game: details.game || result.game || null,
     year: details.year || result.year,
     priceLabel: details.priceLabel || result.priceLabel || null,
-    downloadUrl: details.downloadUrl || result.downloadUrl,
-    downloadStatus: details.downloadUrl ? 'direct' : details.downloadActionUrl ? 'source' : (details.downloadStatus || result.downloadStatus || 'unavailable'),
+    downloadUrl: details.downloadUrl ?? null,
+    downloadStatus: details.downloadUrl ? 'direct' : details.downloadActionUrl ? 'source' : (details.downloadStatus || 'unavailable'),
   }
 }
 

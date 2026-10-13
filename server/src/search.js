@@ -1,6 +1,8 @@
 import * as cheerio from 'cheerio'
 import pLimit from 'p-limit'
 import { providers } from './providers.js'
+import { prepareResults, relevanceScore } from './search-core.js'
+import { searchFetch as fetch } from './search-context.js'
 
 const limiter = pLimit(Number(process.env.SEARCH_CONCURRENCY || 5))
 const collectionLimiter = pLimit(3)
@@ -108,7 +110,7 @@ function parseFormats(text) {
 }
 
 function parsePrice(text) {
-  const match = clean(text).match(PRICE_RE)
+  const match = clean(text).replace(/royalty[\s-]?free/gi, '').match(PRICE_RE)
   if (!match) return { price: null, isFree: null }
   const raw = match[0]
   if (/free|grátis|gratis/i.test(raw)) return { price: 0, isFree: true }
@@ -244,7 +246,7 @@ function extractHtmlResults(provider, query, limit, html) {
       imageUrl: bestImage($, card, provider.baseUrl), formats: parseFormats(text), price, isFree, downloadable: downloadUrl ? true : null, downloadUrl,
       author: bestAuthor($, card), description: descriptionFromText(text, title), fileSize: parseFileSize(text), score: relevance,
     }, provider)
-    if (!candidate) return
+    if (!candidate || !relevanceScore(candidate, query)) return
     results.push(candidate); seen.add(sourceUrl)
   }
 
@@ -269,7 +271,7 @@ function extractHtmlResults(provider, query, limit, html) {
         imageUrl: null, formats: [], price: null, isFree: null, downloadable: DIRECT_FILE_RE.test(sourceUrl) ? true : null,
         downloadUrl: DIRECT_FILE_RE.test(sourceUrl) ? sourceUrl : null, author: null, description: null, fileSize: null, score: relevance,
       }, provider)
-      if (candidate) { results.push(candidate); seen.add(sourceUrl) }
+      if (candidate && relevanceScore(candidate, query)) { results.push(candidate); seen.add(sourceUrl) }
     })
   }
   return results
@@ -581,7 +583,7 @@ async function searchCollectionProvider(provider, query, limit) {
   return { results: dedupe(merged).slice(0, limit), pagesFetched }
 }
 
-async function searchProvider(provider, query, limit) {
+export async function searchProvider(provider, query, limit) {
   const started = Date.now()
   try {
     const payload = provider.adapter === 'vertex'
@@ -593,7 +595,8 @@ async function searchProvider(provider, query, limit) {
           : provider.adapter === 'collection'
             ? await searchCollectionProvider(provider, query, limit)
             : await searchHtmlProvider(provider, query, limit)
-    return { provider: provider.id, name: provider.name, status: 'ok', count: payload.results.length, pagesFetched: payload.pagesFetched || 1, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, results: payload.results }
+    const results = prepareResults(payload.results, query, provider, limit)
+    return { provider: provider.id, name: provider.name, status: 'ok', count: results.length, pagesFetched: payload.pagesFetched || 1, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, results }
   } catch (error) {
     return { provider: provider.id, name: provider.name, status: 'error', count: 0, pagesFetched: 0, searchUrl: provider.buildUrl(query), durationMs: Date.now() - started, error: error instanceof Error ? error.message : 'Unknown error', results: [] }
   }

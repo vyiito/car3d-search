@@ -1,3 +1,5 @@
+import { relevanceScore } from './search-core.js'
+import { searchFetch as fetch } from './search-context.js'
 import * as cheerio from 'cheerio'
 
 const BASE = 'https://www.vertex-warehouse.com'
@@ -203,7 +205,7 @@ export async function searchVertexNative(query, limit = 80) {
       if (!item?.id || seen.has(item.id)) continue
       seen.add(item.id)
       const result = mapItem(item, q)
-      if (result) { merged.push(result); added += 1 }
+      if (result && relevanceScore(result,query)) { merged.push(result); added += 1 }
       if (merged.length >= limit) break
     }
     return added

@@ -1,15 +1,16 @@
 import { progressiveSearch } from './progressive-search.js'
+import { providers } from './providers.js'
+import { searchOptions } from './search-options.js'
 
 function writeEvent(res, payload) {
   if (res.writableEnded || res.destroyed) return
   res.write(`data: ${JSON.stringify(payload)}\n\n`)
 }
 
-export function registerProgressiveSearchRoute(app) {
+export function registerProgressiveSearchRoute(app, search = progressiveSearch) {
   app.get('/api/search/stream', async (req, res) => {
-    const q = String(req.query.q || '').trim().slice(0, 120)
+    const { q, perSource } = searchOptions(req.query)
     if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
-    const perSource = Math.max(1, Math.min(Number(req.query.perSource || 60), 80))
 
     res.status(200)
     res.set('Content-Type', 'text/event-stream; charset=utf-8')
@@ -22,15 +23,19 @@ export function registerProgressiveSearchRoute(app) {
     let completed = 0
     let totalResults = 0
     let closed = false
-    req.on('close', () => { closed = true })
+    const controller = new AbortController()
+    res.on('close', () => { closed = true; controller.abort() })
+    writeEvent(res, { type: 'start', query: q, providerCount: providers.length })
 
     const heartbeat = setInterval(() => {
       if (!closed && !res.writableEnded) res.write(': keep-alive\n\n')
     }, 12000)
 
     try {
-      const summary = await progressiveSearch(q, {
+      const summary = await search(q, {
         perSource,
+        signal: controller.signal,
+        refresh: req.query.refresh === '1',
         emit: event => {
           if (closed) return
           if (event?.type === 'source') {
@@ -40,7 +45,10 @@ export function registerProgressiveSearchRoute(app) {
           writeEvent(res, { ...event, completed, totalResults })
         },
       })
-      if (!closed) writeEvent(res, { type: 'done', ...summary, completed, totalResults })
+      if (!closed) {
+        const { results: _results, sources: _sources, ...metadata } = summary
+        writeEvent(res, { type: 'done', ...metadata, completed, totalResults: summary.total ?? totalResults })
+      }
     } catch (error) {
       if (!closed) writeEvent(res, { type: 'error', error: error instanceof Error ? error.message : 'Progressive search failed.' })
     } finally {

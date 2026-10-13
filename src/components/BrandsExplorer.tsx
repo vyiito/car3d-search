@@ -23,7 +23,7 @@ function BrandsExplorer({ onSearch, recent = [] }: BrandsExplorerProps) {
         <div>
           <span className="brandsEyebrow"><Sparkles size={13}/> BRAND MATRIX / 02</span>
           <h2>EXPLORE POR <em>MARCA.</em></h2>
-          <p>Clique em uma fabricante para procurar todos os veículos gratuitos encontrados dessa marca nas bases indexadas.</p>
+          <p>Escolha uma fabricante para buscar veículos gratuitos e premium nas fontes cadastradas.</p>
         </div>
         <div className="brandsStat"><strong>{visible.length}</strong><span>MARCAS RÁPIDAS</span></div>
       </div>

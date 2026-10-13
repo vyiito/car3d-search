@@ -1,4 +1,5 @@
 import type { GlobalSearchResult } from './search'
+import { API_BASE, requestSignal, responseError } from './config'
 
 export type ReferenceAngle = 'front' | 'rear' | 'side' | 'three-quarter' | 'interior' | 'wheel' | 'engine' | 'details' | 'reference' | string
 
@@ -64,7 +65,6 @@ export interface ReferencePack {
   expiresInSeconds: number
 }
 
-const API_BASE = (import.meta.env.VITE_SEARCH_API_URL || 'https://car3d-search-api.onrender.com').replace(/\/$/, '')
 const GAME_NOISE_RE = /\b(?:forza(?: horizon)?\s*\d*|forza motorsport|assetto corsa(?: competizione)?|gran turismo(?: sport|\s*\d+)?|csr racing\s*\d*|real racing\s*\d*|carx(?: drift racing| street)?|beamng(?:\.drive)?|need for speed(?: heat| unbound| no limits| mobile)?|gta\s*(?:iv|v|4|5)|euro truck simulator\s*2|american truck simulator)\b/gi
 const FORMAT_NOISE_RE = /\b(?:fbx|obj|blend|blender|stl|3ds|max|c4d|dae|gltf|glb|3mf|skp|ma|mb|kn5|dds|textures?|pbr|low[- ]?poly|high[- ]?poly|game[- ]?ready)\b/gi
 const MARKET_NOISE_RE = /\b(?:free|premium|download|asset|converted|conversion|ripped|rip|extract(?:ed)?|port(?:ed)?|addon|add-on|version|pack|3d\s*model)\b/gi
@@ -128,32 +128,33 @@ function referenceCandidates(result: GlobalSearchResult) {
 function hasTrustedYear(result: GlobalSearchResult) { return Boolean(result.year && new RegExp(`\\b${String(result.year)}\\b`).test(String(result.title || ''))) }
 
 async function requestReferencePack(result: GlobalSearchResult, title: string, includeYear: boolean, signal?: AbortSignal): Promise<ReferencePack> {
-  const url = new URL(`${API_BASE}/api/references`)
+  const url = new URL(`${API_BASE}/api/references`, window.location.origin)
   url.searchParams.set('title', title)
   if (result.brand) url.searchParams.set('brand', result.brand)
   if (result.vehicleClass) url.searchParams.set('vehicleClass', result.vehicleClass)
   if (includeYear && hasTrustedYear(result)) url.searchParams.set('year', String(result.year))
   url.searchParams.set('perAngle', '5')
   const response = await fetch(url.href, { signal, cache: 'no-store', headers: { 'cache-control': 'no-cache', pragma: 'no-cache' } })
-  if (!response.ok) throw new Error(`Reference API ${response.status}`)
+  if (!response.ok) throw await responseError(response)
   return response.json()
 }
 
 export async function getReferencePack(result: GlobalSearchResult, signal?: AbortSignal): Promise<ReferencePack> {
+  const boundedSignal = requestSignal(signal)
   const candidates = referenceCandidates(result)
   let lastPack: ReferencePack | null = null
   let bestPack: ReferencePack | null = null
   for (let index = 0; index < candidates.length; index += 1) {
-    const pack = await requestReferencePack(result, candidates[index], index === 0, signal)
+    const pack = await requestReferencePack(result, candidates[index], index === 0, boundedSignal)
     lastPack = pack
     if (!bestPack || pack.images.length > bestPack.images.length || (pack.images.length === bestPack.images.length && pack.angleCoverage.length > bestPack.angleCoverage.length)) bestPack = pack
     if (pack.images.length >= 6 && pack.angleCoverage.length >= 3) return pack
   }
-  return bestPack || lastPack || requestReferencePack(result, result.title, false, signal)
+  return bestPack || lastPack || requestReferencePack(result, result.title, false, boundedSignal)
 }
 
 export function referencePackDownloadUrl(packId: string, imageIds: string[]) {
-  const url = new URL(`${API_BASE}/api/reference-pack.zip`)
+  const url = new URL(`${API_BASE}/api/reference-pack.zip`, window.location.origin)
   url.searchParams.set('packId', packId)
   if (imageIds.length) url.searchParams.set('ids', imageIds.join(','))
   return url.href

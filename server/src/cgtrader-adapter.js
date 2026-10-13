@@ -1,3 +1,4 @@
+import { searchFetch as fetch } from './search-context.js'
 import * as cheerio from 'cheerio'
 
 const UA='VJ3DSearch/2.3 (+https://github.com/vyiito/car3d-search)'
