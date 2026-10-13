@@ -42,6 +42,7 @@ export function canonicalGame(value) {
   const text = String(value || '').trim()
   return GAME_ALIASES.get(normalizeText(text)) || text
 }
+export const isKnownGameQuery = value => GAME_ALIASES.has(normalizeText(value))
 
 export function matchesGame(actual, selected) {
   const game = normalizeText(canonicalGame(actual)), filter = normalizeText(canonicalGame(selected))
@@ -80,24 +81,35 @@ export function resultKey(result) {
 const QUERY_NOISE = new Set(['3d', 'model', 'models', 'modelo', 'modelos', 'download', 'free', 'gratis', 'car', 'cars', 'carro', 'carros', 'vehicle', 'vehicles', 'veiculo', 'veiculos'])
 const CATEGORY_TITLE = /^(?:car mods?|cars?|vehicles?|3d models?|downloads?|search results?|models?|gallery|bmw|toyota|nissan|honda|porsche)$/
 const PART_TITLE = /^(?:(?:car|vehicle)\s+)?(?:wheel|wheels|tire|tires|tyre|tyres|rim|rims|engine|steering wheel|bumper)\b/
-const PART_PHRASE = /\b(?:tail lights?|headlights?|gear selector|gear shift|steering wheel|wing mirrors?|brake discs?|engine block|body kit|bodykit)\b/
+const PART_PHRASE = /\b(?:tail lights?|headlights?|gear selector|gear shift|steering wheel|wing mirrors?|brake discs?|engine block|body kit|bodykit|wheels?|rims?|grille|panel set)\b/
 const ACCESSORY_PHRASE = /\b(?:neon sign|keychain|keyring|cookie cutter|poster|logo|emblem)\b/
 
 export function relevanceScore(result, query) {
-  const title = normalizeText(result.title)
-  const fullQuery = normalizeText(query)
+  const vehicleIdentity = value => {
+    let text = normalizeText(value)
+    if (/\bsupra\b/.test(text)) text = text.replace(/\b(?:mk4|jza80)\b/g, 'a80').replace(/\b(?:mk5|jza90)\b/g, 'a90')
+    if (/\b(?:skyline|gtr)\b/.test(text)) text = text.replace(/\bbnr(32|33|34)\b/g, 'r$1')
+    return text
+  }
+  const title = vehicleIdentity(result.title)
+  const fullQuery = vehicleIdentity(query)
   const tokens = fullQuery.split(' ').filter(token => token && !QUERY_NOISE.has(token))
-  if (!title || CATEGORY_TITLE.test(title)) return 0
+  if (!title || (!result.isModelListing && CATEGORY_TITLE.test(title))) return 0
   if (PART_TITLE.test(title) && !PART_TITLE.test(fullQuery)) return 0
   if (PART_PHRASE.test(title) && !PART_PHRASE.test(fullQuery)) return 0
   if (ACCESSORY_PHRASE.test(title) && !ACCESSORY_PHRASE.test(fullQuery)) return 0
   if (!tokens.length) return 1
   const gameQuery = GAME_ALIASES.has(fullQuery)
   if (gameQuery && matchesGame(result.game, canonicalGame(query))) return 20
-  const identity = new Set(normalizeText(`${result.title} ${result.brand || ''} ${canonicalGame(result.game)} ${result.year || ''}`).split(' '))
+  const tags = result.isModelListing && Array.isArray(result.tags) ? result.tags.join(' ') : ''
+  const identity = new Set(vehicleIdentity(`${result.title} ${result.brand || ''} ${canonicalGame(result.game)} ${result.year || ''} ${tags}`).split(' '))
   // Descriptions often contain recommendations or entire catalogues. They
   // cannot establish which model/generation the listing actually represents.
-  if (!tokens.every(token => identity.has(token))) return 0
+  if (!tokens.every(token => identity.has(token))) {
+    const included = Array.isArray(result.includedVehicles) ? result.includedVehicles : []
+    if (!included.some(vehicle => { const words = new Set(vehicleIdentity(vehicle).split(' ')); return tokens.every(token => words.has(token)) })) return 0
+    return 5
+  }
   const titleTokens = new Set(title.split(' '))
   return tokens.reduce((score, token) => score + (titleTokens.has(token) ? 10 : 4), 0) + (title.includes(fullQuery) ? 20 : 0)
 }

@@ -7,7 +7,7 @@ import {
   ShieldCheck, SlidersHorizontal, X, Zap,
 } from 'lucide-react'
 import { providers, type Provider } from './data/providers'
-import { globalSearch, type GlobalSearchResult, type SourceSearchStatus } from './api/search'
+import { expandedSourceSearch, globalSearch, type GlobalSearchResult, type SourceSearchStatus } from './api/search'
 import { progressiveSearch } from './api/progressive'
 import DiscoveryCarousel from './components/DiscoveryCarousel'
 import ResultDetailView from './components/ResultDetailView'
@@ -18,6 +18,7 @@ import './v2.css'
 import './market.css'
 import './progressive.css'
 import './search-reliability.css'
+import SourceStatus from './components/SourceStatus'
 import { readSearchState, writeSearchState } from './search-state'
 import { canonicalGame, matchesGame, marketKind, formatPrice, normalizeFormats, normalizeSearchResult } from '../server/src/search-core.js'
 import { filterResults, sortResults } from '../server/src/result-filters.js'
@@ -222,6 +223,9 @@ function App(){
   const [inputError,setInputError]=useState<string|null>(null)
   const requestRef=useRef<AbortController|null>(null)
   const refreshRef=useRef(false)
+  const expansionRef=useRef<AbortController|null>(null)
+  const [expandingSource,setExpandingSource]=useState<string|null>(null)
+  const [expansionError,setExpansionError]=useState<string|null>(null)
   const [query,setQuery]=useState(initial.query)
   const [submittedQuery,setSubmittedQuery]=useState(initial.query.length>=2?initial.query:'')
   const [selectedBrand,setSelectedBrand]=useState<string|null>(initial.brand)
@@ -256,6 +260,7 @@ function App(){
     if(!submittedQuery)return
     const controller=new AbortController()
     requestRef.current=controller
+    expansionRef.current?.abort();setExpandingSource(null);setExpansionError(null)
     let receivedSources=0
     setLoading(true);setApiError(null);setRemoteResults([]);setSourceStatuses([]);setCurrentPage(1);setSearchedSourceCount(0)
     const active=()=>!controller.signal.aborted
@@ -324,13 +329,27 @@ function App(){
   useEffect(()=>{setCurrentPage(1)},[submittedQuery,priceMode,kind,vehicleClass,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo,sortMode,groupDuplicates])
   useEffect(()=>{if(currentPage>pageCount)setCurrentPage(pageCount)},[currentPage,pageCount])
 
+  const expandSource=async(sourceId:string)=>{
+    if(!submittedQuery||expandingSource)return
+    const controller=new AbortController()
+    expansionRef.current?.abort();expansionRef.current=controller
+    setExpandingSource(sourceId);setExpansionError(null)
+    try{
+      const payload=await expandedSourceSearch(submittedQuery,sourceId,controller.signal)
+      if(controller.signal.aborted)return
+      setRemoteResults(current=>mergeSearchResults(current,payload.results))
+      payload.sources.forEach(source=>setSourceStatuses(current=>upsertSourceStatus(current,source)))
+    }catch(error){if(!controller.signal.aborted)setExpansionError('Não foi possível ampliar esta fonte. Os resultados anteriores foram mantidos.')}
+    finally{if(!controller.signal.aborted)setExpandingSource(null)}
+  }
+  useEffect(()=>()=>expansionRef.current?.abort(),[])
   const failedSourceCount=sourceStatuses.filter(source=>source.status==='error').length
   const activeFilters=[priceMode!=='Todos',kind!=='Todos',vehicleClass!=='Todos',selectedFormats.length>0,selectedSources.length>0,selectedGames.length>0,downloadMode!=='Todos',imageMode!=='Todos',Boolean(yearFrom),Boolean(yearTo),sortMode!=='Relevância',groupDuplicates].filter(Boolean).length
   const clearFilters=()=>{setPriceMode('Todos');setKind('Todos');setVehicleClass('Todos');setSelectedFormats([]);setSelectedSources([]);setSelectedGames([]);setDownloadMode('Todos');setImageMode('Todos');setYearFrom('');setYearTo('');setSortMode('Relevância');setGroupDuplicates(false)}
   const executeSearch=useCallback((term:string,brand:string|null=null,game:string|null=null)=>{
     const clean=term.replace(/\s+/g,' ').trim().slice(0,120)
     if(clean.length<2){setInputError('Digite pelo menos 2 caracteres para pesquisar.');return}
-    requestRef.current?.abort()
+    requestRef.current?.abort();expansionRef.current?.abort();setExpandingSource(null)
     refreshRef.current=clean===submittedQuery
     setInputError(null);setSelectedResult(null);setPendingAssetUrl(null)
     if(!keepFilters)clearFilters()
@@ -350,7 +369,7 @@ function App(){
   },[submittedQuery,selectedBrand,selectedResult,pendingAssetUrl,priceMode,kind,vehicleClass,selectedFormats,selectedSources,selectedGames,downloadMode,imageMode,yearFrom,yearTo,sortMode,groupDuplicates])
   useEffect(()=>{
     const restore=()=>{
-      requestRef.current?.abort()
+      requestRef.current?.abort();expansionRef.current?.abort();setExpandingSource(null)
       refreshRef.current=false
       const state=readSearchState(window.location.search)
       setQuery(state.query);setSubmittedQuery(state.query.length>=2?state.query:'');setSelectedBrand(state.brand);setSelectedResult(null);setPendingAssetUrl(state.asset);setSearchRevision(value=>value+1)
@@ -394,11 +413,12 @@ function App(){
         <SelectFilter label="Ordenar resultados" value={sortMode} onChange={value=>setSortMode(value as SortMode)} options={['Mix de fontes','Relevância','Ano do veículo ↓','Menor preço','Maior preço','Nome A-Z','Fonte']}/><button className="clearFilters" onClick={clearFilters}><RotateCcw size={13}/> LIMPAR FILTROS</button><div className="automotiveGuard"><ShieldCheck size={16}/><span><strong>AUTOMOTIVE GUARD</strong><small>Filtros usam lógica AND entre categorias e OR dentro da mesma faceta.</small></span></div></aside>
 
         <div className="results"><div className="resultsToolbar"><div className="activeFilterStrip"><span className="freeChip"><Zap size={12}/> {priceMode==='Todos'?'FREE + PREMIUM':priceMode.toUpperCase()}</span>{priceMode!=='Todos'&&<button onClick={()=>setPriceMode('Todos')}>Preço: {priceMode}<X size={12}/></button>}{vehicleClass!=='Todos'&&<button onClick={()=>setVehicleClass('Todos')}>{vehicleGroups.find(group=>group.value===vehicleClass)?.label}<X size={12}/></button>}{kind!=='Todos'&&<button onClick={()=>setKind('Todos')}>{kind}<X size={12}/></button>}{downloadMode!=='Todos'&&<button onClick={()=>setDownloadMode('Todos')}>{downloadMode}<X size={12}/></button>}{imageMode!=='Todos'&&<button onClick={()=>setImageMode('Todos')}>{imageMode}<X size={12}/></button>}{selectedGames.map(game=><button key={game} onClick={()=>setSelectedGames(current=>toggleValue(current,game))}>{game}<X size={12}/></button>)}{selectedSources.map(id=><button key={id} onClick={()=>setSelectedSources(current=>toggleValue(current,id))}>{providers.find(provider=>provider.id===id)?.name||id}<X size={12}/></button>)}{selectedFormats.map(format=><button key={format} onClick={()=>setSelectedFormats(current=>toggleValue(current,format))}>{format}<X size={12}/></button>)}{(yearFrom||yearTo)&&<button onClick={()=>{setYearFrom('');setYearTo('')}}>{yearFrom||'…'} – {yearTo||'…'}<X size={12}/></button>}</div><div className="viewTools"><button aria-label="Visualização em grade" className={viewMode==='grid'?'active':''} onClick={()=>setViewMode('grid')}><Grid2X2 size={14}/></button><button aria-label="Visualização em lista" className={viewMode==='compact'?'active':''} onClick={()=>setViewMode('compact')}><List size={15}/></button><button aria-label="Visualização ampliada" className={viewMode==='showcase'?'active':''} onClick={()=>setViewMode('showcase')}><Columns3 size={15}/></button><span className="sortReadout"><Gauge size={13}/> {sortMode}</span></div></div>
-          {loading&&<div className="globalLoading progressive"><div className="loadingMark"><LoaderCircle className="spin" size={26}/></div><div><strong>BUSCA PROGRESSIVA <b>{searchedSourceCount}/{providerCount}</b></strong><span>{rawResults.length?`${rawResults.length} resultados já encontrados. Novos carros aparecem assim que cada fonte responde.`:'consultando as primeiras fontes…'}</span></div></div>}{!loading&&!apiError&&failedSourceCount>0&&<div className="sourceAvailabilityNotice" role="status">{failedSourceCount} fonte(s) não puderam ser consultadas. A lista pode estar incompleta; veja os motivos em “Status das fontes”.</div>}{apiError&&<div className="apiWarning" role="alert"><CircleX size={17}/><span>{apiError}</span><button onClick={()=>{refreshRef.current=true;setSearchRevision(value=>value+1)}}>Tentar novamente</button></div>}
+          {loading&&<div className="globalLoading progressive"><div className="loadingMark"><LoaderCircle className="spin" size={26}/></div><div><strong>BUSCA PROGRESSIVA <b>{searchedSourceCount}/{providerCount}</b></strong><span>{rawResults.length?`${rawResults.length} resultados já encontrados. Novos carros aparecem assim que cada fonte responde.`:'consultando as primeiras fontes…'}</span></div></div>}{!loading&&!apiError&&failedSourceCount>0&&<div className="sourceAvailabilityNotice" role="status">{failedSourceCount} fonte(s) não puderam ser consultadas. A lista pode estar incompleta; veja os motivos em “Status e cobertura das fontes”.</div>}{apiError&&<div className="apiWarning" role="alert"><CircleX size={17}/><span>{apiError}</span><button onClick={()=>{refreshRef.current=true;setSearchRevision(value=>value+1)}}>Tentar novamente</button></div>}
           {filteredResults.length>0&&<div className={`grid view-${viewMode} progressiveResults`}>{pagedResults.map((result,index)=>{const signals=qualitySignals(result),dupKey=duplicateGroups?.keyById.get(result.id),dups=dupKey?(duplicateGroups?.sourceCounts.get(dupKey)||1):(quickDuplicateCounts.get(quickDuplicateKey(result))||1),favored=favorites.some(r=>r.id===result.id),market=marketKind(result);return <article className="card" role="button" aria-label={`Abrir ${result.title}`} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openResult(result)}}} key={result.id} style={{'--delay':`${Math.min(index,12)*32}ms`} as React.CSSProperties} onClick={()=>openResult(result)} tabIndex={0}><div className="thumb">{result.imageUrl?<img src={result.imageUrl} alt={result.title} loading="lazy" onError={()=>setRemoteResults(current=>current.map(item=>item.id===result.id?{...item,imageUrl:null}:item))}/>:<span className="imageFallback show"><ImageOff size={29}/><small>SEM PREVIEW</small></span>}<span className="thumbShade"/><span className="cardIndex">{String((safePage-1)*PAGE_SIZE+index+1).padStart(2,'0')}</span><span className="vehicleBadge"><CarFront size={11}/>{result.vehicleClass}</span><span className={`priceBadge ${market}`}>{formatPrice(result)}</span>{result.downloadUrl&&<span className="downloadBadge"><Download size={11}/> DIRETO</span>}{dups>1&&<span className="duplicateBadge">{dups} FONTES</span>}<button aria-label={favored?`Remover ${result.title} dos favoritos`:`Salvar ${result.title} nos favoritos`} className={`favoriteButton ${favored?'active':''}`} onClick={e=>{e.stopPropagation();toggleFavorite(result)}}><Heart size={14} fill={favored?'currentColor':'none'}/></button></div><div className="cardBody"><div className="sourceRow"><span>{result.source}</span><span>{result.game||(result.sourceType==='game-mods'?'GAME MOD':'3D ASSET')}</span></div><h3>{result.title}</h3><div className="vehicleIdentity"><span>{result.brand||'Marca não identificada'}</span>{result.year&&<span>{result.year}</span>}</div>{signals.length>0&&<div className="qualitySignals">{signals.map(s=><span key={s}>{s}</span>)}</div>}<div className="chips">{result.formats.length?result.formats.slice(0,5).map(f=><span key={f}>{f}</span>):<span>FORMATO NA FONTE</span>}</div><div className="cardFooter"><span>{result.downloadUrl?'DOWNLOAD DIRETO':'DETALHES / FONTE'}</span><button onClick={e=>{e.stopPropagation();openResult(result)}}>ABRIR <ArrowUpRight size={13}/></button></div></div></article>})}</div>}
           {filteredResults.length>PAGE_SIZE&&<nav className="catalogPagination" aria-label="Paginação do catálogo"><button onClick={()=>goToPage(safePage-1)} disabled={safePage<=1}>‹</button>{pageLinks.map((page,index)=>page==='…'?<span className="ellipsis" key={`ellipsis-${index}`}>…</span>:<button key={page} className={page===safePage?'active':''} onClick={()=>goToPage(page)}>{page}</button>)}<button onClick={()=>goToPage(safePage+1)} disabled={safePage>=pageCount}>›</button><div className="catalogPaginationInfo">PÁGINA {safePage} DE {pageCount} · {Math.min(PAGE_SIZE,Math.max(0,filteredResults.length-(safePage-1)*PAGE_SIZE))} ITENS NESTA PÁGINA · {filteredResults.length} RESULTADOS</div></nav>}
           {!loading&&submittedQuery&&filteredResults.length===0&&<div className="emptyState"><span>FILTER / 00</span><CarFront size={31}/><h3>{rawResults.length?'NENHUM ASSET NESTA COMBINAÇÃO':'NENHUM RESULTADO PARA ESTA PESQUISA'}</h3><p>{rawResults.length?'Há resultados na busca, mas nenhum atende aos filtros selecionados. Remova filtros para vê-los.':'As fontes consultadas não devolveram modelos correspondentes. Tente outra descrição ou consulte as fontes abaixo.'}</p>{rawResults.length>0&&<button onClick={clearFilters}><RotateCcw size={13}/> limpar filtros</button>}</div>}
-          {sourceStatuses.length>0&&<details className="sourceStatusSection"><summary><Database size={16}/> STATUS DAS FONTES <span>{sourceStatuses.filter(s=>s.status==='ok').length}/{sourceStatuses.length} responderam</span></summary><div className="sourceStatusGrid">{sourceStatuses.map(item=><a key={item.provider} href={item.searchUrl} target="_blank" rel="noreferrer" className={item.status==='ok'?'sourceOk':'sourceError'}>{item.status==='ok'?<CircleCheck size={14}/>:<CircleX size={14}/>}<span><strong>{item.name}</strong><small>{item.status==='ok'?`${item.count} resultado(s) · ${item.pagesFetched||1} pág.`:(item.error||'Não foi possível consultar esta fonte')}</small></span><ArrowUpRight size={12}/></a>)}</div></details>}
+          {expansionError&&<p role="alert" className="sourceCoverageError">{expansionError}</p>}
+          {sourceStatuses.length>0&&<SourceStatus sources={sourceStatuses} expanding={expandingSource} onExpand={expandSource}/>}
           {(apiError||(!loading&&submittedQuery&&rawResults.length===0))&&<section className="providerSearchSection"><div className="providerSearchHeading"><div><Globe2 size={17}/><strong>BUSCA DIRETA NAS FONTES</strong></div></div><div className="providerSearchGrid">{providers.map(provider=><a key={provider.id} href={providerSearchUrl(provider,submittedQuery)} target="_blank" rel="noreferrer"><span className="providerSearchIcon"><CarFront size={16}/></span><span><strong>{provider.name}</strong><small>{provider.categories.slice(0,2).join(' · ')}</small></span><ArrowUpRight size={14}/></a>)}</div></section>}</div>
       </div>
     </section>

@@ -35,12 +35,13 @@ app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-ap
 app.get('/api/providers', (_req, res) => res.json(providers.map(provider => ({ id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, browseUrl: provider.browseUrl || provider.baseUrl, freeCatalog: Boolean(provider.freeCatalog), defaultGame: provider.defaultGame || null, pagination: Boolean(provider.pagination), nativeAdapter: ALL_NATIVE_IDS.includes(provider.id) }))))
 
 app.get('/api/search', async (req, res) => {
-  const { q, perSource } = searchOptions(req.query)
+  const options = searchOptions(req.query), { q, perSource } = options
   if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
+  if (options.sourceIds.some(id => !providers.some(provider => provider.id === id))) return res.status(400).json({ error: 'Unknown provider' })
   const controller = new AbortController()
   res.on('close', () => { if (!res.writableEnded) controller.abort() })
   try {
-    const payload = await progressiveSearch(q, { perSource, signal: controller.signal, refresh: req.query.refresh === '1' })
+    const payload = await progressiveSearch(q, { ...options, perSource, signal: controller.signal, refresh: req.query.refresh === '1' })
     if (!controller.signal.aborted) res.json(payload)
   } catch (error) {
     if (!controller.signal.aborted) { console.error(error); res.status(500).json({ error: 'Global search failed.' }) }

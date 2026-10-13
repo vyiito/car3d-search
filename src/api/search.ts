@@ -35,6 +35,21 @@ export interface GlobalSearchResult {
   year: number | null
   vehicleClass: 'Car' | 'SUV' | 'Race Car' | 'Motorcycle' | 'Truck / Pickup' | 'Van' | 'Bus' | 'Utility / Tractor' | string
   score: number
+  includedVehicles?: string[]
+  tags?: string[]
+  isModelListing?: boolean
+}
+
+export interface SourceCoverage {
+  depth: 'standard' | 'expanded'
+  status: 'query-complete' | 'limited' | 'partial' | 'unverified'
+  hasMore: boolean
+  stopReason: string
+  totalAvailable: number | null
+  sections: string[]
+  checkedSections?: string[]
+  requests: Array<{ url: string; status: number | null; error?: string }>
+  failedPages: Array<{ url: string; error: string }>
 }
 
 export interface SourceSearchStatus {
@@ -46,6 +61,7 @@ export interface SourceSearchStatus {
   searchUrl: string
   durationMs: number
   error?: string
+  coverage?: SourceCoverage
 }
 
 export interface GlobalSearchResponse {
@@ -66,6 +82,15 @@ export async function globalSearch(query: string, signal?: AbortSignal, perSourc
   const safePerSource = Number.isFinite(perSource) ? Math.max(1, Math.min(Math.floor(perSource), 80)) : 60
   const url = `${API_BASE}/api/search?q=${encodeURIComponent(query)}&perSource=${safePerSource}`
   const response = await fetch(url, { signal: requestSignal(signal) })
+  if (!response.ok) throw await responseError(response)
+  const payload = await response.json()
+  if (!Array.isArray(payload.results) || !Array.isArray(payload.sources)) throw new Error('Resposta de pesquisa inválida.')
+  return { ...payload, results: payload.results.map((item: GlobalSearchResult) => normalizeSearchResult(item)).filter(Boolean) }
+}
+
+export async function expandedSourceSearch(query: string, sourceId: string, signal?: AbortSignal): Promise<GlobalSearchResponse> {
+  const params = new URLSearchParams({ q: query, source: sourceId, depth: 'expanded', perSource: '200', refresh: '1' })
+  const response = await fetch(`${API_BASE}/api/search?${params}`, { signal: requestSignal(signal) })
   if (!response.ok) throw await responseError(response)
   const payload = await response.json()
   if (!Array.isArray(payload.results) || !Array.isArray(payload.sources)) throw new Error('Resposta de pesquisa inválida.')

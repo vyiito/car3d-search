@@ -9,8 +9,9 @@ function writeEvent(res, payload) {
 
 export function registerProgressiveSearchRoute(app, search = progressiveSearch) {
   app.get('/api/search/stream', async (req, res) => {
-    const { q, perSource } = searchOptions(req.query)
+    const options = searchOptions(req.query), { q, perSource } = options
     if (q.length < 2) return res.status(400).json({ error: 'Query must have at least 2 characters.' })
+    if (options.sourceIds.some(id => !providers.some(provider => provider.id === id))) return res.status(400).json({ error: 'Unknown provider' })
 
     res.status(200)
     res.set('Content-Type', 'text/event-stream; charset=utf-8')
@@ -25,7 +26,7 @@ export function registerProgressiveSearchRoute(app, search = progressiveSearch) 
     let closed = false
     const controller = new AbortController()
     res.on('close', () => { closed = true; controller.abort() })
-    writeEvent(res, { type: 'start', query: q, providerCount: providers.length })
+    writeEvent(res, { type: 'start', query: q, providerCount: options.sourceIds.length || providers.length })
 
     const heartbeat = setInterval(() => {
       if (!closed && !res.writableEnded) res.write(': keep-alive\n\n')
@@ -33,6 +34,7 @@ export function registerProgressiveSearchRoute(app, search = progressiveSearch) 
 
     try {
       const summary = await search(q, {
+        ...options,
         perSource,
         signal: controller.signal,
         refresh: req.query.refresh === '1',

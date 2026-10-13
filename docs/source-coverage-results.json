@@ -1,0 +1,2523 @@
+{
+  "auditedAt": "2026-10-13T19:27:36.155Z",
+  "perSource": 20,
+  "queries": [
+    {
+      "query": "BMW",
+      "durationMs": 25564,
+      "total": 375,
+      "sources": [
+        {
+          "provider": "rigmodels",
+          "name": "RigModels",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://rigmodels.com/index.php?searchkeyword=BMW"
+            ],
+            "checkedSections": [
+              "https://rigmodels.com/index.php?searchkeyword=BMW"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "free3d",
+          "name": "Free3D",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "HTTP 403: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://free3d.com/3d-models/BMW"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://free3d.com/3d-models/BMW",
+                "error": "HTTP 403: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://free3d.com/3d-models/BMW",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "3drush",
+          "name": "3D Rush",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 30,
+            "sections": [
+              "https://3drush.com/3d-models?search-term=BMW"
+            ],
+            "checkedSections": [
+              "https://3drush.com/3d-models?search-term=BMW"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "brasil-simulator-mods",
+          "name": "Brasil Simulator Mods",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 520,
+            "sections": [
+              "https://brasilsimulatormods.com/wp-json/wp/v2/cars"
+            ],
+            "checkedSections": [
+              "https://brasilsimulatormods.com/wp-json/wp/v2/cars"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "overtake",
+          "name": "OverTake.gg",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 0,
+          "error": "A fonte não forneceu uma página de resultados.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "not-verified",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://www.overtake.gg/tags/bmw/",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "assettomods",
+          "name": "Assetto Mods",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 34,
+            "sections": [
+              "https://assettomods.com/wp-json/wp/v2/posts"
+            ],
+            "checkedSections": [
+              "https://assettomods.com/wp-json/wp/v2/posts"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "moddb",
+          "name": "ModDB",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "HTTP 403: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.moddb.com/search?q=BMW"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://www.moddb.com/search?q=BMW",
+                "error": "HTTP 403: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://www.moddb.com/search?q=BMW",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "assettohub",
+          "name": "Assetto Hub",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 101,
+            "sections": [
+              "https://www.assettohub.com/wp-json/wp/v2/cars"
+            ],
+            "checkedSections": [
+              "https://www.assettohub.com/wp-json/wp/v2/cars"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "ets2lt",
+          "name": "ETS2.lt",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "HTTP 403: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://ets2.lt/en/?s=BMW"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://ets2.lt/en/?s=BMW",
+                "error": "HTTP 403: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://ets2.lt/en/?s=BMW",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "vosan",
+          "name": "VOSAN",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://games.vosan.co/browse/assetto-corsa?category=cars&page=1&sort=latest&search=BMW",
+              "https://games.vosan.co/browse/assetto-corsa?category=car-pack&page=1&sort=latest&search=BMW"
+            ],
+            "checkedSections": [
+              "https://games.vosan.co/browse/assetto-corsa?category=cars&page=1&sort=latest&search=BMW"
+            ],
+            "requestCount": 21,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "sketchfab",
+          "name": "Sketchfab",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 2,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://api.sketchfab.com/v3/search?type=models&q=BMW&sort_by=-relevance&count=24"
+            ],
+            "checkedSections": [
+              "https://api.sketchfab.com/v3/search?type=models&q=BMW&sort_by=-relevance&count=24"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "cgtrader",
+          "name": "CGTrader",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 2,
+          "error": "HTTP 202: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "not-verified",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 2,
+            "failedPages": [
+              {
+                "url": "https://www.cgtrader.com/3d-models/bmw",
+                "status": 202
+              },
+              {
+                "url": "https://www.cgtrader.com/3d-models?keywords=BMW",
+                "status": 202
+              }
+            ]
+          }
+        },
+        {
+          "provider": "done3d",
+          "name": "Done3D",
+          "status": "ok",
+          "count": 4,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 4,
+            "sections": [
+              "https://done3d.com/wp-json/wp/v2/posts"
+            ],
+            "checkedSections": [
+              "https://done3d.com/wp-json/wp/v2/posts"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dsky",
+          "name": "3DSky",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 2193,
+            "sections": [
+              "https://3dsky.org/api/models"
+            ],
+            "checkedSections": [
+              "https://3dsky.org/api/models"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "free3dio",
+          "name": "Free3D.io",
+          "status": "ok",
+          "count": 4,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://free3d.io/category/Cars-Trucks-Land-Transport/28"
+            ],
+            "checkedSections": [
+              "https://free3d.io/category/Cars-Trucks-Land-Transport/28"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "vertex-warehouse",
+          "name": "Vertex Warehouse",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 2,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 3,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3d-models-destination",
+          "name": "3D Models Destination",
+          "status": "ok",
+          "count": 14,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 14,
+            "sections": [
+              "https://3dmodelsdestination.blogspot.com/feeds/posts/default"
+            ],
+            "checkedSections": [
+              "https://3dmodelsdestination.blogspot.com/feeds/posts/default"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "mediafire-rr3",
+          "name": "MediaFire · Real Racing 3",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 7,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.mediafire.com/folder/w7e2zubiwwr38",
+              "https://www.mediafire.com/folder/1s33iys0kqhc0"
+            ],
+            "checkedSections": [],
+            "requestCount": 7,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "open3dlab",
+          "name": "Open3DLab",
+          "status": "ok",
+          "count": 11,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://open3dlab.com/?query=BMW",
+              "https://open3dlab.com/list/dd0e6ac2-5965-456d-8c4d-b06a81c64782/",
+              "https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/"
+            ],
+            "checkedSections": [
+              "https://open3dlab.com/?query=BMW",
+              "https://open3dlab.com/list/dd0e6ac2-5965-456d-8c4d-b06a81c64782/",
+              "https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "vk-3d-car-models",
+          "name": "VK · 3D Car Models",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "A comunidade não expõe um catálogo pesquisável ao leitor atual; a cobertura precisa de integração própria.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "unsupported-catalog",
+            "totalAvailable": null,
+            "sections": [
+              "https://vk.ru/3d_car_models"
+            ],
+            "checkedSections": [
+              "https://vk.ru/3d_car_models"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dwarehouse",
+          "name": "SketchUp 3D Warehouse",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 4168,
+            "sections": [
+              "https://3dwarehouse.sketchup.com/warehouse/v1.0/entities"
+            ],
+            "checkedSections": [
+              "https://3dwarehouse.sketchup.com/warehouse/v1.0/entities"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dcadbrowser",
+          "name": "3D CAD Browser",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.3dcadbrowser.com/3d-models/bmw",
+              "https://www.3dcadbrowser.com/3d-models/car"
+            ],
+            "checkedSections": [
+              "https://www.3dcadbrowser.com/3d-models/bmw"
+            ],
+            "requestCount": 21,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dcar-ru",
+          "name": "3DCar.ru",
+          "status": "ok",
+          "count": 8,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://3dcar.ru/gallery"
+            ],
+            "checkedSections": [
+              "https://3dcar.ru/gallery"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3d-baza",
+          "name": "3D-Baza",
+          "status": "ok",
+          "count": 9,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://3d-baza.com/Car",
+              "https://3d-baza.com/Truck",
+              "https://3d-baza.com/Bus",
+              "https://3d-baza.com/Car/Rarity_or_Antique",
+              "https://3d-baza.com/Car/Sedan",
+              "https://3d-baza.com/Car/Suv",
+              "https://3d-baza.com/Car/Pick-Up",
+              "https://3d-baza.com/Car/Race_Car",
+              "https://3d-baza.com/Truck/Semi-Trailer_Truck",
+              "https://3d-baza.com/Truck/Trasporter_Truck",
+              "https://3d-baza.com/Truck/Tipping_Trailer",
+              "https://3d-baza.com/Truck/Tanker_Trailer",
+              "https://3d-baza.com/Truck/Car_Carrier_Truck",
+              "https://3d-baza.com/Truck/Loggong_Truck",
+              "https://3d-baza.com/Truck/Tow_Truck"
+            ],
+            "checkedSections": [
+              "https://3d-baza.com/Car",
+              "https://3d-baza.com/Truck",
+              "https://3d-baza.com/Bus",
+              "https://3d-baza.com/Car/Rarity_or_Antique",
+              "https://3d-baza.com/Car/Sedan",
+              "https://3d-baza.com/Car/Suv",
+              "https://3d-baza.com/Car/Pick-Up",
+              "https://3d-baza.com/Car/Race_Car"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "blendkit",
+          "name": "BlendKit",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 198,
+            "sections": [
+              "https://www.blenderkit.com/api/v1/search/?query=BMW%20asset_type%3Amodel%20category_subtree%3Avehicle&page_size=50"
+            ],
+            "checkedSections": [
+              "https://www.blenderkit.com/api/v1/search/?query=BMW%20asset_type%3Amodel%20category_subtree%3Avehicle&page_size=50"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "wire-wheels-club",
+          "name": "Wire Wheels Club",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 4,
+          "error": "Tempo limite da consulta excedido.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": true,
+            "stopReason": "time-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://wirewheelsclub.com/models/",
+              "https://store.wirewheelsclub.com/?s=BMW&post_type=product",
+              "https://store.wirewheelsclub.com/products/",
+              "https://store.wirewheelsclub.com/product-category/convertible/",
+              "https://store.wirewheelsclub.com/product-category/coupe/",
+              "https://store.wirewheelsclub.com/product-category/offroad/",
+              "https://store.wirewheelsclub.com/product-category/sedan/",
+              "https://store.wirewheelsclub.com/product-category/muscle-car/",
+              "https://store.wirewheelsclub.com/product-category/race-car/",
+              "https://store.wirewheelsclub.com/product-category/convertible/?add-to-cart=1396",
+              "https://store.wirewheelsclub.com/product-category/convertible/?add-to-cart=1382",
+              "https://store.wirewheelsclub.com/product-category/convertible/?add-to-cart=535"
+            ],
+            "checkedSections": [
+              "https://wirewheelsclub.com/models/",
+              "https://store.wirewheelsclub.com/?s=BMW&post_type=product",
+              "https://store.wirewheelsclub.com/products/",
+              "https://store.wirewheelsclub.com/product-category/convertible/"
+            ],
+            "requestCount": 5,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3ddd-ru",
+          "name": "3ddd.ru",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": 2193,
+            "sections": [
+              "https://3ddd.ru/api/models"
+            ],
+            "checkedSections": [
+              "https://3ddd.ru/api/models"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "roh3d",
+          "name": "ROH3D",
+          "status": "ok",
+          "count": 12,
+          "pagesFetched": 2,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": null,
+            "sections": [
+              "https://roh3d.com/products.json"
+            ],
+            "checkedSections": [
+              "https://roh3d.com/products.json"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "zifir3d",
+          "name": "ZIFIR 3D",
+          "status": "ok",
+          "count": 12,
+          "pagesFetched": 7,
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://zifir3d.com/search?query=BMW",
+              "https://zifir3d.com/",
+              "https://zifir3d.com/catalog/convertible",
+              "https://zifir3d.com/catalog/classic",
+              "https://zifir3d.com/catalog/coupe",
+              "https://zifir3d.com/catalog/hatchback",
+              "https://zifir3d.com/catalog/sedan",
+              "https://zifir3d.com/catalog/wagon",
+              "https://zifir3d.com/catalog/racing-car-3d-models",
+              "https://zifir3d.com/catalog/concept-car",
+              "https://zifir3d.com/catalog/police-car",
+              "https://zifir3d.com/catalog/other-models",
+              "https://zifir3d.com/catalog/convertible?page=2",
+              "https://zifir3d.com/catalog/coupe?page=2",
+              "https://zifir3d.com/catalog/coupe?page=3",
+              "https://zifir3d.com/catalog/coupe?page=4",
+              "https://zifir3d.com/catalog/coupe?page=5",
+              "https://zifir3d.com/catalog/hatchback?page=2",
+              "https://zifir3d.com/catalog/hatchback?page=3",
+              "https://zifir3d.com/catalog/hatchback?page=4",
+              "https://zifir3d.com/catalog/sedan?page=2",
+              "https://zifir3d.com/catalog/sedan?page=3",
+              "https://zifir3d.com/catalog/sedan?page=4",
+              "https://zifir3d.com/catalog/sedan?page=5",
+              "https://zifir3d.com/catalog/sedan?page=6",
+              "https://zifir3d.com/catalog/sedan?page=7",
+              "https://zifir3d.com/catalog/wagon?page=2",
+              "https://zifir3d.com/catalog/wagon?page=3"
+            ],
+            "checkedSections": [
+              "https://zifir3d.com/",
+              "https://zifir3d.com/catalog/convertible",
+              "https://zifir3d.com/catalog/classic",
+              "https://zifir3d.com/catalog/coupe",
+              "https://zifir3d.com/catalog/hatchback",
+              "https://zifir3d.com/catalog/sedan",
+              "https://zifir3d.com/catalog/wagon"
+            ],
+            "requestCount": 8,
+            "failedPages": [
+              {
+                "url": "https://zifir3d.com/search?query=BMW",
+                "error": "HTTP 404: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://zifir3d.com/search?query=BMW",
+                "status": 404
+              }
+            ]
+          }
+        },
+        {
+          "provider": "3dexport",
+          "name": "3DExport",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://3dexport.com/3d-models/BMW",
+              "https://3dexport.com/3d-models/cars"
+            ],
+            "checkedSections": [
+              "https://3dexport.com/3d-models/BMW"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "cgmood",
+          "name": "CGMood",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 0,
+          "error": "HTTP 503: a fonte não forneceu o catálogo.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://cgmood.com/category/transport/cars"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://cgmood.com/category/transport/cars",
+                "error": "HTTP 503: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://cgmood.com/category/transport/cars",
+                "status": 503
+              }
+            ]
+          }
+        },
+        {
+          "provider": "renderhub",
+          "name": "RenderHub",
+          "status": "ok",
+          "count": 1,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.renderhub.com/3d-models?s=BMW",
+              "https://www.renderhub.com/3d-models/vehicles/cars",
+              "https://www.renderhub.com/3d-models/vehicles/trucks",
+              "https://www.renderhub.com/3d-models/vehicles/motorcycles",
+              "https://www.renderhub.com/free-3d-models/vehicles/cars"
+            ],
+            "checkedSections": [
+              "https://www.renderhub.com/3d-models?s=BMW",
+              "https://www.renderhub.com/3d-models/vehicles/cars",
+              "https://www.renderhub.com/3d-models/vehicles/trucks",
+              "https://www.renderhub.com/3d-models/vehicles/motorcycles",
+              "https://www.renderhub.com/free-3d-models/vehicles/cars"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        }
+      ]
+    },
+    {
+      "query": "Scania",
+      "durationMs": 24189,
+      "total": 178,
+      "sources": [
+        {
+          "provider": "rigmodels",
+          "name": "RigModels",
+          "status": "ok",
+          "count": 5,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": null,
+            "sections": [
+              "https://rigmodels.com/index.php?searchkeyword=Scania"
+            ],
+            "checkedSections": [
+              "https://rigmodels.com/index.php?searchkeyword=Scania"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "free3d",
+          "name": "Free3D",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "HTTP 403: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://free3d.com/3d-models/Scania"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://free3d.com/3d-models/Scania",
+                "error": "HTTP 403: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://free3d.com/3d-models/Scania",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "3drush",
+          "name": "3D Rush",
+          "status": "ok",
+          "count": 6,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 6,
+            "sections": [
+              "https://3drush.com/3d-models?search-term=Scania"
+            ],
+            "checkedSections": [
+              "https://3drush.com/3d-models?search-term=Scania"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "brasil-simulator-mods",
+          "name": "Brasil Simulator Mods",
+          "status": "ok",
+          "count": 3,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 3,
+            "sections": [
+              "https://brasilsimulatormods.com/wp-json/wp/v2/cars"
+            ],
+            "checkedSections": [
+              "https://brasilsimulatormods.com/wp-json/wp/v2/cars"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "overtake",
+          "name": "OverTake.gg",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 0,
+          "error": "A fonte não forneceu uma página de resultados.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "not-verified",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://www.overtake.gg/tags/scania/",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "assettomods",
+          "name": "Assetto Mods",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 0,
+            "sections": [
+              "https://assettomods.com/wp-json/wp/v2/posts"
+            ],
+            "checkedSections": [
+              "https://assettomods.com/wp-json/wp/v2/posts"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "moddb",
+          "name": "ModDB",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "HTTP 403: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.moddb.com/search?q=Scania"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://www.moddb.com/search?q=Scania",
+                "error": "HTTP 403: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://www.moddb.com/search?q=Scania",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "assettohub",
+          "name": "Assetto Hub",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 0,
+            "sections": [
+              "https://www.assettohub.com/wp-json/wp/v2/cars"
+            ],
+            "checkedSections": [
+              "https://www.assettohub.com/wp-json/wp/v2/cars"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "ets2lt",
+          "name": "ETS2.lt",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "HTTP 403: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://ets2.lt/en/?s=Scania"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://ets2.lt/en/?s=Scania",
+                "error": "HTTP 403: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://ets2.lt/en/?s=Scania",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "vosan",
+          "name": "VOSAN",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 2,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": null,
+            "sections": [
+              "https://games.vosan.co/browse/assetto-corsa?category=cars&page=1&sort=latest&search=Scania",
+              "https://games.vosan.co/browse/assetto-corsa?category=car-pack&page=1&sort=latest&search=Scania"
+            ],
+            "checkedSections": [
+              "https://games.vosan.co/browse/assetto-corsa?category=cars&page=1&sort=latest&search=Scania",
+              "https://games.vosan.co/browse/assetto-corsa?category=car-pack&page=1&sort=latest&search=Scania"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "sketchfab",
+          "name": "Sketchfab",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 2,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://api.sketchfab.com/v3/search?type=models&q=Scania&sort_by=-relevance&count=24"
+            ],
+            "checkedSections": [
+              "https://api.sketchfab.com/v3/search?type=models&q=Scania&sort_by=-relevance&count=24"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "cgtrader",
+          "name": "CGTrader",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 2,
+          "error": "HTTP 202: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "not-verified",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 2,
+            "failedPages": [
+              {
+                "url": "https://www.cgtrader.com/3d-models/scania",
+                "status": 202
+              },
+              {
+                "url": "https://www.cgtrader.com/3d-models?keywords=Scania",
+                "status": 202
+              }
+            ]
+          }
+        },
+        {
+          "provider": "done3d",
+          "name": "Done3D",
+          "status": "ok",
+          "count": 2,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 2,
+            "sections": [
+              "https://done3d.com/wp-json/wp/v2/posts"
+            ],
+            "checkedSections": [
+              "https://done3d.com/wp-json/wp/v2/posts"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dsky",
+          "name": "3DSky",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 9981,
+            "sections": [
+              "https://3dsky.org/api/models"
+            ],
+            "checkedSections": [
+              "https://3dsky.org/api/models"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "free3dio",
+          "name": "Free3D.io",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://free3d.io/category/Cars-Trucks-Land-Transport/28"
+            ],
+            "checkedSections": [
+              "https://free3d.io/category/Cars-Trucks-Land-Transport/28"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "vertex-warehouse",
+          "name": "Vertex Warehouse",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3d-models-destination",
+          "name": "3D Models Destination",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 0,
+            "sections": [
+              "https://3dmodelsdestination.blogspot.com/feeds/posts/default"
+            ],
+            "checkedSections": [
+              "https://3dmodelsdestination.blogspot.com/feeds/posts/default"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "mediafire-rr3",
+          "name": "MediaFire · Real Racing 3",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 9,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.mediafire.com/folder/w7e2zubiwwr38",
+              "https://www.mediafire.com/folder/1s33iys0kqhc0"
+            ],
+            "checkedSections": [],
+            "requestCount": 9,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "open3dlab",
+          "name": "Open3DLab",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://open3dlab.com/?query=Scania",
+              "https://open3dlab.com/list/dd0e6ac2-5965-456d-8c4d-b06a81c64782/",
+              "https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/"
+            ],
+            "checkedSections": [
+              "https://open3dlab.com/?query=Scania",
+              "https://open3dlab.com/list/dd0e6ac2-5965-456d-8c4d-b06a81c64782/",
+              "https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "vk-3d-car-models",
+          "name": "VK · 3D Car Models",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "A comunidade não expõe um catálogo pesquisável ao leitor atual; a cobertura precisa de integração própria.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "unsupported-catalog",
+            "totalAvailable": null,
+            "sections": [
+              "https://vk.ru/3d_car_models"
+            ],
+            "checkedSections": [
+              "https://vk.ru/3d_car_models"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dwarehouse",
+          "name": "SketchUp 3D Warehouse",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 494,
+            "sections": [
+              "https://3dwarehouse.sketchup.com/warehouse/v1.0/entities"
+            ],
+            "checkedSections": [
+              "https://3dwarehouse.sketchup.com/warehouse/v1.0/entities"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dcadbrowser",
+          "name": "3D CAD Browser",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.3dcadbrowser.com/3d-models/scania",
+              "https://www.3dcadbrowser.com/3d-models/car"
+            ],
+            "checkedSections": [
+              "https://www.3dcadbrowser.com/3d-models/scania"
+            ],
+            "requestCount": 21,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dcar-ru",
+          "name": "3DCar.ru",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://3dcar.ru/gallery"
+            ],
+            "checkedSections": [
+              "https://3dcar.ru/gallery"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3d-baza",
+          "name": "3D-Baza",
+          "status": "ok",
+          "count": 2,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://3d-baza.com/Car",
+              "https://3d-baza.com/Truck",
+              "https://3d-baza.com/Bus",
+              "https://3d-baza.com/Car/Rarity_or_Antique",
+              "https://3d-baza.com/Car/Sedan",
+              "https://3d-baza.com/Car/Suv",
+              "https://3d-baza.com/Car/Pick-Up",
+              "https://3d-baza.com/Car/Race_Car",
+              "https://3d-baza.com/Truck/Semi-Trailer_Truck",
+              "https://3d-baza.com/Truck/Trasporter_Truck",
+              "https://3d-baza.com/Truck/Tipping_Trailer",
+              "https://3d-baza.com/Truck/Tanker_Trailer",
+              "https://3d-baza.com/Truck/Car_Carrier_Truck",
+              "https://3d-baza.com/Truck/Loggong_Truck",
+              "https://3d-baza.com/Truck/Tow_Truck"
+            ],
+            "checkedSections": [
+              "https://3d-baza.com/Car",
+              "https://3d-baza.com/Truck",
+              "https://3d-baza.com/Bus",
+              "https://3d-baza.com/Car/Rarity_or_Antique",
+              "https://3d-baza.com/Car/Sedan",
+              "https://3d-baza.com/Car/Suv",
+              "https://3d-baza.com/Car/Pick-Up",
+              "https://3d-baza.com/Car/Race_Car"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "blendkit",
+          "name": "BlendKit",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 28,
+            "sections": [
+              "https://www.blenderkit.com/api/v1/search/?query=Scania%20asset_type%3Amodel%20category_subtree%3Avehicle&page_size=50"
+            ],
+            "checkedSections": [
+              "https://www.blenderkit.com/api/v1/search/?query=Scania%20asset_type%3Amodel%20category_subtree%3Avehicle&page_size=50"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "wire-wheels-club",
+          "name": "Wire Wheels Club",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 2,
+          "error": "Tempo limite da consulta excedido.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": true,
+            "stopReason": "time-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://wirewheelsclub.com/models/",
+              "https://store.wirewheelsclub.com/?s=Scania&post_type=product",
+              "https://store.wirewheelsclub.com/products/",
+              "https://store.wirewheelsclub.com/product-category/convertible/",
+              "https://store.wirewheelsclub.com/product-category/coupe/",
+              "https://store.wirewheelsclub.com/product-category/offroad/",
+              "https://store.wirewheelsclub.com/product-category/sedan/"
+            ],
+            "checkedSections": [
+              "https://wirewheelsclub.com/models/",
+              "https://store.wirewheelsclub.com/?s=Scania&post_type=product"
+            ],
+            "requestCount": 3,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3ddd-ru",
+          "name": "3ddd.ru",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": 9981,
+            "sections": [
+              "https://3ddd.ru/api/models"
+            ],
+            "checkedSections": [
+              "https://3ddd.ru/api/models"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "roh3d",
+          "name": "ROH3D",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 2,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": null,
+            "sections": [
+              "https://roh3d.com/products.json"
+            ],
+            "checkedSections": [
+              "https://roh3d.com/products.json"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "zifir3d",
+          "name": "ZIFIR 3D",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 7,
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://zifir3d.com/search?query=Scania",
+              "https://zifir3d.com/",
+              "https://zifir3d.com/catalog/convertible",
+              "https://zifir3d.com/catalog/classic",
+              "https://zifir3d.com/catalog/coupe",
+              "https://zifir3d.com/catalog/hatchback",
+              "https://zifir3d.com/catalog/sedan",
+              "https://zifir3d.com/catalog/wagon",
+              "https://zifir3d.com/catalog/racing-car-3d-models",
+              "https://zifir3d.com/catalog/concept-car",
+              "https://zifir3d.com/catalog/police-car",
+              "https://zifir3d.com/catalog/other-models",
+              "https://zifir3d.com/catalog/convertible?page=2",
+              "https://zifir3d.com/catalog/coupe?page=2",
+              "https://zifir3d.com/catalog/coupe?page=3",
+              "https://zifir3d.com/catalog/coupe?page=4",
+              "https://zifir3d.com/catalog/coupe?page=5",
+              "https://zifir3d.com/catalog/hatchback?page=2",
+              "https://zifir3d.com/catalog/hatchback?page=3",
+              "https://zifir3d.com/catalog/hatchback?page=4",
+              "https://zifir3d.com/catalog/sedan?page=2",
+              "https://zifir3d.com/catalog/sedan?page=3",
+              "https://zifir3d.com/catalog/sedan?page=4",
+              "https://zifir3d.com/catalog/sedan?page=5",
+              "https://zifir3d.com/catalog/sedan?page=6",
+              "https://zifir3d.com/catalog/sedan?page=7",
+              "https://zifir3d.com/catalog/wagon?page=2",
+              "https://zifir3d.com/catalog/wagon?page=3"
+            ],
+            "checkedSections": [
+              "https://zifir3d.com/",
+              "https://zifir3d.com/catalog/convertible",
+              "https://zifir3d.com/catalog/classic",
+              "https://zifir3d.com/catalog/coupe",
+              "https://zifir3d.com/catalog/hatchback",
+              "https://zifir3d.com/catalog/sedan",
+              "https://zifir3d.com/catalog/wagon"
+            ],
+            "requestCount": 8,
+            "failedPages": [
+              {
+                "url": "https://zifir3d.com/search?query=Scania",
+                "error": "HTTP 404: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://zifir3d.com/search?query=Scania",
+                "status": 404
+              }
+            ]
+          }
+        },
+        {
+          "provider": "3dexport",
+          "name": "3DExport",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://3dexport.com/3d-models/Scania",
+              "https://3dexport.com/3d-models/cars"
+            ],
+            "checkedSections": [
+              "https://3dexport.com/3d-models/Scania"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "cgmood",
+          "name": "CGMood",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 0,
+          "error": "HTTP 503: a fonte não forneceu o catálogo.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://cgmood.com/category/transport/cars"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://cgmood.com/category/transport/cars",
+                "error": "HTTP 503: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://cgmood.com/category/transport/cars",
+                "status": 503
+              }
+            ]
+          }
+        },
+        {
+          "provider": "renderhub",
+          "name": "RenderHub",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.renderhub.com/3d-models?s=Scania",
+              "https://www.renderhub.com/3d-models/vehicles/cars",
+              "https://www.renderhub.com/3d-models/vehicles/trucks",
+              "https://www.renderhub.com/3d-models/vehicles/motorcycles",
+              "https://www.renderhub.com/free-3d-models/vehicles/cars"
+            ],
+            "checkedSections": [
+              "https://www.renderhub.com/3d-models?s=Scania"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        }
+      ]
+    },
+    {
+      "query": "Ducati",
+      "durationMs": 25507,
+      "total": 150,
+      "sources": [
+        {
+          "provider": "rigmodels",
+          "name": "RigModels",
+          "status": "ok",
+          "count": 5,
+          "pagesFetched": 3,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": null,
+            "sections": [
+              "https://rigmodels.com/index.php?searchkeyword=Ducati"
+            ],
+            "checkedSections": [
+              "https://rigmodels.com/index.php?searchkeyword=Ducati"
+            ],
+            "requestCount": 3,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "free3d",
+          "name": "Free3D",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "HTTP 403: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://free3d.com/3d-models/Ducati"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://free3d.com/3d-models/Ducati",
+                "error": "HTTP 403: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://free3d.com/3d-models/Ducati",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "3drush",
+          "name": "3D Rush",
+          "status": "ok",
+          "count": 1,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 2,
+            "sections": [
+              "https://3drush.com/3d-models?search-term=Ducati"
+            ],
+            "checkedSections": [
+              "https://3drush.com/3d-models?search-term=Ducati"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "brasil-simulator-mods",
+          "name": "Brasil Simulator Mods",
+          "status": "ok",
+          "count": 1,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 2,
+            "sections": [
+              "https://brasilsimulatormods.com/wp-json/wp/v2/cars"
+            ],
+            "checkedSections": [
+              "https://brasilsimulatormods.com/wp-json/wp/v2/cars"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "overtake",
+          "name": "OverTake.gg",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 0,
+          "error": "A fonte não forneceu uma página de resultados.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "not-verified",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://www.overtake.gg/tags/ducati/",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "assettomods",
+          "name": "Assetto Mods",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 0,
+            "sections": [
+              "https://assettomods.com/wp-json/wp/v2/posts"
+            ],
+            "checkedSections": [
+              "https://assettomods.com/wp-json/wp/v2/posts"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "moddb",
+          "name": "ModDB",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "HTTP 403: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.moddb.com/search?q=Ducati"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://www.moddb.com/search?q=Ducati",
+                "error": "HTTP 403: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://www.moddb.com/search?q=Ducati",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "assettohub",
+          "name": "Assetto Hub",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 0,
+            "sections": [
+              "https://www.assettohub.com/wp-json/wp/v2/cars"
+            ],
+            "checkedSections": [
+              "https://www.assettohub.com/wp-json/wp/v2/cars"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "ets2lt",
+          "name": "ETS2.lt",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "HTTP 403: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://ets2.lt/en/?s=Ducati"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://ets2.lt/en/?s=Ducati",
+                "error": "HTTP 403: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://ets2.lt/en/?s=Ducati",
+                "status": 403
+              }
+            ]
+          }
+        },
+        {
+          "provider": "vosan",
+          "name": "VOSAN",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 2,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": null,
+            "sections": [
+              "https://games.vosan.co/browse/assetto-corsa?category=cars&page=1&sort=latest&search=Ducati",
+              "https://games.vosan.co/browse/assetto-corsa?category=car-pack&page=1&sort=latest&search=Ducati"
+            ],
+            "checkedSections": [
+              "https://games.vosan.co/browse/assetto-corsa?category=cars&page=1&sort=latest&search=Ducati",
+              "https://games.vosan.co/browse/assetto-corsa?category=car-pack&page=1&sort=latest&search=Ducati"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "sketchfab",
+          "name": "Sketchfab",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 2,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://api.sketchfab.com/v3/search?type=models&q=Ducati&sort_by=-relevance&count=24"
+            ],
+            "checkedSections": [
+              "https://api.sketchfab.com/v3/search?type=models&q=Ducati&sort_by=-relevance&count=24"
+            ],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "cgtrader",
+          "name": "CGTrader",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 2,
+          "error": "HTTP 202: a fonte não pôde ser consultada.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "not-verified",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 2,
+            "failedPages": [
+              {
+                "url": "https://www.cgtrader.com/3d-models/ducati",
+                "status": 202
+              },
+              {
+                "url": "https://www.cgtrader.com/3d-models?keywords=Ducati",
+                "status": 202
+              }
+            ]
+          }
+        },
+        {
+          "provider": "done3d",
+          "name": "Done3D",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 3,
+            "sections": [
+              "https://done3d.com/wp-json/wp/v2/posts"
+            ],
+            "checkedSections": [
+              "https://done3d.com/wp-json/wp/v2/posts"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dsky",
+          "name": "3DSky",
+          "status": "ok",
+          "count": 9,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": 485,
+            "sections": [
+              "https://3dsky.org/api/models"
+            ],
+            "checkedSections": [
+              "https://3dsky.org/api/models"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "free3dio",
+          "name": "Free3D.io",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://free3d.io/category/Cars-Trucks-Land-Transport/28"
+            ],
+            "checkedSections": [
+              "https://free3d.io/category/Cars-Trucks-Land-Transport/28"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "vertex-warehouse",
+          "name": "Vertex Warehouse",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 2,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 2,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3d-models-destination",
+          "name": "3D Models Destination",
+          "status": "ok",
+          "count": 3,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 5,
+            "sections": [
+              "https://3dmodelsdestination.blogspot.com/feeds/posts/default"
+            ],
+            "checkedSections": [
+              "https://3dmodelsdestination.blogspot.com/feeds/posts/default"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "mediafire-rr3",
+          "name": "MediaFire · Real Racing 3",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 9,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.mediafire.com/folder/w7e2zubiwwr38",
+              "https://www.mediafire.com/folder/1s33iys0kqhc0"
+            ],
+            "checkedSections": [],
+            "requestCount": 9,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "open3dlab",
+          "name": "Open3DLab",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://open3dlab.com/?query=Ducati",
+              "https://open3dlab.com/list/dd0e6ac2-5965-456d-8c4d-b06a81c64782/",
+              "https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/"
+            ],
+            "checkedSections": [
+              "https://open3dlab.com/?query=Ducati",
+              "https://open3dlab.com/list/dd0e6ac2-5965-456d-8c4d-b06a81c64782/",
+              "https://open3dlab.com/list/0a696900-05a3-4394-a0cc-0a964e5fec89/"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "vk-3d-car-models",
+          "name": "VK · 3D Car Models",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 1,
+          "error": "A comunidade não expõe um catálogo pesquisável ao leitor atual; a cobertura precisa de integração própria.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "unsupported-catalog",
+            "totalAvailable": null,
+            "sections": [
+              "https://vk.ru/3d_car_models"
+            ],
+            "checkedSections": [
+              "https://vk.ru/3d_car_models"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dwarehouse",
+          "name": "SketchUp 3D Warehouse",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": 188,
+            "sections": [
+              "https://3dwarehouse.sketchup.com/warehouse/v1.0/entities"
+            ],
+            "checkedSections": [
+              "https://3dwarehouse.sketchup.com/warehouse/v1.0/entities"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dcadbrowser",
+          "name": "3D CAD Browser",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.3dcadbrowser.com/3d-models/ducati",
+              "https://www.3dcadbrowser.com/3d-models/car"
+            ],
+            "checkedSections": [
+              "https://www.3dcadbrowser.com/3d-models/ducati"
+            ],
+            "requestCount": 21,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3dcar-ru",
+          "name": "3DCar.ru",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 6,
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://3dcar.ru/gallery"
+            ],
+            "checkedSections": [
+              "https://3dcar.ru/gallery"
+            ],
+            "requestCount": 7,
+            "failedPages": [
+              {
+                "url": "https://3dcar.ru/gallery?page=6",
+                "error": "fetch failed"
+              },
+              {
+                "url": "https://3dcar.ru/gallery?page=6",
+                "status": null,
+                "error": "fetch failed"
+              }
+            ]
+          }
+        },
+        {
+          "provider": "3d-baza",
+          "name": "3D-Baza",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://3d-baza.com/Car",
+              "https://3d-baza.com/Truck",
+              "https://3d-baza.com/Bus",
+              "https://3d-baza.com/Car/Rarity_or_Antique",
+              "https://3d-baza.com/Car/Sedan",
+              "https://3d-baza.com/Car/Suv",
+              "https://3d-baza.com/Car/Pick-Up",
+              "https://3d-baza.com/Car/Race_Car",
+              "https://3d-baza.com/Truck/Semi-Trailer_Truck",
+              "https://3d-baza.com/Truck/Trasporter_Truck",
+              "https://3d-baza.com/Truck/Tipping_Trailer",
+              "https://3d-baza.com/Truck/Tanker_Trailer",
+              "https://3d-baza.com/Truck/Car_Carrier_Truck",
+              "https://3d-baza.com/Truck/Loggong_Truck",
+              "https://3d-baza.com/Truck/Tow_Truck"
+            ],
+            "checkedSections": [
+              "https://3d-baza.com/Car",
+              "https://3d-baza.com/Truck",
+              "https://3d-baza.com/Bus",
+              "https://3d-baza.com/Car/Rarity_or_Antique",
+              "https://3d-baza.com/Car/Sedan",
+              "https://3d-baza.com/Car/Suv",
+              "https://3d-baza.com/Car/Pick-Up",
+              "https://3d-baza.com/Car/Race_Car"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "blendkit",
+          "name": "BlendKit",
+          "status": "ok",
+          "count": 2,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
+            "totalAvailable": 2,
+            "sections": [
+              "https://www.blenderkit.com/api/v1/search/?query=Ducati%20asset_type%3Amodel%20category_subtree%3Avehicle&page_size=50"
+            ],
+            "checkedSections": [
+              "https://www.blenderkit.com/api/v1/search/?query=Ducati%20asset_type%3Amodel%20category_subtree%3Avehicle&page_size=50"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "wire-wheels-club",
+          "name": "Wire Wheels Club",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 2,
+          "error": "Tempo limite da consulta excedido.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": true,
+            "stopReason": "time-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://wirewheelsclub.com/models/",
+              "https://store.wirewheelsclub.com/?s=Ducati&post_type=product",
+              "https://store.wirewheelsclub.com/products/",
+              "https://store.wirewheelsclub.com/product-category/convertible/",
+              "https://store.wirewheelsclub.com/product-category/coupe/",
+              "https://store.wirewheelsclub.com/product-category/offroad/",
+              "https://store.wirewheelsclub.com/product-category/sedan/"
+            ],
+            "checkedSections": [
+              "https://wirewheelsclub.com/models/",
+              "https://store.wirewheelsclub.com/?s=Ducati&post_type=product"
+            ],
+            "requestCount": 3,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "3ddd-ru",
+          "name": "3ddd.ru",
+          "status": "ok",
+          "count": 9,
+          "pagesFetched": 8,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": 485,
+            "sections": [
+              "https://3ddd.ru/api/models"
+            ],
+            "checkedSections": [
+              "https://3ddd.ru/api/models"
+            ],
+            "requestCount": 8,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "roh3d",
+          "name": "ROH3D",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 0,
+          "error": "HTTP 429",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "not-verified",
+            "totalAvailable": null,
+            "sections": [],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://roh3d.com/products.json?limit=250&page=1",
+                "status": 429
+              }
+            ]
+          }
+        },
+        {
+          "provider": "zifir3d",
+          "name": "ZIFIR 3D",
+          "status": "ok",
+          "count": 0,
+          "pagesFetched": 7,
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": true,
+            "stopReason": "page-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://zifir3d.com/search?query=Ducati",
+              "https://zifir3d.com/",
+              "https://zifir3d.com/catalog/convertible",
+              "https://zifir3d.com/catalog/classic",
+              "https://zifir3d.com/catalog/coupe",
+              "https://zifir3d.com/catalog/hatchback",
+              "https://zifir3d.com/catalog/sedan",
+              "https://zifir3d.com/catalog/wagon",
+              "https://zifir3d.com/catalog/racing-car-3d-models",
+              "https://zifir3d.com/catalog/concept-car",
+              "https://zifir3d.com/catalog/police-car",
+              "https://zifir3d.com/catalog/other-models",
+              "https://zifir3d.com/catalog/convertible?page=2",
+              "https://zifir3d.com/catalog/coupe?page=2",
+              "https://zifir3d.com/catalog/coupe?page=3",
+              "https://zifir3d.com/catalog/coupe?page=4",
+              "https://zifir3d.com/catalog/coupe?page=5",
+              "https://zifir3d.com/catalog/hatchback?page=2",
+              "https://zifir3d.com/catalog/hatchback?page=3",
+              "https://zifir3d.com/catalog/hatchback?page=4",
+              "https://zifir3d.com/catalog/sedan?page=2",
+              "https://zifir3d.com/catalog/sedan?page=3",
+              "https://zifir3d.com/catalog/sedan?page=4",
+              "https://zifir3d.com/catalog/sedan?page=5",
+              "https://zifir3d.com/catalog/sedan?page=6",
+              "https://zifir3d.com/catalog/sedan?page=7",
+              "https://zifir3d.com/catalog/wagon?page=2",
+              "https://zifir3d.com/catalog/wagon?page=3"
+            ],
+            "checkedSections": [
+              "https://zifir3d.com/",
+              "https://zifir3d.com/catalog/convertible",
+              "https://zifir3d.com/catalog/classic",
+              "https://zifir3d.com/catalog/coupe",
+              "https://zifir3d.com/catalog/hatchback",
+              "https://zifir3d.com/catalog/sedan",
+              "https://zifir3d.com/catalog/wagon"
+            ],
+            "requestCount": 8,
+            "failedPages": [
+              {
+                "url": "https://zifir3d.com/search?query=Ducati",
+                "error": "HTTP 404: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://zifir3d.com/search?query=Ducati",
+                "status": 404
+              }
+            ]
+          }
+        },
+        {
+          "provider": "3dexport",
+          "name": "3DExport",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://3dexport.com/3d-models/Ducati",
+              "https://3dexport.com/3d-models/cars"
+            ],
+            "checkedSections": [
+              "https://3dexport.com/3d-models/Ducati"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        },
+        {
+          "provider": "cgmood",
+          "name": "CGMood",
+          "status": "error",
+          "count": 0,
+          "pagesFetched": 0,
+          "error": "HTTP 503: a fonte não forneceu o catálogo.",
+          "coverage": {
+            "depth": "standard",
+            "status": "partial",
+            "hasMore": false,
+            "stopReason": "failed-pages",
+            "totalAvailable": null,
+            "sections": [
+              "https://cgmood.com/category/transport/cars"
+            ],
+            "checkedSections": [],
+            "requestCount": 1,
+            "failedPages": [
+              {
+                "url": "https://cgmood.com/category/transport/cars",
+                "error": "HTTP 503: a fonte não forneceu o catálogo."
+              },
+              {
+                "url": "https://cgmood.com/category/transport/cars",
+                "status": 503
+              }
+            ]
+          }
+        },
+        {
+          "provider": "renderhub",
+          "name": "RenderHub",
+          "status": "ok",
+          "count": 20,
+          "pagesFetched": 1,
+          "coverage": {
+            "depth": "standard",
+            "status": "limited",
+            "hasMore": true,
+            "stopReason": "result-limit",
+            "totalAvailable": null,
+            "sections": [
+              "https://www.renderhub.com/3d-models?s=Ducati",
+              "https://www.renderhub.com/3d-models/vehicles/cars",
+              "https://www.renderhub.com/3d-models/vehicles/trucks",
+              "https://www.renderhub.com/3d-models/vehicles/motorcycles",
+              "https://www.renderhub.com/free-3d-models/vehicles/cars"
+            ],
+            "checkedSections": [
+              "https://www.renderhub.com/3d-models?s=Ducati"
+            ],
+            "requestCount": 1,
+            "failedPages": []
+          }
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Contagens são uma amostra com até 20 modelos por fonte e não representam o tamanho total de cada catálogo.",
+    "As buscas podem parar por limite de páginas, de resultados, de tempo ou por bloqueio.",
+    "Source coverage status query-complete significa apenas a paginação da consulta nas entradas verificadas."
+  ]
+}

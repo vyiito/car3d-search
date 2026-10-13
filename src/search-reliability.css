@@ -26,3 +26,12 @@ button:focus-visible,a:focus-visible,[role="button"]:focus-visible,input:focus-v
 @media(max-width:720px){.filterBackdrop{display:block;position:fixed;inset:0;z-index:90;background:#000b;border:0}.filtersPanel.open{z-index:100!important}.apiWarning{flex-wrap:wrap}.topStatus{font-size:8px}.activeFilterStrip{max-width:100%}.globalLoading.progressive>div:last-child{display:block}}
 
 .sourceAvailabilityNotice{padding:12px 14px;margin-bottom:12px;border:1px solid #6d527d;background:#201628;color:#dbc8e8;font-size:12px;line-height:1.6}
+
+.sourceCoverageHelp{color:#b5a6c2;font-size:12px;line-height:1.6;margin:12px 0}
+.sourceCoverageCard{padding:10px;border:1px solid #392941;background:#121015;min-width:0}
+.sourceCoverageCard>a{border:0!important;background:transparent!important;padding:0 0 8px!important;display:flex;gap:8px;align-items:center;text-decoration:none}
+.sourceCoverageCard>a>span{min-width:0;flex:1}.sourceCoverageCard>a strong,.sourceCoverageCard>a small{display:block}
+.coverageLabel{display:block;font-size:11px;line-height:1.5;color:#bca8d0}.coverage-query-complete{color:#9ddeb1}.coverage-partial{color:#efb2b2}.coverage-limited{color:#dac69f}
+.sourceCoverageError{font-size:12px;color:#efb2b2;line-height:1.5}
+.sourceCoverageCard>button{display:flex;align-items:center;gap:6px;width:100%;margin-top:10px;padding:10px;background:#2c1b3a;border:1px solid #8152a7;color:#e8d7fa;font-size:10px;font-weight:700;cursor:pointer}
+.sourceCoverageCard>button:disabled{opacity:.6;cursor:wait}.coverageRoutes{margin-top:8px;font-size:11px;color:#c2b1d0}.coverageRoutes summary{cursor:pointer}.coverageRoutes p{line-height:1.5}.coverageRoutes ul{padding-left:15px;max-height:180px;overflow:auto}.coverageRoutes li{margin-bottom:6px}.coverageRoutes a{font-size:10px;color:#b99bd6;overflow-wrap:anywhere}

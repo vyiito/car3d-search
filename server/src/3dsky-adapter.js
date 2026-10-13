@@ -1,5 +1,5 @@
 import { relevanceScore } from './search-core.js'
-import { searchFetch as fetch } from './search-context.js'
+import { searchFetch as fetch, searchPageLimit, searchCheckpoint } from './search-context.js'
 const UA='VJ3DSearch/1.6 (+https://github.com/vyiito/car3d-search)'
 const API='https://3dsky.org/api/models'
 const BASE='https://3dsky.org'
@@ -25,5 +25,24 @@ export function skyPrice(model) {
   return { price: null, isFree: false, priceLabel: native !== null && native !== undefined && native !== '' && Number.isFinite(Number(native)) && Number(native)>0 ? String(native)+' · MOEDA NA FONTE' : 'PRO' }
 }
 async function page(query,page){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),12000);try{const response=await fetch(API,{method:'POST',signal:controller.signal,redirect:'follow',headers:{'user-agent':UA,accept:'application/json','content-type':'application/json','accept-language':'en-US,en;q=0.9'},body:JSON.stringify({query,order:'relevance',page,types:['free','pro']})});if(!response.ok)throw new Error(`3DSky HTTP ${response.status}`);return await response.json()}finally{clearTimeout(timer)}}
-export async function search3DSky(query,limit=60){const results=[],seen=new Set();let pagesFetched=0,totalPages=1;for(let p=1;p<=totalPages&&results.length<limit&&p<=8;p+=1){const payload=await page(query,p);pagesFetched+=1;const data=payload?.data||{};const models=Array.isArray(data.models)?data.models:[];const per=Math.max(1,Number(data.per_page||60)),total=Math.max(0,Number(data.total_value||0));totalPages=Math.min(8,Math.max(1,Math.ceil(total/per)));for(const model of models){if(results.length>=limit)break;if(!isTransport(model)||!model?.slug)continue;const title=String(model.title_en||model.title||'').trim();if(!title||!relevanceScore({title,brand:brandOf(title)},query))continue;const url=`${BASE}/3dmodels/show/${encodeURIComponent(model.slug)}`;if(seen.has(url))continue;seen.add(url);const year=title.match(YEAR_RE)?.[1];const free=model?.model_type==='free';const market=skyPrice(model);results.push({id:`3dsky:${model.slug}`,title,source:'3DSky',sourceId:'3dsky',sourceType:'3d-models',sourceUrl:url,imageUrl:imageOf(model),formats:formatsOf(model),...market,downloadable:null,downloadUrl:null,author:null,description:[free?'FREE':'PRO',model.category_parent?.title_en,model.category?.title_en,model.properties?.render?.title].filter(Boolean).join(' · ')||null,fileSize:sizeOf(model.data_file_size,model.properties?.size_kb),brand:brandOf(title),game:null,year:year?Number(year):null,vehicleClass:vehicleClass(title),score:10})}}
-return{results,pagesFetched}}
+export async function search3DSky(query,limit=60){
+  const results=[],seen=new Set()
+  let pagesFetched=0,totalPages=1,totalAvailable=0
+  for(let p=1;p<=totalPages&&results.length<limit&&p<=searchPageLimit();p++){
+    const payload=await page(query,p),data=payload?.data||{},models=Array.isArray(data.models)?data.models:[]
+    pagesFetched++;totalAvailable=Number(data.total_value||0)
+    totalPages=Math.max(1,Math.ceil(totalAvailable/Math.max(1,Number(data.per_page||60))))
+    for(const model of models){
+      if(!isTransport(model)||!model?.slug)continue
+      const title=String(model.title_en||model.title||'').trim(),url=BASE+'/3dmodels/show/'+encodeURIComponent(model.slug)
+      if(!title||!relevanceScore({title,brand:brandOf(title)},query)||seen.has(url))continue
+      seen.add(url)
+      const year=title.match(YEAR_RE)?.[1],market=skyPrice(model)
+      results.push({id:'3dsky:'+model.slug,title,source:'3DSky',sourceId:'3dsky',sourceType:'3d-models',sourceUrl:url,imageUrl:imageOf(model),formats:formatsOf(model),...market,downloadable:null,downloadUrl:null,author:null,description:[model.model_type,model.category_parent?.title_en,model.category?.title_en,model.properties?.render?.title].filter(Boolean).join(' · ')||null,fileSize:sizeOf(model.data_file_size,model.properties?.size_kb),brand:brandOf(title),game:null,year:year?Number(year):null,vehicleClass:vehicleClass(title),score:10})
+    }
+    searchCheckpoint({results:[...results],pagesFetched,hasMore:p<totalPages,totalAvailable,sections:[API]})
+    if(!models.length)break
+  }
+  const hasMore=pagesFetched<totalPages||results.length>limit
+  return{results:results.slice(0,limit),pagesFetched,hasMore,totalAvailable,sections:[API],stopReason:hasMore?results.length>=limit?'result-limit':'page-limit':'exhausted'}
+}

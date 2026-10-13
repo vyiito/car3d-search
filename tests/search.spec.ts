@@ -183,3 +183,50 @@ test('game family facet shows its matching count and no-result messages are accu
   await expect(page.locator('.emptyState')).toContainText('NENHUM RESULTADO PARA ESTA PESQUISA')
   await expect(page.locator('.emptyState button')).toHaveCount(0)
 })
+
+test('source coverage expands one source and appends models without losing the current catalog', async ({ page }) => {
+  await mockSearch(page, 12)
+  let expandedRequest: URL | null = null
+  await page.route(url => url.pathname === '/api/search' && url.searchParams.get('depth') === 'expanded', async route => {
+    expandedRequest = new URL(route.request().url())
+    await route.fulfill({ json: { results: [result(101)], sources: [{ ...source('sketchfab', 7), coverage: { depth: 'expanded', status: 'query-complete', hasMore: false, stopReason: 'exhausted', totalAvailable: 7, sections: [], requests: [], failedPages: [] } }], providerCount: 1, searchedProviders: 1 } })
+  })
+  await page.goto('/?q=BMW+E36')
+  await expect(page.locator('.card')).toHaveCount(12)
+  await page.locator('.sourceStatusSection summary').first().click()
+  await expect(page.locator('.sourceStatusSection')).toContainText('Cobertura ainda não confirmada')
+  await page.getByRole('button', { name: 'Aprofundar busca em Sketchfab', exact: true }).click()
+  await expect(page.locator('.card')).toHaveCount(13)
+  await expect(page.locator('.sourceCoverageCard').filter({ hasText: 'Sketchfab' })).toContainText('Paginação da consulta concluída')
+  expect(expandedRequest?.searchParams.get('source')).toBe('sketchfab')
+  expect(expandedRequest?.searchParams.get('perSource')).toBe('200')
+})
+
+test('failure while expanding a source preserves the previous results', async ({ page }) => {
+  await mockSearch(page, 12)
+  await page.route(url => url.pathname === '/api/search' && url.searchParams.get('depth') === 'expanded', route => route.fulfill({ status: 503, json: { error: 'Unavailable' } }))
+  await page.goto('/?q=BMW+E36')
+  await expect(page.locator('.card')).toHaveCount(12)
+  await page.locator('.sourceStatusSection summary').first().click()
+  await page.getByRole('button', { name: 'Aprofundar busca em Sketchfab', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Os resultados anteriores foram mantidos')
+  await expect(page.locator('.card')).toHaveCount(12)
+})
+
+test('a new query cancels an in-flight expanded source search', async ({ page }) => {
+  await mockSearch(page, 12)
+  await page.route(url => url.pathname === '/api/search' && url.searchParams.get('depth') === 'expanded', async route => {
+    await new Promise(resolve => setTimeout(resolve, 500))
+    await route.fulfill({ json: { results: [result(101)], sources: [source('sketchfab', 7)], providerCount: 1 } }).catch(() => {})
+  })
+  await page.goto('/?q=BMW+E36')
+  await expect(page.locator('.card')).toHaveCount(12)
+  await page.locator('.sourceStatusSection summary').first().click()
+  await page.getByRole('button', { name: 'Aprofundar busca em Sketchfab', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Pesquisar veículos' }).fill('Toyota Supra')
+  await page.locator('.searchBox button').click()
+  await expect(page.locator('.card')).toHaveCount(12)
+  await page.waitForTimeout(550)
+  await expect(page.locator('.card h3').first()).toContainText('Toyota Supra')
+  await expect(page.locator('.card')).toHaveCount(12)
+})

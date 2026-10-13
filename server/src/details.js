@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
 import { providers } from './providers.js'
+import { warehouseModelResult } from './structured-adapters.js'
 
 const USER_AGENT = 'VJ3DSearch/0.6 (+https://github.com/vyiito/car3d-search)'
 const DIRECT_FILE_RE = /\.(?:zip|rar|7z|blend|fbx|obj|stl|3ds|max|c4d|dae|gltf|glb|3mf|kn5|skp|ma|mb|step|stp|dwg|dxf|unitypackage)(?:$|[?#])/i
@@ -211,6 +212,19 @@ export async function getResultDetails(sourceId, sourceUrl) {
   const provider = providers.find(item => item.id === sourceId)
   if (!provider) throw new Error('Unknown provider')
   if (!safeProviderUrl(provider, sourceUrl)) throw new Error('URL is outside provider host')
+  if(sourceId==='3dwarehouse'){
+    const id=new URL(sourceUrl).pathname.match(/^\/model\/([a-z0-9-]+)(?:\/|$)/i)?.[1]
+    if(!id)throw new Error('Invalid model URL')
+    const endpoint=new URL('https://3dwarehouse.sketchup.com/warehouse/v1.0/entities/'+encodeURIComponent(id))
+    endpoint.searchParams.set('showAttributes','true');endpoint.searchParams.set('showBinaryMetadata','true');endpoint.searchParams.set('showBinaryAttributes','true')
+    const response=await fetch(endpoint,{signal:AbortSignal.timeout(12000)})
+    if(!response.ok)throw new Error('Warehouse HTTP '+response.status)
+    const model=warehouseModelResult(await response.json())
+    if(!model)throw new Error('Model metadata unavailable')
+    const {id:_id,score:_score,sourceType:_sourceType,...metadata}=model
+    return {...metadata,gallery:model.imageUrl?[model.imageUrl]:[],downloadUrl:null,downloadActionUrl:sourceUrl,downloadStatus:model.downloadable?'source':'unavailable',downloadCandidates:[],detailsFetchedAt:new Date().toISOString()}
+  }
+
 
   const { html, finalUrl } = await fetchHtml(sourceUrl)
   const $ = cheerio.load(html)
