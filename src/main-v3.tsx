@@ -20,7 +20,7 @@ import './progressive.css'
 import './search-reliability.css'
 import SourceStatus from './components/SourceStatus'
 import { readSearchState, writeSearchState } from './search-state'
-import { canonicalGame, matchesGame, marketKind, formatPrice, normalizeFormats, normalizeSearchResult } from '../server/src/search-core.js'
+import { canonicalGame, matchesGame, marketKind, formatPrice, normalizeFormats, normalizeSearchResult, isVehicleResult } from '../server/src/search-core.js'
 import { filterResults, sortResults } from '../server/src/result-filters.js'
 
 type KindFilter = 'Todos' | '3D Model' | 'Game Mod'
@@ -252,7 +252,7 @@ function App(){
   const [apiError,setApiError]=useState<string|null>(null)
   const [selectedResult,setSelectedResult]=useState<GlobalSearchResult|null>(null)
   const [pendingAssetUrl,setPendingAssetUrl]=useState<string|null>(initial.asset)
-  const [favorites,setFavorites]=useState<GlobalSearchResult[]>(()=>Array.isArray(safeParse('vj:favorites',[])) ? safeParse<GlobalSearchResult[]>('vj:favorites',[]).map(item=>normalizeSearchResult(item)).filter((item):item is GlobalSearchResult=>Boolean(item)) : [])
+  const [favorites,setFavorites]=useState<GlobalSearchResult[]>(()=>Array.isArray(safeParse('vj:favorites',[])) ? safeParse<GlobalSearchResult[]>('vj:favorites',[]).map(item=>normalizeSearchResult(item)).filter((item):item is GlobalSearchResult=>Boolean(item) && isVehicleResult(item!)) : [])
   const [history,setHistory]=useState<string[]>(()=>Array.isArray(safeParse('vj:history',[])) ? safeParse<string[]>('vj:history',[]).filter(item=>typeof item==='string') : [])
   const [brandHistory,setBrandHistory]=useState<string[]>(()=>Array.isArray(safeParse('vj:brands',[])) ? safeParse<string[]>('vj:brands',[]).filter(item=>typeof item==='string') : [])
 

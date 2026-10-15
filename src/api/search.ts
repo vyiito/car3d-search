@@ -1,5 +1,5 @@
 import { API_BASE, requestSignal, responseError } from './config'
-import { normalizeSearchResult } from '../../server/src/search-core.js'
+import { normalizeSearchResult, isVehicleResult } from '../../server/src/search-core.js'
 
 export interface DownloadCandidate {
   url: string
@@ -37,6 +37,7 @@ export interface GlobalSearchResult {
   score: number
   includedVehicles?: string[]
   tags?: string[]
+  vehicleEvidence?: 'catalog'
   isModelListing?: boolean
 }
 
@@ -85,7 +86,7 @@ export async function globalSearch(query: string, signal?: AbortSignal, perSourc
   if (!response.ok) throw await responseError(response)
   const payload = await response.json()
   if (!Array.isArray(payload.results) || !Array.isArray(payload.sources)) throw new Error('Resposta de pesquisa inválida.')
-  return { ...payload, results: payload.results.map((item: GlobalSearchResult) => normalizeSearchResult(item)).filter(Boolean) }
+  return { ...payload, results: payload.results.map((item: GlobalSearchResult) => normalizeSearchResult(item)).filter((item: GlobalSearchResult | null) => item && isVehicleResult(item)) }
 }
 
 export async function expandedSourceSearch(query: string, sourceId: string, signal?: AbortSignal): Promise<GlobalSearchResponse> {
@@ -94,7 +95,7 @@ export async function expandedSourceSearch(query: string, sourceId: string, sign
   if (!response.ok) throw await responseError(response)
   const payload = await response.json()
   if (!Array.isArray(payload.results) || !Array.isArray(payload.sources)) throw new Error('Resposta de pesquisa inválida.')
-  return { ...payload, results: payload.results.map((item: GlobalSearchResult) => normalizeSearchResult(item)).filter(Boolean) }
+  return { ...payload, results: payload.results.map((item: GlobalSearchResult) => normalizeSearchResult(item)).filter((item: GlobalSearchResult | null) => item && isVehicleResult(item)) }
 }
 
 export async function getResultDetails(result: GlobalSearchResult, signal?: AbortSignal): Promise<GlobalSearchResult> {

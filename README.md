@@ -23,6 +23,7 @@ O Vite encaminha `/api` para `http://127.0.0.1:10000`. Em produção, o frontend
 ## Pesquisa e filtros
 
 - REST (`/api/search`) e streaming (`/api/search/stream`) usam o mesmo motor, adapters, normalização e cache. Cada fonte é consultada uma vez.
+- Mapas, pistas, armas, cenários, personagens, móveis, texturas e peças avulsas são excluídos antes de ordenar e limitar a busca. Nome do jogo, classe inferida ou fonte presumidamente automotiva não comprovam que um item seja um veículo. A API, o streaming, o feed inicial e os favoritos usam a mesma regra; catálogos de veículos comprovados preservam títulos incomuns, respeitando as exclusões de outros tipos de asset.
 - Marca, modelo e geração precisam corresponder à identidade do resultado. Descrições que mencionam outros carros não estabelecem correspondência. Aliases como `E 36`/`E36`, `MK IV`/`MK4`, `GT-R`/`GTR` e `VW`/`Volkswagen` são normalizados.
 - Páginas de categoria e peças/acessórios avulsos são excluídos da pesquisa de veículos completos.
 - Identificadores usam a URL completa da fonte, eliminando colisões entre cartões e favoritos. URLs com parâmetros de rastreamento são deduplicadas.

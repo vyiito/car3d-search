@@ -35,10 +35,10 @@ export async function search3DSky(query,limit=60){
     for(const model of models){
       if(!isTransport(model)||!model?.slug)continue
       const title=String(model.title_en||model.title||'').trim(),url=BASE+'/3dmodels/show/'+encodeURIComponent(model.slug)
-      if(!title||!relevanceScore({title,brand:brandOf(title)},query)||seen.has(url))continue
+      if(!title||!relevanceScore({title,brand:brandOf(title),vehicleEvidence:'catalog'},query)||seen.has(url))continue
       seen.add(url)
       const year=title.match(YEAR_RE)?.[1],market=skyPrice(model)
-      results.push({id:'3dsky:'+model.slug,title,source:'3DSky',sourceId:'3dsky',sourceType:'3d-models',sourceUrl:url,imageUrl:imageOf(model),formats:formatsOf(model),...market,downloadable:null,downloadUrl:null,author:null,description:[model.model_type,model.category_parent?.title_en,model.category?.title_en,model.properties?.render?.title].filter(Boolean).join(' · ')||null,fileSize:sizeOf(model.data_file_size,model.properties?.size_kb),brand:brandOf(title),game:null,year:year?Number(year):null,vehicleClass:vehicleClass(title),score:10})
+      results.push({id:'3dsky:'+model.slug,title,source:'3DSky',sourceId:'3dsky',vehicleEvidence:'catalog',sourceType:'3d-models',sourceUrl:url,imageUrl:imageOf(model),formats:formatsOf(model),...market,downloadable:null,downloadUrl:null,author:null,description:[model.model_type,model.category_parent?.title_en,model.category?.title_en,model.properties?.render?.title].filter(Boolean).join(' · ')||null,fileSize:sizeOf(model.data_file_size,model.properties?.size_kb),brand:brandOf(title),game:null,year:year?Number(year):null,vehicleClass:vehicleClass(title),score:10})
     }
     searchCheckpoint({results:[...results],pagesFetched,hasMore:p<totalPages,totalAvailable,sections:[API]})
     if(!models.length)break

@@ -1,8 +1,9 @@
-import { marketKind, matchesGame, normalizeFormats } from './search-core.js'
+import { marketKind, matchesGame, normalizeFormats, isVehicleResult } from './search-core.js'
 
 export function filterResults(items, filters, skip = null) {
   const from = Number(filters.yearFrom) || null, to = Number(filters.yearTo) || null
   return items.filter(result => {
+    if (!isVehicleResult(result)) return false
     const price = marketKind(result)
     const formats = normalizeFormats(result.formats)
     return (skip === 'price' || filters.priceMode === 'Todos' || price === ({ 'Grátis': 'free', Pago: 'paid', 'Não informado': 'unknown' })[filters.priceMode])
