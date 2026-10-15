@@ -6,6 +6,7 @@ import { searchOptions } from './search-options.js'
 import { getResultDetails } from './details.js'
 import { searchReferencePack, buildReferenceZip } from './reference-engine.js'
 import { registerProgressiveSearchRoute } from './progressive-route.js'
+import { registerPreviewRoute } from './preview-resolver.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -18,6 +19,7 @@ app.disable('x-powered-by')
 app.use(cors({ origin: [...allowedOrigin.split(',').map(origin => origin.trim()), 'http://localhost:5173', 'http://127.0.0.1:5173'], methods: ['GET'] }))
 app.use(express.json({ limit: '32kb' }))
 registerProgressiveSearchRoute(app)
+registerPreviewRoute(app)
 
 function trimCache(target, max = 120, remove = 20) {
   if (target.size <= max) return
@@ -31,7 +33,7 @@ async function cachedDetails(sourceId, sourceUrl) {
   const payload = await getResultDetails(sourceId, sourceUrl)
   detailsCache.set(cacheKey, { createdAt: Date.now(), payload }); trimCache(detailsCache, 250, 40); return payload
 }
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, marketMode: 'free+paid', detailsResolver: true, directDownloadGate: true, paginatedSearch: true, gameFacets: true, referencePacks: true, progressiveSearch: true, nativeAdapters: ALL_NATIVE_IDS }))
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'vj-3d-search-api', providers: providers.length, marketMode: 'free+paid', detailsResolver: true, previewResolver: true, directDownloadGate: true, paginatedSearch: true, gameFacets: true, referencePacks: true, progressiveSearch: true, nativeAdapters: ALL_NATIVE_IDS }))
 app.get('/api/providers', (_req, res) => res.json(providers.map(provider => ({ id: provider.id, name: provider.name, type: provider.type, baseUrl: provider.baseUrl, browseUrl: provider.browseUrl || provider.baseUrl, freeCatalog: Boolean(provider.freeCatalog), defaultGame: provider.defaultGame || null, pagination: Boolean(provider.pagination), nativeAdapter: ALL_NATIVE_IDS.includes(provider.id) }))))
 
 app.get('/api/search', async (req, res) => {

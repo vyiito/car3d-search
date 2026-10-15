@@ -37,6 +37,10 @@ O Vite encaminha `/api` para `http://127.0.0.1:10000`. Em produção, o frontend
 
 As fontes podem bloquear consultas (403/429), estar offline ou não expor dados ao agregador. Isso aparece como falha de fonte, com o motivo e link para consulta manual. Resultados vazios por filtros têm uma mensagem diferente de pesquisas sem correspondências.
 
+## Previews
+
+Os leitores extraem miniaturas de imagens lazy, srcset/picture, links do mesmo modelo e galerias. O catálogo tenta alternativas antes de exibir “Sem preview”. Se faltarem imagens, consulta somente os metadados da página original quando o cartão está próximo da área visível, com no máximo quatro consultas simultâneas, cancelamento e cache. Essa consulta não resolve links de download nem baixa os arquivos dos modelos. Logos, placeholders e ícones genéricos de arquivo não são usados como preview; arquivos sem imagem publicada podem continuar sem preview.
+
 ## Cobertura das fontes
 
 A [auditoria das 32 fontes](docs/source-coverage-audit.md) documenta rotas, categorias, coleções, resultados observados e limitações de acesso. O painel **Status e cobertura das fontes** distingue paginação concluída, cobertura limitada, parcial e não confirmada. **Aprofundar nesta fonte** amplia somente a fonte selecionada e preserva os resultados já recebidos.
@@ -54,6 +58,7 @@ GET /api/search?q=BMW%20E36&perSource=20
 GET /api/search/stream?q=BMW%20E36&perSource=20
 GET /api/search?q=BMW%20E36&source=3dwarehouse&depth=expanded&perSource=200
 GET /api/details?sourceId=sketchfab&url=...
+GET /api/preview?sourceId=rigmodels&url=...
 ```
 
 `perSource` aceita de 1 a 80 na busca inicial (padrão 60). Com `depth=expanded`, aceita até 200 (padrão 200). `source` seleciona uma fonte ou IDs separados por vírgula; IDs desconhecidos retornam 400. `refresh=1` ignora o cache de busca. Respostas sem falhas ficam em cache por até dez minutos; respostas com falhas ou cobertura parcial por até trinta segundos.

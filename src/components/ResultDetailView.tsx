@@ -80,14 +80,14 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
       <main className="assetDetailBody">
         <section className="assetVisualColumn">
           <div className="assetHeroMedia">
-            {gallery[activeImage] ? <img src={gallery[activeImage]} alt={detail.title}/> : <div className="assetNoImage"><ImageOff size={42}/><span>SEM PREVIEW DISPONÍVEL</span></div>}
+            {gallery[activeImage] ? <img src={gallery[activeImage]} alt={detail.title} referrerPolicy="no-referrer"/> : <div className="assetNoImage"><ImageOff size={42}/><span>SEM PREVIEW DISPONÍVEL</span></div>}
             <div className="assetMediaShade"/>
             <span className="assetMediaCode">VJ / {detail.sourceId.toUpperCase()}</span>
             <span className={`assetFreeStamp ${priceKind}`}>{priceLabel}</span>
             <div className="assetMediaIdentity"><span>{detail.game || detail.vehicleClass}</span><strong>{detail.brand || 'VEÍCULO'}</strong></div>
           </div>
 
-          {gallery.length > 1 && <div className="assetGalleryRail"><span className="assetGalleryLabel"><Images size={13}/> GALERIA / {gallery.length}</span><div className="assetGalleryThumbs">{gallery.map((image, index) => <button key={image} className={index === activeImage ? 'active' : ''} onClick={() => setActiveImage(index)}><img src={image} alt=""/><span>{String(index + 1).padStart(2,'0')}</span></button>)}</div></div>}
+          {gallery.length > 1 && <div className="assetGalleryRail"><span className="assetGalleryLabel"><Images size={13}/> GALERIA / {gallery.length}</span><div className="assetGalleryThumbs">{gallery.map((image, index) => <button key={image} className={index === activeImage ? 'active' : ''} onClick={() => setActiveImage(index)}><img src={image} alt="" referrerPolicy="no-referrer"/><span>{String(index + 1).padStart(2,'0')}</span></button>)}</div></div>}
 
           {viewerUrl && <ModelViewer url={viewerUrl} title={detail.title}/>} 
 

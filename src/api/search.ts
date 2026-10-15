@@ -15,6 +15,7 @@ export interface GlobalSearchResult {
   sourceType: '3d-models' | 'game-mods'
   sourceUrl: string
   imageUrl: string | null
+  previewUrls?: string[]
   formats: string[]
   price: number | null
   priceLabel?: string | null

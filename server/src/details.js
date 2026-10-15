@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { pageImages } from './preview-images.js'
 import { providers } from './providers.js'
 import { warehouseModelResult } from './structured-adapters.js'
 
@@ -96,30 +97,7 @@ function jsonLdObjects($) {
 }
 
 function collectImages($, baseUrl) {
-  const urls = []
-  const add = value => {
-    const url = absoluteUrl(value, baseUrl)
-    if (!url || url.startsWith('data:') || urls.includes(url) || /logo|avatar|icon|emoji|sprite/i.test(url)) return
-    urls.push(url)
-  }
-  add($('meta[property="og:image"]').attr('content'))
-  add($('meta[name="twitter:image"]').attr('content'))
-  for (const object of jsonLdObjects($)) {
-    const image = object?.image
-    if (typeof image === 'string') add(image)
-    else if (Array.isArray(image)) image.forEach(item => add(typeof item === 'string' ? item : item?.url))
-    else if (image?.url) add(image.url)
-  }
-  for (const selector of ['.gallery img','.swiper img','.carousel img','article img','main img','.content img','.product img','.model img']) {
-    $(selector).each((_, element) => {
-      const node = $(element)
-      const srcset = node.attr('srcset')?.split(',').pop()?.trim().split(' ')[0]
-      add(node.attr('data-full') || node.attr('data-src') || node.attr('data-original') || srcset || node.attr('src'))
-    })
-    if (urls.length >= 10) break
-  }
-  if (urls.length < 2) $('img').each((_, element) => { const node = $(element); add(node.attr('data-src') || node.attr('data-original') || node.attr('src')) })
-  return urls.slice(0, 10)
+  return pageImages($, baseUrl)
 }
 
 function collectDownloadCandidates($, baseUrl) {

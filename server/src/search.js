@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { linkImages } from './preview-images.js'
 import { isVehicleResult, VEHICLE_BRANDS as BRANDS } from './vehicle-scope.js'
 import pLimit from 'p-limit'
 import { providers } from './providers.js'
@@ -152,12 +153,6 @@ export function decorateResult(result, provider) {
   }
 }
 
-function bestImage($, card, baseUrl) {
-  const img = card.find('img').first()
-  const raw = img.attr('src') || img.attr('data-src') || img.attr('data-lazy-src') || img.attr('data-original') || img.attr('srcset')?.split(',')[0]?.trim().split(' ')[0]
-  return absoluteUrl(raw, baseUrl)
-}
-
 function bestTitle($, card, anchor) {
   const heading = card.find('h1,h2,h3,h4,h5,.title,.name').first().text()
   const aria = anchor.attr('aria-label') || anchor.attr('title')
@@ -209,21 +204,29 @@ async function fetchHtml(url, timeoutMs = 10000) {
   } finally { clearTimeout(timer) }
 }
 
-export function extractHtmlResults(provider, query, limit, html) {
+export function extractHtmlResults(provider, query, limit, html, baseUrl = provider.baseUrl) {
   const $ = cheerio.load(html)
-  $('script,style,noscript,svg').remove()
+  $('script,style,svg').remove()
   const results = [], seen = new Set()
+  const listingUrl = value => {
+    const url = new URL(value)
+    if (provider.id === 'rigmodels') return url.pathname === '/model.php' && url.searchParams.has('view')
+    if (provider.id === '3dexport') return /^\/3d-model-[^/]+-\d+\/?$/.test(url.pathname)
+    if (provider.id === 'open3dlab') return /^\/project\/[^/]+\/?$/.test(url.pathname)
+    return !/^\/category(?:\/|$)/.test(url.pathname)
+  }
 
   const pushResult = (card, anchor, text, relevance) => {
-    const sourceUrl = absoluteUrl(anchor.attr('href'), provider.baseUrl)
-    if (!sourceUrl || seen.has(sourceUrl)) return
+    const sourceUrl = absoluteUrl(anchor.attr('href'), baseUrl)
+    if (!sourceUrl || !listingUrl(sourceUrl) || seen.has(sourceUrl)) return
     const title = bestTitle($, card, anchor)
     if (!title || title.length < 3) return
+    const previewUrls = linkImages($, anchor, baseUrl)
     const { price, isFree } = parsePrice(text)
-    const downloadUrl = directDownloadUrl($, card, provider.baseUrl)
+    const downloadUrl = directDownloadUrl($, card, baseUrl)
     const candidate = decorateResult({
       id: `${provider.id}:${Buffer.from(sourceUrl).toString('base64url').slice(0, 24)}`, title, source: provider.name, sourceId: provider.id, sourceType: provider.type, sourceUrl,
-      imageUrl: bestImage($, card, provider.baseUrl), formats: parseFormats(text), price, isFree, downloadable: downloadUrl ? true : null, downloadUrl,
+      imageUrl: previewUrls[0] || null, previewUrls, formats: parseFormats(text), price, isFree, downloadable: downloadUrl ? true : null, downloadUrl,
       author: bestAuthor($, card), description: descriptionFromText(text, title), fileSize: parseFileSize(text), score: relevance,
     }, provider)
     if (!candidate || !relevanceScore(candidate, query)) return
@@ -244,11 +247,11 @@ export function extractHtmlResults(provider, query, limit, html) {
       if (results.length >= limit) return false
       const anchor = $(el), title = clean(anchor.attr('title') || anchor.attr('aria-label') || anchor.text()), relevance = scoreText(title, query)
       if (title.length < 4 || relevance <= 0) return
-      const sourceUrl = absoluteUrl(anchor.attr('href'), provider.baseUrl)
-      if (!sourceUrl || seen.has(sourceUrl)) return
+      const sourceUrl = absoluteUrl(anchor.attr('href'), baseUrl)
+      if (!sourceUrl || !listingUrl(sourceUrl) || seen.has(sourceUrl)) return
       const candidate = decorateResult({
         id: `${provider.id}:${Buffer.from(sourceUrl).toString('base64url').slice(0, 24)}`, title, source: provider.name, sourceId: provider.id, sourceType: provider.type, sourceUrl,
-        imageUrl: null, formats: [], price: null, isFree: null, downloadable: DIRECT_FILE_RE.test(sourceUrl) ? true : null,
+        imageUrl: linkImages($, anchor, baseUrl)[0] || null, previewUrls: linkImages($, anchor, baseUrl), formats: [], price: null, isFree: null, downloadable: DIRECT_FILE_RE.test(sourceUrl) ? true : null,
         downloadUrl: DIRECT_FILE_RE.test(sourceUrl) ? sourceUrl : null, author: null, description: null, fileSize: null, score: relevance,
       }, provider)
       if (candidate && relevanceScore(candidate, query)) { results.push(candidate); seen.add(sourceUrl) }
@@ -543,13 +546,13 @@ async function searchCgTrader(provider, query, limit) {
 
 async function searchHtmlProvider(provider, query, limit) {
   return crawlCatalog({ seeds:[provider.buildUrl(query),...(provider.catalogUrls||[])],query,limit,provider,
-    parse:html=>extractHtmlResults(provider,query,Number.MAX_SAFE_INTEGER,html),
+    parse:(html,base)=>extractHtmlResults(provider,query,Number.MAX_SAFE_INTEGER,html,base),
   })
 }
 
 async function searchCollectionProvider(provider, query, limit) {
   const seeds=[provider.buildUrl(query),provider.collectionUrl,...(provider.extraCollectionUrls||[])].filter(Boolean)
-  return crawlCatalog({seeds,query,limit,provider,parse:html=>extractHtmlResults(provider,query,Number.MAX_SAFE_INTEGER,html)})
+  return crawlCatalog({seeds,query,limit,provider,parse:(html,base)=>extractHtmlResults(provider,query,Number.MAX_SAFE_INTEGER,html,base)})
 }
 
 export async function searchProvider(provider, query, limit) {
