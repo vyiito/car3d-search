@@ -109,6 +109,42 @@ test('unknown price, invalid year range, keyboard details and distinct favorites
   await page.keyboard.press('Escape'); await expect(page.locator('.assetDetail')).toHaveCount(0)
 })
 
+test('catalog ABRIR opens the original model page while the card keeps internal details', async ({ page, context }) => {
+  await mockSearch(page, 1)
+  await context.route('https://example.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>Original model</title>' }))
+  await page.goto('/?q=BMW+E36')
+  const link = page.locator('.cardFooter').getByRole('link', { name: 'ABRIR' })
+  await expect(link).toHaveAttribute('href', 'https://example.com/BMW-E36/0')
+  await expect(link).toHaveAttribute('target', '_blank')
+  await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+  const popupPromise = page.waitForEvent('popup')
+  await link.click()
+  const popup = await popupPromise
+  await expect(popup).toHaveURL('https://example.com/BMW-E36/0')
+  await expect(page.locator('.assetDetail')).toHaveCount(0)
+  await popup.close()
+  await page.locator('.card h3').click()
+  await expect(page.locator('.assetDetail')).toBeVisible()
+})
+
+test('discovery ABRIR opens the source by keyboard without opening internal details', async ({ page, context }) => {
+  await mockSearch(page, 1)
+  await context.route('https://example.com/**', route => route.fulfill({ contentType: 'text/html', body: '<title>Original model</title>' }))
+  await page.goto('/')
+  const link = page.locator('.discoveryFooter').getByRole('link', { name: 'ABRIR' })
+  await expect(link).toHaveAttribute('href', 'https://example.com/car/0')
+  await link.focus()
+  const popupPromise = page.waitForEvent('popup')
+  await page.keyboard.press('Enter')
+  const popup = await popupPromise
+  await expect(popup).toHaveURL('https://example.com/car/0')
+  await expect(page.locator('.assetDetail')).toHaveCount(0)
+  await popup.close()
+  await page.locator('.discoveryCard').focus()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('.assetDetail')).toBeVisible()
+})
+
 test('mobile filters open, apply and close without horizontal overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await mockSearch(page, 12)

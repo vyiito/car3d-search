@@ -21,6 +21,9 @@
 .hero.searchActive .heroMetrics{margin-top:14px}
 .card .sourceRow,.card .vehicleIdentity,.card .chips span,.card .qualitySignals span,.card .cardFooter,.card .cardFooter button,.card .vehicleBadge,.card .downloadBadge,.card .priceBadge{font-size:10px}
 .card h3{font-size:14px}
+.cardFooter .cardSourceLink,.discoveryFooter .cardSourceLink{display:inline-flex;align-items:center;gap:4px;color:var(--accent2);font-size:inherit;font-weight:900;letter-spacing:.06em;text-decoration:none}
+.cardFooter .cardSourceLink:hover,.discoveryFooter .cardSourceLink:hover{color:var(--accent)}
+.discoveryFooter .cardSourceLink{font-size:7px}
 .sourceFacets button,.facetChips button,.filterSectionTitle{font-size:12px}
 button:focus-visible,a:focus-visible,[role="button"]:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #c89cff;outline-offset:3px}
 @media(max-width:720px){.filterBackdrop{display:block;position:fixed;inset:0;z-index:90;background:#000b;border:0}.filtersPanel.open{z-index:100!important}.apiWarning{flex-wrap:wrap}.topStatus{font-size:8px}.activeFilterStrip{max-width:100%}.globalLoading.progressive>div:last-child{display:block}}

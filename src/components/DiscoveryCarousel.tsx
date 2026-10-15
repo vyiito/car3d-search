@@ -118,7 +118,12 @@ function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarouselProps) {
         <div className="discoveryRail" ref={railRef}>
           {visibleItems.map((result, index) => {
             const kind = marketKind(result)
-            return <article className="discoveryCard" key={result.id} onClick={() => onSelect(result)} tabIndex={0} onKeyDown={event => event.key === 'Enter' && onSelect(result)}>
+            return <article className="discoveryCard" key={result.id} onClick={() => onSelect(result)} tabIndex={0} onKeyDown={event => {
+              if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault()
+                onSelect(result)
+              }
+            }}>
               <div className="discoveryImage">
                 <ResultPreview result={result} onResolved={url=>{if(url!==result.imageUrl)setItems(current=>current.map(item=>item.id===result.id?{...item,imageUrl:url}:item))}}/>
                 <div className="discoveryShade"/>
@@ -133,7 +138,7 @@ function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarouselProps) {
                 <p>{[result.brand, result.year, result.formats[0]].filter(Boolean).join(' · ') || 'Informações disponíveis na fonte'}</p>
                 <div className="discoveryFooter">
                   <button onClick={event => { event.stopPropagation(); onSearch(result.title) }}><Search size={12}/> BUSCAR SIMILARES</button>
-                  <span>ABRIR <ArrowUpRight size={12}/></span>
+                  <a className="cardSourceLink" href={result.sourceUrl} target="_blank" rel="noopener noreferrer" onClick={event => event.stopPropagation()}>ABRIR <ArrowUpRight size={12}/></a>
                 </div>
               </div>
             </article>
