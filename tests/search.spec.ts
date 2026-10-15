@@ -171,7 +171,7 @@ test('shared asset links open details even when the asset is absent from search 
 
 test('game family facet shows its matching count and no-result messages are accurate', async ({ page }) => {
   await page.route(url => url.pathname.startsWith('/api/'), async route => {
-    const events = [{ type: 'source', source: source('sketchfab', 1), results: [result(1, 'Need for Speed Heat')].map(row => ({...row, game:'NFS Heat'})), completed: 1 }, { type: 'done', completed: 1, providerCount: 1 }]
+    const events = [{ type: 'source', source: source('sketchfab', 1), results: [result(1), { ...result(2), title: 'Need for Speed Heat' }].map(row => ({...row, game:'NFS Heat'})), completed: 1 }, { type: 'done', completed: 1, providerCount: 1 }]
     await route.fulfill({ contentType:'text/event-stream', body:events.map(event=>`data: ${JSON.stringify(event)}\n\n`).join('') })
   })
   await page.goto('/?q=Need+for+Speed&game=Need+for+Speed')
@@ -229,4 +229,41 @@ test('a new query cancels an in-flight expanded source search', async ({ page })
   await page.waitForTimeout(550)
   await expect(page.locator('.card h3').first()).toContainText('Toyota Supra')
   await expect(page.locator('.card')).toHaveCount(12)
+})
+
+const unrelated = ['AKS 74U Carbine', 'Canberra Street Circuit', 'Cartoon Medieval City House', 'Anzi Carpet', 'BMW Garage', 'Common Car Textures'].map((title, index) => ({ ...result(500 + index, title), title, game: 'Assetto Corsa', brand: 'BMW', vehicleClass: 'Car' }))
+
+test('old streamed results cannot show maps, weapons or props despite game and car metadata', async ({ page }) => {
+  await page.route(url => url.pathname.startsWith('/api/'), async route => {
+    const rows = [...unrelated, result(1)]
+    const events = [{ type: 'source', source: source('sketchfab', rows.length), results: rows, completed: 1 }, { type: 'done', completed: 1, providerCount: 1 }]
+    await route.fulfill({ contentType: 'text/event-stream', body: events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('') })
+  })
+  await page.goto('/?q=Assetto+Corsa')
+  await expect(page.locator('.card')).toHaveCount(1)
+  await expect(page.locator('.card h3')).toHaveText('BMW E36 1')
+  await expect(page.locator('.catalogCounters strong')).toHaveText('1')
+})
+
+test('REST fallback excludes the same unrelated assets as the streamed search', async ({ page }) => {
+  await page.route(url => url.pathname.startsWith('/api/'), async route => {
+    if (new URL(route.request().url()).pathname === '/api/search') await route.fulfill({ json: { results: [...unrelated, result(1)], sources: [source('sketchfab', 7)], searchedProviders: 1, providerCount: 1, total: 7 } })
+    else await route.fulfill({ status: 404, json: { error: 'No streaming endpoint' } })
+  })
+  await page.goto('/?q=car')
+  await expect(page.locator('.card')).toHaveCount(1)
+  await expect(page.locator('.card h3')).toHaveText('BMW E36 1')
+})
+
+test('the discovery feed and old saved favorites contain only vehicles', async ({ page }) => {
+  await page.addInitScript(rows => localStorage.setItem('vj:favorites', JSON.stringify(rows)), [...unrelated, result(1)])
+  await page.route(url => url.pathname.startsWith('/api/'), async route => {
+    const events = [{ type: 'source', source: source('sketchfab', 7), results: [...unrelated, result(1)], completed: 1 }, { type: 'done', completed: 1, providerCount: 1 }]
+    await route.fulfill({ contentType: 'text/event-stream', body: events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('') })
+  })
+  await page.goto('/')
+  await expect(page.locator('.discoveryCard')).toHaveCount(1)
+  await expect(page.locator('.discoveryCard h3')).toHaveText('BMW E36 1')
+  await expect(page.locator('.savedRail button')).toHaveCount(1)
+  await expect(page.locator('.heroMetrics')).toContainText('1 favoritos')
 })

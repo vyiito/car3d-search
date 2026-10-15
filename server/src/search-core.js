@@ -1,3 +1,6 @@
+import { isVehicleResult } from './vehicle-scope.js'
+export { isVehicleResult } from './vehicle-scope.js'
+
 // Shared by the API and UI so matching, identities and facets agree.
 export function normalizeText(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
@@ -85,6 +88,7 @@ const PART_PHRASE = /\b(?:tail lights?|headlights?|gear selector|gear shift|stee
 const ACCESSORY_PHRASE = /\b(?:neon sign|keychain|keyring|cookie cutter|poster|logo|emblem)\b/
 
 export function relevanceScore(result, query) {
+  if (!isVehicleResult(result)) return 0
   const vehicleIdentity = value => {
     let text = normalizeText(value)
     if (/\bsupra\b/.test(text)) text = text.replace(/\b(?:mk4|jza80)\b/g, 'a80').replace(/\b(?:mk5|jza90)\b/g, 'a90')

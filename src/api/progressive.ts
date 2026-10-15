@@ -1,6 +1,6 @@
 import type { GlobalSearchResult, SourceSearchStatus } from './search'
 import { API_BASE, requestSignal, responseError } from './config'
-import { normalizeSearchResult } from '../../server/src/search-core.js'
+import { normalizeSearchResult, isVehicleResult } from '../../server/src/search-core.js'
 
 export interface ProgressiveSourceEvent {
   type: 'source'
@@ -55,7 +55,7 @@ export async function progressiveSearch(query: string, callbacks: ProgressiveCal
     if (payload.type === 'start') callbacks.onStart?.(payload)
     else if (payload.type === 'source') {
       if (!payload.source || !Array.isArray(payload.results)) throw new Error('Evento de fonte inválido.')
-      payload.results = payload.results.map((item: GlobalSearchResult) => normalizeSearchResult(item)).filter(Boolean)
+      payload.results = payload.results.map((item: GlobalSearchResult) => normalizeSearchResult(item)).filter((item: GlobalSearchResult | null) => item && isVehicleResult(item))
       callbacks.onSource?.(payload as ProgressiveSourceEvent)
     }
     else if (payload.type === 'done') { completed = true; callbacks.onDone?.(payload as ProgressiveDoneEvent) }

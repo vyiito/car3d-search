@@ -9,3 +9,5 @@ export function resultKey(result: Pick<GlobalSearchResult, 'sourceId' | 'sourceU
 export function relevanceScore(result: Partial<GlobalSearchResult>, query: string): number
 export function normalizeSearchResult(result: GlobalSearchResult, provider?: Record<string, unknown>): GlobalSearchResult | null
 export function prepareResults(items: GlobalSearchResult[], query: string, provider?: Record<string, unknown>, limit?: number): GlobalSearchResult[]
+
+export function isVehicleResult(result: Partial<GlobalSearchResult>): boolean

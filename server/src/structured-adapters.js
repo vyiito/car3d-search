@@ -51,7 +51,9 @@ export async function searchWordPress(id, query, limit = 60) {
       const dom = cheerio.load(body), description = text(body)
       const pack = /\b(?:car.?pack|vehicle.?pack|cars? collection|car packs?)\b/i.test(`${title} ${post.link}`)
       const includedVehicles = pack ? dom('li,h2,h3').map((_, el) => text(dom(el).text())).get().filter(value => value.length < 180) : []
-      const row = catalogResult(id, { title, sourceUrl: post.link,
+      const terms = (post._embedded?.['wp:term'] || []).flat()
+      const vehicleCatalog = restBase === 'cars' || terms.some(term => /^(?:cars?|car[- ]mods?|car[- ]packs?|vehicles?)$/i.test(term.slug || term.name || ''))
+      const row = catalogResult(id, { title, sourceUrl: post.link, vehicleEvidence: vehicleCatalog ? 'catalog' : undefined,
         imageUrl: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || dom('img').first().attr('src') || null,
         author: post.acf?.creator || post._embedded?.author?.[0]?.name || null, description: description.slice(0, 800), formats: formats(description),
         brand: post.acf?.brand || null, year: Number(post.acf?.year) || null,
@@ -141,7 +143,7 @@ export async function searchBlenderKit(query, limit = 60) {
       const free = typeof asset.isFree === 'boolean' ? asset.isFree : null
       const paidPrice = asset.isForSale && asset.basePrice !== null && asset.basePrice !== undefined ? Number(asset.basePrice) : null
       const price = free === true ? 0 : Number.isFinite(paidPrice) && paidPrice > 0 ? paidPrice : null
-      const row = catalogResult('blendkit', { title: asset.name || asset.displayName, sourceUrl: `https://www.blenderkit.com/asset-gallery-detail/${encodeURIComponent(assetId)}/`,
+      const row = catalogResult('blendkit', { vehicleEvidence: 'catalog', title: asset.name || asset.displayName, sourceUrl: `https://www.blenderkit.com/asset-gallery-detail/${encodeURIComponent(assetId)}/`,
         imageUrl: asset.thumbnailMiddleUrl || asset.thumbnailLargeUrl || null, formats: ['BLEND'],
         price, isFree: free, downloadable: typeof asset.canDownload === 'boolean' ? asset.canDownload : null,
         author: asset.author?.fullName || asset.author?.firstName || null, description: text(asset.description).slice(0, 800), license: asset.license || null, fileSize: fileSize(asset.filesSize),

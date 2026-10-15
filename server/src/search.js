@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { isVehicleResult, VEHICLE_BRANDS as BRANDS } from './vehicle-scope.js'
 import pLimit from 'p-limit'
 import { providers } from './providers.js'
 import { prepareResults, relevanceScore } from './search-core.js'
@@ -16,27 +17,11 @@ const FILE_SIZE_RE = /\b\d+(?:[.,]\d+)?\s?(?:KB|MB|GB|TB)\b/i
 const DIRECT_FILE_RE = /\.(?:zip|rar|7z|blend|fbx|obj|stl|3ds|max|c4d|dae|gltf|glb|3mf|kn5|skp)(?:$|[?#])/i
 const YEAR_RE = /\b(19[3-9]\d|20[0-3]\d)\b/
 
-const VEHICLE_ONLY_PROVIDERS = new Set([
-  '3drush', 'brasil-simulator-mods', 'assettomods', 'assettohub', 'ets2lt', 'vosan',
-  'done3d', 'free3dio', 'vertex-warehouse', '3d-models-destination', 'mediafire-rr3', 'open3dlab', 'vk-3d-car-models'
-])
-
-const BRANDS = [
-  'Abarth','Acura','Alfa Romeo','Alpine','Aston Martin','Audi','Bentley','BMW','Bugatti','Buick','BYD','Cadillac','Caterham','Chery','Chevrolet','Chrysler','Citroen','Cupra','Dacia','Daihatsu','Dodge','Ferrari','Fiat','Ford','Funco Motorsports','Genesis','Geely','GMC','Honda','Holden','Hummer','Hyundai','Infiniti','Isuzu','Jaguar','Jeep','Kia','Koenigsegg','Lada','Lamborghini','Lancia','Land Rover','Lexus','Lincoln','Lotus','Lucid','Mahindra','Maserati','Mazda','McLaren','Mercedes','Mercedes-Benz','Mercury','MG','Mini','Mitsubishi','Nio','Nissan','Oldsmobile','Opel','Pagani','Peugeot','Plymouth','Polestar','Pontiac','Porsche','Proton','Ram','Renault','Rimac','Rivian','Rolls-Royce','Rover','Saab','Saturn','Scion','Seat','Skoda','Smart','Subaru','Suzuki','Tata','Tesla','Toyota','Vauxhall','Volkswagen','Volvo','Wuling','Zeekr',
-  'DAF','Freightliner','International','Iveco','Kamaz','Kenworth','Mack','MAN','Peterbilt','Scania','Western Star','ZIL','GAZ','UAZ',
-  'Aprilia','BMW Motorrad','Can-Am','Ducati','Harley-Davidson','Husqvarna','Indian','Kawasaki','KTM','Royal Enfield','Suzuki','Triumph','Vespa','Yamaha',
-  'Caterpillar','John Deere','Kirovets','Kubota','Massey Ferguson','New Holland'
-]
-
 const VEHICLE_TERMS = [
   'car','cars','vehicle','vehicles','automobile','automotive','sedan','saloon','coupe','coupé','hatchback','hatch','wagon','estate','roadster','convertible','cabriolet','cabrio','supercar','hypercar','racecar','race car','racing car','sports car','muscle car','concept car','taxi','police car','ambulance','limousine',
   'suv','crossover','4x4','offroad','off-road','pickup','pick-up','ute','truck','lorry','semi truck','tractor unit','bus','coach','minibus','van','minivan','mpv','camper','motorhome','trailer',
   'motorcycle','motorbike','bike','scooter','moped','quad','atv','kart','go-kart','buggy','formula','gt3','gt4','rally','drift','nascar','indycar','dragster',
   'tractor','harvester','excavator','bulldozer','forklift','loader','agricultural vehicle'
-]
-
-const NEGATIVE_TERMS = [
-  'cityscape','city block','city hall','city center','city centre','downtown','skyline','building','buildings','architecture','architectural','house','apartment','skyscraper','street scene','urban scene','terrain','landscape','village','town','furniture','chair','sofa','table','room','interior scene','airport terminal','train station'
 ]
 
 const GAMES = [
@@ -80,7 +65,6 @@ const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const phraseRegex = value => new RegExp(`(^|[^a-z0-9])${escapeRegex(norm(value))}([^a-z0-9]|$)`, 'i')
 const BRAND_PATTERNS = BRANDS.map(name => [name, phraseRegex(name)])
 const VEHICLE_PATTERNS = VEHICLE_TERMS.map(term => [term, phraseRegex(term)])
-const NEGATIVE_PATTERNS = NEGATIVE_TERMS.map(term => [term, phraseRegex(term)])
 let vertexActionCache = { id: null, expiresAt: 0 }
 
 function absoluteUrl(value, base) {
@@ -122,7 +106,6 @@ function parsePrice(text) {
 function parseFileSize(text) { return clean(text).match(FILE_SIZE_RE)?.[0] || null }
 function findBrand(text) { const value = norm(text); for (const [brand, pattern] of BRAND_PATTERNS) if (pattern.test(value)) return brand; return null }
 function matchingVehicleTerms(text) { const value = norm(text); return VEHICLE_PATTERNS.filter(([, pattern]) => pattern.test(value)).map(([term]) => term) }
-function negativeCount(text) { const value = norm(text); return NEGATIVE_PATTERNS.reduce((count, [, pattern]) => count + (pattern.test(value) ? 1 : 0), 0) }
 
 function inferGame(provider, text) {
   if (provider.defaultGame) return provider.defaultGame
@@ -150,19 +133,15 @@ function inferYear(text) { const match = clean(text).match(YEAR_RE); return matc
 function automotiveMeta(title, description, provider) {
   const titleText = clean(title)
   const fullText = `${titleText} ${clean(description)}`
-  const brand = findBrand(titleText) || findBrand(fullText)
+  const brand = findBrand(titleText)
   const titleVehicleTerms = matchingVehicleTerms(titleText)
   const fullVehicleTerms = matchingVehicleTerms(fullText)
-  const negatives = negativeCount(titleText)
-  const dedicated = VEHICLE_ONLY_PROVIDERS.has(provider.id)
-  const hasStrongNegative = negatives >= 2 && !brand && !titleVehicleTerms.length
-  const automotive = dedicated ? !hasStrongNegative : Boolean(brand || titleVehicleTerms.length) && !hasStrongNegative
-  return { automotive, brand, year: inferYear(titleText), vehicleClass: inferVehicleClass(fullText, provider.id), autoSignalScore: (dedicated ? 2 : 0) + (brand ? 4 : 0) + titleVehicleTerms.length * 2 + Math.min(fullVehicleTerms.length, 3) - negatives * 2 }
+  return { brand, year: inferYear(titleText), vehicleClass: inferVehicleClass(titleText, provider.id), autoSignalScore: (brand ? 4 : 0) + titleVehicleTerms.length * 2 + Math.min(fullVehicleTerms.length, 3) }
 }
 
 export function decorateResult(result, provider) {
+  if (!isVehicleResult(result)) return null
   const meta = automotiveMeta(result.title, result.description, provider)
-  if (!meta.automotive) return null
   return {
     ...result,
     brand: result.brand || meta.brand,
