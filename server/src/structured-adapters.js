@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { elementImages, previewUrl } from './preview-images.js'
 import { providers } from './providers.js'
 import { decorateResult } from './search.js'
 import { prepareResults, relevanceScore, matchesGame } from './search-core.js'
@@ -54,7 +55,7 @@ export async function searchWordPress(id, query, limit = 60) {
       const terms = (post._embedded?.['wp:term'] || []).flat()
       const vehicleCatalog = restBase === 'cars' || terms.some(term => /^(?:cars?|car[- ]mods?|car[- ]packs?|vehicles?)$/i.test(term.slug || term.name || ''))
       const row = catalogResult(id, { title, sourceUrl: post.link, vehicleEvidence: vehicleCatalog ? 'catalog' : undefined,
-        imageUrl: post._embedded?.['wp:featuredmedia']?.[0]?.source_url || dom('img').first().attr('src') || null,
+        imageUrl: previewUrl(post._embedded?.['wp:featuredmedia']?.[0]?.source_url, post.link) || elementImages(dom, dom.root(), post.link)[0] || null,
         author: post.acf?.creator || post._embedded?.author?.[0]?.name || null, description: description.slice(0, 800), formats: formats(description),
         brand: post.acf?.brand || null, year: Number(post.acf?.year) || null,
         fileSize: Number(post.acf?.file_size) > 0 ? `${post.acf.file_size} MB` : null,
@@ -86,7 +87,7 @@ export async function searchBlogger(query, limit = 60) {
       const title = post.title?.$t, sourceUrl = post.link?.find(link => link.rel === 'alternate')?.href
       const html = post.content?.$t || post.summary?.$t || '', dom = cheerio.load(html)
       const row = catalogResult('3d-models-destination', { title, sourceUrl,
-        imageUrl: post.media$thumbnail?.url?.replace('/s72-c/', '/s640/') || dom('img').first().attr('src') || null,
+        imageUrl: post.media$thumbnail?.url?.replace('/s72-c/', '/s640/') || elementImages(dom, dom.root(), sourceUrl)[0] || null,
         formats: formats(text(html)), description: `${(post.category || []).map(category => category.term).join(' · ')} ${text(html)}`.slice(0, 800),
         author: post.author?.[0]?.name?.$t || null, price: 0, isFree: true,
       })

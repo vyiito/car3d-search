@@ -69,7 +69,7 @@ export function searchExportSections(query, limit = 60) {
   const provider = providerById.get('3dexport')
   return crawlCatalog({ query, limit, provider,
     seeds: [`https://3dexport.com/3d-models/${encodeURIComponent(query.trim().replace(/\s+/g, '-'))}`, 'https://3dexport.com/3d-models/cars'],
-    parse: html => extractHtmlResults(provider, query, Number.MAX_SAFE_INTEGER, html),
+    parse: (html, base) => extractHtmlResults(provider, query, Number.MAX_SAFE_INTEGER, html, base),
     discoverSections: sectionsMatching(/^\/(?:free-)?3d-models\/(?:cars|trucks|motorcycles|buses|vans|transport)\/?$/),
   })
 }

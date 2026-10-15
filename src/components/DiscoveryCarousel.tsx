@@ -1,12 +1,13 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowLeft, ArrowRight, ArrowUpRight, CarFront, Download, ImageOff,
+  ArrowLeft, ArrowRight, ArrowUpRight, CarFront, Download,
   LoaderCircle, Search, Shuffle, Sparkles,
 } from 'lucide-react'
 import { type GlobalSearchResult } from '../api/search'
 import { progressiveSearch } from '../api/progressive'
 import { formatPrice, marketKind, resultKey } from '../../server/src/search-core.js'
 import '../discovery.css'
+import ResultPreview from './ResultPreview'
 
 type DiscoveryMode = 'Destaques' | 'Grátis' | 'Premium' | 'Download direto' | 'Corrida' | 'Game mods'
 
@@ -119,7 +120,7 @@ function DiscoveryCarousel({ onSelect, onSearch }: DiscoveryCarouselProps) {
             const kind = marketKind(result)
             return <article className="discoveryCard" key={result.id} onClick={() => onSelect(result)} tabIndex={0} onKeyDown={event => event.key === 'Enter' && onSelect(result)}>
               <div className="discoveryImage">
-                {result.imageUrl ? <img src={result.imageUrl} alt={result.title} loading="lazy" decoding="async"/> : <div className="discoveryFallback"><ImageOff size={28}/></div>}
+                <ResultPreview result={result} onResolved={url=>{if(url!==result.imageUrl)setItems(current=>current.map(item=>item.id===result.id?{...item,imageUrl:url}:item))}}/>
                 <div className="discoveryShade"/>
                 <span className="discoveryIndex">{String(index + 1).padStart(2, '0')}</span>
                 <span className="discoveryType"><CarFront size={10}/>{result.vehicleClass}</span>
