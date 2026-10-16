@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as cheerio from 'cheerio'
 import express from 'express'
-import { elementImages, linkImages, pageImages } from '../src/preview-images.js'
+import { elementImages, linkImages, pageImages, previewUrl } from '../src/preview-images.js'
 import { createPreviewResolver, registerPreviewRoute } from '../src/preview-resolver.js'
 import { extractHtmlResults } from '../src/search.js'
 import { providers } from '../src/providers.js'
@@ -35,6 +35,32 @@ test('Wire Wheels own-link images and RenderHub flex cards retain the correct pr
   const render = '<div class="flexBox"><div class="borderBox"><div class="thmbBox"><a href="/author/bmw"><img src="https://cdn.renderhub.com/author/bmw.jpg" alt="BMW E36"></a></div><a href="/author/bmw">BMW E36 $10.00 FBX</a></div></div>'
   const rows = renderItems(render, 'BMW')
   assert.equal(rows[0].imageUrl, 'https://cdn.renderhub.com/author/bmw.jpg')
+})
+
+test('RenderHub sale flags and cart icons cannot replace the linked model thumbnail', () => {
+  const url = 'https://cdn.renderhub.com/cars/ford-bronco-2023/ford-bronco-2023.jpg'
+  const html = `<div class="flexBox"><div class="borderBox">
+    <img class="itmFlag" src="https://cdn.renderhub.com/images/sale.png" alt="On Sale">
+    <div class="thmbBox"><a href="/cars/ford-bronco-2023"><img src="${url}" alt="Ford Bronco 2023"></a></div>
+    <a href="/cars/ford-bronco-2023">Ford Bronco 2023 $17.99 OBJ FBX</a>
+    <img src="https://cdn.renderhub.com/images/icart.png" alt="Add To Cart">
+  </div><div class="borderBox"><a href="/cars/ford-bronco-missing">Ford Bronco Missing $10.00 FBX</a></div></div>`
+  const rows = renderItems(html, 'Ford Bronco')
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].imageUrl, url)
+  assert.equal(rows[1].imageUrl, null)
+  const $ = cheerio.load(html)
+  assert.deepEqual(elementImages($, $('.borderBox').first(), 'https://www.renderhub.com'), [url])
+})
+
+test('RenderHub static site images are excluded from page metadata without excluding Saleen models', () => {
+  const base = 'https://www.renderhub.com/cars/saleen-s7'
+  const model = 'https://cdn.renderhub.com/cars/saleen-s7/saleen-s7.jpg'
+  assert.equal(previewUrl('https://cdn.renderhub.com/images/sale.png', base), null)
+  assert.equal(previewUrl('/images/sale.png', base), null)
+  assert.equal(previewUrl(model, base), model)
+  const $ = cheerio.load(`<meta property="og:image" content="https://cdn.renderhub.com/images/sale.png"><script type="application/ld+json">{"@type":"Product","image":"${model}"}</script><article><img src="/images/icart.png"></article>`)
+  assert.deepEqual(pageImages($, base), [model])
 })
 
 test('page previews use OG, JSON-LD and model galleries while ignoring site chrome', () => {
