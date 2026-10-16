@@ -12,10 +12,11 @@ export function searchCheckpoint(payload) {
 }
 export async function searchFetch(url, options = {}) {
   const state = context.getStore(), signal = state?.signal
-  const request = { url: String(url), method: options.method || 'GET' }
+  const { optional, ...fetchOptions } = options
+  const request = { url: String(url), method: options.method || 'GET', ...(optional ? { optional: true } : {}) }
   if (state?.requests) state.requests.push(request)
   try {
-    const response = await globalThis.fetch(url, { ...options, ...(signal ? { signal: options.signal ? AbortSignal.any([signal, options.signal]) : signal } : {}) })
+    const response = await globalThis.fetch(url, { ...fetchOptions, ...(signal ? { signal: options.signal ? AbortSignal.any([signal, options.signal]) : signal } : {}) })
     request.status = response.status
     return response
   } catch (error) { request.error = error.message; throw error }

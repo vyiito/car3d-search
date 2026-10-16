@@ -22,6 +22,7 @@ export function createSearchEngine({ providerList, adapterMap, genericSearch,
       for (const entry of hit.entries) { options.signal?.throwIfAborted(); emit({ type: 'source', ...entry }) }
       return { ...hit.payload, cached: true }
     }
+    const searchDeadlineAt = Date.now() + searchTimeoutMs
     const deadline = AbortSignal.timeout(searchTimeoutMs)
     const requestSignal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline
     const entries = await Promise.all(selected.map(provider => limit(async () => {
@@ -29,7 +30,7 @@ export function createSearchEngine({ providerList, adapterMap, genericSearch,
       try { searchUrl = provider.buildUrl(query) } catch {}
       const started = Date.now()
       const signal = AbortSignal.any([requestSignal, AbortSignal.timeout(options.expanded ? 50000 : providerTimeoutMs)])
-      const state = { signal, maxPages: options.expanded ? 40 : provider.id === 'mediafire-rr3' ? 16 : provider.id === 'vosan' ? 24 : 8, requests: [], progress: null }
+      const state = { signal, deadlineAt: Math.min(searchDeadlineAt, started + (options.expanded ? 50000 : providerTimeoutMs)), maxPages: options.expanded ? 40 : provider.id === 'mediafire-rr3' ? 16 : provider.id === 'vosan' ? 24 : 8, requests: [], progress: null }
       let payload, error
       try {
         signal.throwIfAborted()
@@ -50,7 +51,7 @@ export function createSearchEngine({ providerList, adapterMap, genericSearch,
         payload = state.progress || payload
       }
       const results = prepareResults(payload?.results, query, provider, perSource)
-      const failedRequests = state.requests.filter(request => !request.recovered && (request.error || request.status >= 400 || request.status === 202))
+      const failedRequests = state.requests.filter(request => !request.recovered && !request.optional && (request.error || request.status >= 400 || request.status === 202))
       if (!error && state.requests.length && failedRequests.length === state.requests.length && !results.length) error = failedRequests[0].error || `HTTP ${failedRequests[0].status}: a fonte não pôde ser consultada.`
       if (!error && !results.length && payload?.failedPages?.length && !payload.pagesFetched) error = payload.failedPages[0].error
       const failure = error || payload?.failedPages?.length ? sourceFailure(error || payload.failedPages[0].error, failedRequests) : null
@@ -71,7 +72,7 @@ export function createSearchEngine({ providerList, adapterMap, genericSearch,
           }
           return false
         })),
-        requests: state.requests.map(({ url, status, error }) => ({ url, status: status || null, ...(error ? { error } : {}) })),
+        requests: state.requests.map(({ url, status, error, optional }) => ({ url, status: status || null, ...(error ? { error } : {}), ...(optional ? { optional: true } : {}) })),
         failedPages: payload?.failedPages || [],
       }
       const source = { provider: provider.id, name: provider.name, searchUrl,

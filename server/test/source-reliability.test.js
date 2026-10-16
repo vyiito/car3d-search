@@ -106,18 +106,42 @@ test('Baza, Zifir and 3DExport use the search routes and field names published b
 
 test('Wire Wheels uses public store pagination and currency units while retaining free models', async t => {
   const urls = []
-  const product = { name: 'BMW E36 Premium', permalink: 'https://store.wirewheelsclub.com/product/bmw-e36/', short_description: 'FBX OBJ', images: [{ src: 'https://store.wirewheelsclub.com/bmw.jpg' }], prices: { price: '3990', currency_minor_unit: 2, currency_symbol: '€' } }
+  const product = { id: 1, name: 'BMW E36 Premium', permalink: 'https://store.wirewheelsclub.com/product/bmw-e36/', short_description: 'FBX OBJ', images: [{ src: 'https://store.wirewheelsclub.com/bmw.jpg' }], prices: { price: '3990', currency_minor_unit: 2, currency_symbol: '€' } }
   t.mock.method(globalThis, 'fetch', async value => {
     const url = new URL(value); urls.push(url.href)
     if (url.hostname === 'wirewheelsclub.com') return new Response('<a class="portfolio-item" href="bmw-e36/"><img src="/bmw.jpg" alt="BMW E36 Free"></a>')
-    return new Response(JSON.stringify(Number(url.searchParams.get('page')) === 1 ? [] : [product]), { headers: { 'x-wp-totalpages': '2' } })
+    if (url.pathname.includes('/wc/store/')) return new Response(JSON.stringify([product]))
+    const post = { id: 1, title: { rendered: product.name }, link: product.permalink, content: { rendered: 'FBX OBJ' }, _embedded: { 'wp:featuredmedia': [{ source_url: product.images[0].src }] } }
+    return new Response(JSON.stringify(Number(url.searchParams.get('page')) === 1 ? [] : [post]), { headers: { 'x-wp-totalpages': '2' } })
   })
   const payload = await searchWireCatalog('BMW E36', 20)
   assert.equal(payload.results.length, 2); assert.equal(payload.pagesFetched, 3)
-  assert.ok(urls.some(url => url.includes('/wp-json/wc/store/v1/products') && url.includes('page=2')))
+  assert.ok(urls.some(url => url.includes('/wp-json/wp/v2/product') && url.includes('page=2')))
   const premium = payload.results.find(row => !row.isFree)
   assert.equal(premium.price, 39.9); assert.equal(premium.priceLabel, '€39.90')
   assert.equal(wireStoreItem({ ...product, prices: {} }).price, null)
+})
+
+test('catalog pagination stops before the hard deadline and reports remaining pages as limited', async () => {
+  let visits = 0
+  const engine = createSearchEngine({ providerList: [provider], providerTimeoutMs: 1000, adapterMap: new Map([['test', () => crawlCatalog({ provider, query: 'BMW E36', seeds: ['https://example.com/search'], parse: () => [row], fetchPage: async url => { visits++; return { html: '<a rel="next" href="/search?page=2">Next</a>', finalUrl: url } } })]]) })
+  const payload = await engine('BMW E36')
+  assert.equal(visits, 1); assert.equal(payload.results.length, 1)
+  assert.equal(payload.sources[0].status, 'ok'); assert.equal(payload.sources[0].coverage.status, 'limited')
+  assert.equal(payload.sources[0].coverage.stopReason, 'time-budget')
+})
+
+test('unavailable optional store prices do not discard a successfully read vehicle catalog', async t => {
+  t.mock.method(globalThis, 'fetch', async value => {
+    const url = new URL(value)
+    if (url.hostname === 'wirewheelsclub.com') return new Response('')
+    if (url.pathname.includes('/wc/store/')) return new Response('Temporary', { status: 503 })
+    return new Response(JSON.stringify([{ id: 2, title: { rendered: 'BMW E36' }, link: 'https://store.wirewheelsclub.com/product/bmw-e36/', content: { rendered: 'FBX' } }]))
+  })
+  const engine = createSearchEngine({ providerList: [{ ...provider, id: 'wire-wheels-club' }], adapterMap: new Map([['wire-wheels-club', searchWireCatalog]]) })
+  const payload = await engine('BMW E36')
+  assert.equal(payload.results.length, 1); assert.equal(payload.results[0].price, null)
+  assert.equal(payload.sources[0].status, 'ok'); assert.equal(payload.sources[0].coverage.status, 'query-complete')
 })
 
 test('a working global query completes without downloading unrelated catalog sections', async () => {

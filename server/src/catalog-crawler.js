@@ -68,11 +68,13 @@ export async function fetchCatalogPage(url, options = {}) {
 // second. Count matching unique models, not irrelevant cards or duplicates.
 export async function crawlCatalog({ seeds, query, limit = 60, provider, parse, discoverSections, maxPages = searchPageLimit(), fetchPage = fetchCatalogPage, concurrency = 2, prioritizeSearch = false }) {
   const queue = [...new Set(seeds)].map(url => ({ url, section: true })), visited = new Set(), failures = [], sections = new Set(seeds), items = new Map()
-  let pagesFetched = 0, hasMore = false
+  let pagesFetched = 0, hasMore = false, timeBudget = false
   while (queue.length && visited.size < maxPages && items.size < limit) {
     const queryPage = job => /\/search(?:\/|\?|$)|[?&](?:q|s|query|search_keywords)=/i.test(job.url)
     queue.sort((a, b) => (prioritizeSearch ? Number(queryPage(b)) - Number(queryPage(a)) : 0) || Number(b.section) - Number(a.section))
     if (searchContext()?.signal?.aborted) break
+    // Reserve read time plus parsing overhead before starting another batch.
+    if (pagesFetched > 0 && searchContext()?.deadlineAt && Date.now() + 20000 > searchContext().deadlineAt) { timeBudget = true; break }
     const batch = []
     while (queue.length && batch.length < Math.max(1, Math.min(3, concurrency)) && visited.size < maxPages) {
       const job = queue.shift()
@@ -98,7 +100,7 @@ export async function crawlCatalog({ seeds, query, limit = 60, provider, parse, 
   hasMore = queue.length > 0 || items.size > limit
   return { results: prepareResults([...items.values()], query, provider, limit), pagesFetched, hasMore,
     sections: [...sections], failedPages: failures,
-    stopReason: hasMore ? items.size >= limit ? 'result-limit' : 'page-limit' : failures.length ? 'failed-pages' : 'exhausted',
+    stopReason: timeBudget ? 'time-budget' : hasMore ? items.size >= limit ? 'result-limit' : 'page-limit' : failures.length ? 'failed-pages' : 'exhausted',
     ...(pagesFetched ? {} : { error: failures[0]?.error || 'Nenhuma página do catálogo foi consultada.' }),
   }
 }
