@@ -144,6 +144,20 @@ test('unavailable optional store prices do not discard a successfully read vehic
   assert.equal(payload.sources[0].status, 'ok'); assert.equal(payload.sources[0].coverage.status, 'query-complete')
 })
 
+test('Wire Wheels retries a failed product index through the equivalent public store catalog', async t => {
+  t.mock.method(globalThis, 'fetch', async value => {
+    const url = new URL(value)
+    if (url.hostname === 'wirewheelsclub.com') return new Response('')
+    if (url.pathname.includes('/wp/v2/product')) throw new Error('fetch failed')
+    return new Response(JSON.stringify([{ id: 3, name: 'BMW E36', permalink: 'https://store.wirewheelsclub.com/product/bmw-e36/', prices: { price: '995', currency_minor_unit: 2, currency_symbol: '€' }, images: [{ src: 'https://store.wirewheelsclub.com/bmw.jpg' }] }]))
+  })
+  const engine = createSearchEngine({ providerList: [{ ...provider, id: 'wire-wheels-club' }], adapterMap: new Map([['wire-wheels-club', searchWireCatalog]]) })
+  const payload = await engine('BMW E36')
+  assert.equal(payload.results.length, 1); assert.equal(payload.results[0].price, 9.95)
+  assert.equal(payload.sources[0].coverage.status, 'query-complete')
+  assert.equal(payload.sources[0].coverage.requests.find(request => request.url.includes('/wp/v2/product')).recovered, true)
+})
+
 test('a working global query completes without downloading unrelated catalog sections', async () => {
   const visits = []
   const options = { query: 'BMW E36', provider, searchSeeds: ['https://example.com/search'], browseSeeds: ['https://example.com/cars'],

@@ -35,20 +35,26 @@ export async function searchWireCatalog(query, limit = 60) {
       add(payload.results); pagesFetched += payload.pagesFetched; failedPages.push(...payload.failedPages); freeHasMore = payload.hasMore; searchCheckpoint(snapshot())
     }),
     (async () => {
-      let totalPages = 1
-      for (let page = 1; page <= totalPages && page <= searchPageLimit() && items.size < limit; page++) {
-        const url = new URL(products)
+      let totalPages = 1, useStore = false, firstFailure = null
+      for (let page = 1, attempts = 0; page <= totalPages && attempts < searchPageLimit() && items.size < limit; page++) {
+        attempts++
+        const url = new URL(useStore ? store : products)
         if (!/^(?:cars?|vehicles?|automotive)$/i.test(query.trim())) url.searchParams.set('search', query)
         url.searchParams.set('per_page', '50'); url.searchParams.set('page', String(page))
-        url.searchParams.set('_embed', 'wp:featuredmedia')
-        url.searchParams.set('_fields', 'id,title,link,content,_links,_embedded')
+        if (!useStore) url.searchParams.set('_embed', 'wp:featuredmedia')
+        url.searchParams.set('_fields', useStore ? 'id,name,permalink,short_description,images,prices' : 'id,title,link,content,_links,_embedded')
+        if (useStore && !sections.includes(store)) sections.push(store)
         try {
-          const response = await searchFetch(url, { signal: AbortSignal.timeout(10000), headers: { accept: 'application/json', 'user-agent': 'VJ3DSearch/1.0 (+https://github.com/vyiito/car3d-search)' } })
+          const response = await searchFetch(url, { signal: AbortSignal.timeout(useStore ? 8000 : 10000), headers: { accept: 'application/json', 'user-agent': 'VJ3DSearch/1.0 (+https://github.com/vyiito/car3d-search)' } })
           if (!response.ok) throw new Error(`HTTP ${response.status}`)
           const data = await response.json()
           if (!Array.isArray(data)) throw new Error('A loja não forneceu uma lista de produtos.')
           pagesFetched++; totalPages = Math.max(1, Number(response.headers.get('x-wp-totalpages') || 1))
-          const rows = data.map(item => {
+          if (useStore && firstFailure) {
+            for (const request of searchContext()?.requests || []) if (request.url === firstFailure.url) request.recovered = true
+            firstFailure = null
+          }
+          const rows = useStore ? data.map(wireStoreItem).filter(Boolean) : data.map(item => {
             const description = text(item.content?.rendered)
             const row = catalogResult('wire-wheels-club', { title: text(item.title?.rendered), sourceUrl: item.link,
               imageUrl: item._embedded?.['wp:featuredmedia']?.[0]?.source_url || null, description,
@@ -59,7 +65,13 @@ export async function searchWireCatalog(query, limit = 60) {
           }).filter(Boolean)
           add(rows); premiumHasMore = page < totalPages
           searchCheckpoint(snapshot())
-        } catch (error) { failedPages.push({ url: url.href, error: error.message }); break }
+        } catch (error) {
+          const failure = { url: url.href, error: error.message }
+          if (!useStore && attempts < searchPageLimit() && !searchContext()?.signal?.aborted) {
+            firstFailure = failure; useStore = true; page = 0; totalPages = 1; continue
+          }
+          failedPages.push(...(firstFailure ? [firstFailure] : []), failure); break
+        }
       }
     })(),
   ])
