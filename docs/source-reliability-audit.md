@@ -6,13 +6,13 @@ Resultados detalhados, entradas consultadas, limites, duração e falhas: [sourc
 
 ## Correções verificadas
 
-- **3D-Baza**: pesquisa publicada em `/Car/search/q-{termo}`, em vez de percorrer apenas lançamentos de categorias. Paginação `/search/q-{termo}/page-N` preservada.
+- **3D-Baza**: pesquisa global publicada em `/all-models/search/q-{termo}`, em vez de percorrer apenas lançamentos de categorias. Inclui carros, caminhões e outros veículos, filtrados pelo assunto do modelo. Paginação `/search/q-{termo}/page-N` preservada. O controle Scania recuperou 13 caminhões na primeira página.
 - **ZIFIR 3D**: formulário usa `/search/product?q=...`. A rota anterior `/search?query=...` não efetuava a consulta. Incluídas as seções reais de SUVs/off-road, pickups, vans e modelos gratuitos.
 - **3DExport**: usa o formulário `/search?search_keywords=...`, em vez de tratar o termo como uma categoria inexistente.
 - **Wire Wheels Club**: catálogo gratuito e API pública WooCommerce Store; leitura de todas as páginas informadas pela API, previews, formatos e unidades da moeda. Removida a entrada `/products/`, que não corresponde ao catálogo publicado.
 - **RenderHub**: a consulta e sua paginação recebem prioridade sobre categorias gerais. O modelo correspondente a Ford Bronco DR foi preservado.
 - **GTA5-Mods**: integrado ao catálogo, filtros de fonte e GTA V, buscas e paginação numérica. Mantém veículos completos, previews, autores e links originais. Exclui pinturas, handling, sons, peças, mapas e armas. Detalhes não seguem links de arquivos automaticamente.
-- **Coletor comum**: duas páginas por fonte em paralelo, limite de páginas mantido, progresso salvo a cada página concluída. Um retry limitado para HTTP 429/502/503/504; respostas recuperadas não continuam marcadas como falha. Desafios HTTP 202 não contam como páginas de modelos válidas.
+- **Coletor comum**: duas páginas por fonte em paralelo, limite de páginas mantido, progresso salvo a cada página concluída. A busca global de cada fonte tem prioridade; categorias gerais são usadas quando a entrada de busca não pode ser lida. Leitura de até 16 segundos por página, 26 segundos por fonte e 65 segundos para a busca inicial. Um retry limitado para HTTP 429/502/503/504; respostas recuperadas não continuam marcadas como falha. Desafios HTTP 202 não contam como páginas de modelos válidas.
 - **Status**: bloqueio, acesso autorizado, falha temporária e timeout recebem motivos próprios. Fontes com bloqueio ou login oferecem a busca original, sem sugerir aprofundamento automático que repetiria o bloqueio. Uma página de cobrança de API não é aceita como catálogo vazio concluído.
 
 ## Consultas de controle
