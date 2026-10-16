@@ -2,11 +2,12 @@ import pLimit from 'p-limit'
 import { prepareResults, normalizeText } from './search-core.js'
 import { parsePerSource } from './search-options.js'
 import { withSearchContext } from './search-context.js'
+import { sourceFailure } from './source-failures.js'
 
 // REST and SSE use one engine: one adapter and one status per provider.
 export function createSearchEngine({ providerList, adapterMap, genericSearch,
-  concurrency = Number(process.env.SEARCH_CONCURRENCY || 8), providerTimeoutMs = 20000,
-  searchTimeoutMs = 55000, cacheTtlMs = Number(process.env.CACHE_TTL_MS || 600000) }) {
+  concurrency = Number(process.env.SEARCH_CONCURRENCY || 8), providerTimeoutMs = 26000,
+  searchTimeoutMs = 65000, cacheTtlMs = Number(process.env.CACHE_TTL_MS || 600000) }) {
   const cache = new Map()
   const limit = pLimit(Number.isInteger(concurrency) && concurrency > 0 ? concurrency : 8)
   return async function search(query, options = {}) {
@@ -49,8 +50,10 @@ export function createSearchEngine({ providerList, adapterMap, genericSearch,
         payload = state.progress || payload
       }
       const results = prepareResults(payload?.results, query, provider, perSource)
-      const failedRequests = state.requests.filter(request => request.error || request.status >= 400 || request.status === 202)
+      const failedRequests = state.requests.filter(request => !request.recovered && (request.error || request.status >= 400 || request.status === 202))
       if (!error && state.requests.length && failedRequests.length === state.requests.length && !results.length) error = failedRequests[0].error || `HTTP ${failedRequests[0].status}: a fonte não pôde ser consultada.`
+      if (!error && !results.length && payload?.failedPages?.length && !payload.pagesFetched) error = payload.failedPages[0].error
+      const failure = error || payload?.failedPages?.length ? sourceFailure(error || payload.failedPages[0].error, failedRequests) : null
       const truncated = (payload?.results?.length || 0) > perSource || payload?.hasMore === true || payload?.stopReason === 'result-limit' || payload?.stopReason === 'page-limit'
       const sections = payload?.sections || state.progress?.sections || []
       const totalAvailable = payload?.totalAvailable ?? state.progress?.totalAvailable
@@ -74,7 +77,7 @@ export function createSearchEngine({ providerList, adapterMap, genericSearch,
       const source = { provider: provider.id, name: provider.name, searchUrl,
         status: error ? 'error' : 'ok', count: results.length,
         pagesFetched: Number(payload?.pagesFetched || 0), durationMs: Date.now() - started,
-        ...(error ? { error } : {}), coverage,
+        ...(failure || {}), coverage,
       }
       const entry = { source, results }
       if (!options.signal?.aborted) emit({ type: 'source', ...entry })

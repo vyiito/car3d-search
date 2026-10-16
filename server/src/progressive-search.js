@@ -8,10 +8,12 @@ import { searchVertexNative } from './vertex-adapter.js'
 import { nativeMarketAdapters } from './market-adapters.js'
 import { search3ddd } from './remaining-adapters.js'
 import { searchCGTraderMarketV2 } from './cgtrader-adapter.js'
+import { searchGta5 } from './gta5-adapter.js'
 import { searchWordPress, searchBlogger, searchShopify, searchBlenderKit, searchMediaFire, search3DRush, searchWarehouse } from './structured-adapters.js'
 import { searchBazaSections, searchRenderHubSections, searchWireSections, searchZifirSections, searchCGMoodSections, searchGallerySections, searchExportSections, searchCADSections } from './section-adapters.js'
 
 const explicitAdapters = new Map([
+  ['gta5-mods', searchGta5],
   ['3drush', search3DRush],
   ['3dwarehouse', searchWarehouse],
   ['3dcadbrowser', searchCADSections],

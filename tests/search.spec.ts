@@ -331,3 +331,21 @@ test('the discovery feed and old saved favorites contain only vehicles', async (
   await expect(page.locator('.savedRail button')).toHaveCount(1)
   await expect(page.locator('.heroMetrics')).toContainText('1 favoritos')
 })
+
+test('GTA5-Mods participates in search and blocked sources offer the original site instead of deeper crawling', async ({ page }) => {
+  await page.route(url => url.pathname.startsWith('/api/'), async route => {
+    const model = { ...result(1, 'Ford Bronco'), sourceId: 'gta5-mods', source: 'GTA5-Mods', sourceType: 'game-mods', sourceUrl: 'https://www.gta5-mods.com/vehicles/ford-bronco', game: 'GTA V' }
+    const blocked = { ...source('free3d', 0), name: 'Free3D', status: 'error', error: 'A fonte bloqueou a consulta automática.', failureKind: 'blocked', retryable: false, coverage: { depth: 'standard', status: 'partial', hasMore: false, stopReason: 'failed-pages', totalAvailable: null, sections: [], requests: [], failedPages: [] } }
+    const events = [{ type: 'source', source: source('gta5-mods', 1), results: [model], completed: 1 }, { type: 'source', source: blocked, results: [], completed: 2 }, { type: 'done', providerCount: 2, completed: 2 }]
+    await route.fulfill({ contentType: 'text/event-stream', body: events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('') })
+  })
+  await page.goto('/?q=Ford+Bronco&source=gta5-mods')
+  await expect(page.locator('.card')).toHaveCount(1)
+  await expect(page.locator('.card .sourceRow')).toContainText('GTA5-Mods')
+  await expect(page.locator('.cardFooter a')).toHaveAttribute('href', 'https://www.gta5-mods.com/vehicles/ford-bronco')
+  await page.locator('.sourceStatusSection > summary').click()
+  const blocked = page.locator('.sourceCoverageCard').filter({ hasText: 'Free3D' })
+  await expect(blocked).toContainText('Consulta automática bloqueada pela fonte')
+  await expect(blocked.getByRole('link', { name: /BUSCAR NO SITE/ })).toBeVisible()
+  await expect(blocked.getByRole('button', { name: /Aprofundar/ })).toHaveCount(0)
+})
