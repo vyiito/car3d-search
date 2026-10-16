@@ -1,4 +1,4 @@
-import { elementImages, linkImages } from './preview-images.js'
+import { linkImages } from './preview-images.js'
 import { searchFetch as fetch } from './search-context.js'
 import * as cheerio from 'cheerio'
 import pLimit from 'p-limit'
@@ -21,7 +21,6 @@ function marketOf(text){const s=clean(text);if(/\bfree\b/i.test(s))return{price:
 function result({id,title,source,sourceId,sourceUrl,imageUrl=null,formats=[],price=null,isFree=null,priceLabel=null,author=null,description=null,query,extraScore=0}){const ym=title.match(YEAR_RE);return{id:`${sourceId}:${id}`,title,source,sourceId,sourceType:'3d-models',sourceUrl,imageUrl,formats,price,isFree,priceLabel,downloadable:null,downloadUrl:null,author,description,fileSize:null,brand:brandOf(title),game:null,year:ym?Number(ym[1]):null,vehicleClass:vehicleClass(`${title} ${description||''}`),score:score(`${title} ${description||''}`,query)+extraScore}}
 function unique(items,limit){const map=new Map();for(const item of items){if(!item?.sourceUrl||!item?.title)continue;const cur=map.get(item.sourceUrl);if(!cur||item.score>cur.score)map.set(item.sourceUrl,item)}return[...map.values()].sort((a,b)=>b.score-a.score||a.title.localeCompare(b.title)).slice(0,limit)}
 async function fetchHtml(url,timeout=12000){const c=new AbortController(),timer=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{signal:c.signal,redirect:'follow',headers:{'user-agent':UA,accept:'text/html,application/xhtml+xml','accept-language':'en-US,en;q=0.9'}});if(!r.ok)throw new Error(`HTTP ${r.status}`);return{html:await r.text(),finalUrl:r.url||url}}finally{clearTimeout(timer)}}
-function imageFrom($,card,base){return elementImages($,card,base)[0]||null}
 
 function parseBalancedObject(text,start){let depth=0,inString=false,escaped=false;for(let i=start;i<text.length;i++){const c=text[i];if(inString){if(escaped)escaped=false;else if(c==='\\')escaped=true;else if(c==='"')inString=false;continue}if(c==='"'){inString=true;continue}if(c==='{')depth++;else if(c==='}'){depth--;if(depth===0){try{return JSON.parse(text.slice(start,i+1))}catch{return null}}}}return null}
 function extractCgListings(html){const rows=[],re=/\{"id":"?[A-Za-z0-9_-]+"?,"type":"listingItem","attributes":\{/g;let m;while((m=re.exec(html))&&rows.length<150){const obj=parseBalancedObject(html,m.index);if(obj?.type==='listingItem'&&obj?.attributes)rows.push(obj.attributes);re.lastIndex=Math.max(re.lastIndex,m.index+1)}return rows}
