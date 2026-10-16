@@ -21,7 +21,6 @@ async function mockSearch(page: Page, count = 64) {
       const events = [{ type: 'start', providerCount: 2 }, ...groups.map((results, index) => ({ type: 'source', source: source(index === 0 ? 'sketchfab' : 'cgtrader', results.length), results, completed: index + 1 })), { type: 'done', providerCount: 2, completed: 2, totalResults: count }]
       await route.fulfill({ contentType: 'text/event-stream', body: events.map(event => `data: ${JSON.stringify(event)}\n\n`).join('') })
     } else if (url.pathname === '/api/details') await route.fulfill({ json: { title: 'BMW E36 1', downloadUrl: null, gallery: [], formats: ['OBJ'], year: 1994 } })
-    else if (url.pathname === '/api/references') await route.fulfill({ json: { images: [], angleCoverage: [], query: 'BMW E36', packId: 'test', downloadableCount: 0 } })
     else await route.fulfill({ status: 503, json: { error: 'Unavailable' } })
   })
   return requests
