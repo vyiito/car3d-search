@@ -13,6 +13,7 @@ const brandSlugFromQuery = value => {
 }
 
 export const providers = [
+  { id: 'gta5-mods', name: 'GTA5-Mods', type: 'game-mods', freeCatalog: true, defaultGame: 'GTA V', pagination: true, baseUrl: 'https://www.gta5-mods.com', browseUrl: 'https://www.gta5-mods.com/vehicles', buildUrl: q => `https://www.gta5-mods.com/search/${encodeURIComponent(q.replaceAll('/', '-')).replaceAll('%20', '+')}` },
   { id: 'rigmodels', name: 'RigModels', type: '3d-models', freeCatalog: true, pagination: true, baseUrl: 'https://rigmodels.com', buildUrl: q => `https://rigmodels.com/index.php?searchkeyword=${encodeURIComponent(q)}` },
   { id: 'free3d', name: 'Free3D', type: '3d-models', pagination: true, baseUrl: 'https://free3d.com', buildUrl: q => `https://free3d.com/3d-models/${encodeURIComponent(q.trim().replace(/\s+/g, '-'))}` },
   { id: '3drush', name: '3D Rush', type: '3d-models', pagination: true, baseUrl: 'https://3drush.com', buildUrl: q => `https://3drush.com/3d-models?search-term=${encodeURIComponent(q)}` },
@@ -37,13 +38,13 @@ export const providers = [
 
   { id: '3dcadbrowser', name: '3D CAD Browser', type: '3d-models', pagination: true, maxPages: 10, baseUrl: 'https://www.3dcadbrowser.com', browseUrl: 'https://www.3dcadbrowser.com/3d-models/car', buildUrl: q => `https://www.3dcadbrowser.com/3d-models/${encodeURIComponent(fullSlug(q))}` },
   { id: '3dcar-ru', name: '3DCar.ru', type: '3d-models', pagination: true, maxPages: 10, baseUrl: 'https://3dcar.ru', browseUrl: 'https://3dcar.ru/gallery', buildUrl: () => 'https://3dcar.ru/gallery' },
-  { id: '3d-baza', name: '3D-Baza', type: '3d-models', pagination: true, maxPages: 12, baseUrl: 'https://3d-baza.com', browseUrl: 'https://3d-baza.com/Car', buildUrl: () => 'https://3d-baza.com/Car' },
+  { id: '3d-baza', name: '3D-Baza', type: '3d-models', pagination: true, maxPages: 12, baseUrl: 'https://3d-baza.com', browseUrl: 'https://3d-baza.com/Car', buildUrl: q => `https://3d-baza.com/Car/search/q-${encodeURIComponent(q)}` },
   { id: 'blendkit', name: 'BlendKit', type: '3d-models', pagination: true, maxPages: 10, baseUrl: 'https://www.blenderkit.com', browseUrl: 'https://www.blenderkit.com/?query=category_subtree%3Avehicle', buildUrl: q => `https://www.blenderkit.com/?query=${encodeURIComponent(`${q} category_subtree:vehicle`)}` },
   { id: 'wire-wheels-club', name: 'Wire Wheels Club', type: '3d-models', freeCatalog: true, pagination: false, baseUrl: 'https://wirewheelsclub.com', browseUrl: 'https://wirewheelsclub.com/models/', buildUrl: () => 'https://wirewheelsclub.com/models/' },
   { id: '3ddd-ru', name: '3ddd.ru', type: '3d-models', pagination: true, maxPages: 8, baseUrl: 'https://3ddd.ru', browseUrl: 'https://3ddd.ru/3dmodels', buildUrl: q => `https://3ddd.ru/3dmodels?search=${encodeURIComponent(q)}` },
   { id: 'roh3d', name: 'ROH3D', type: '3d-models', pagination: true, maxPages: 8, baseUrl: 'https://roh3d.com', browseUrl: 'https://roh3d.com/collections/roh3d-collection', buildUrl: q => `https://roh3d.com/search?q=${encodeURIComponent(q)}&type=product` },
-  { id: 'zifir3d', name: 'ZIFIR 3D', type: '3d-models', pagination: true, maxPages: 10, baseUrl: 'https://zifir3d.com', browseUrl: 'https://zifir3d.com/', buildUrl: q => `https://zifir3d.com/search?query=${encodeURIComponent(q)}` },
-  { id: '3dexport', name: '3DExport', type: '3d-models', pagination: true, maxPages: 10, baseUrl: 'https://3dexport.com', browseUrl: 'https://3dexport.com/3d-models/cars', buildUrl: q => `https://3dexport.com/3d-models/${encodeURIComponent(q.trim().replace(/\s+/g,'-'))}` },
+  { id: 'zifir3d', name: 'ZIFIR 3D', type: '3d-models', pagination: true, maxPages: 10, baseUrl: 'https://zifir3d.com', browseUrl: 'https://zifir3d.com/', buildUrl: q => `https://zifir3d.com/search/product?q=${encodeURIComponent(q)}` },
+  { id: '3dexport', name: '3DExport', type: '3d-models', pagination: true, maxPages: 10, baseUrl: 'https://3dexport.com', browseUrl: 'https://3dexport.com/3d-models/cars', buildUrl: q => `https://3dexport.com/search?search_keywords=${encodeURIComponent(q)}` },
   { id: 'cgmood', name: 'CGMood', type: '3d-models', pagination: true, maxPages: 10, baseUrl: 'https://cgmood.com', browseUrl: 'https://cgmood.com/category/transport/cars', buildUrl: () => 'https://cgmood.com/category/transport/cars' },
   { id: 'renderhub', name: 'RenderHub', type: '3d-models', pagination: true, maxPages: 10, baseUrl: 'https://www.renderhub.com', browseUrl: 'https://www.renderhub.com/3d-models/vehicles/cars', buildUrl: q => `https://www.renderhub.com/3d-models?s=${encodeURIComponent(q)}` },
 ]

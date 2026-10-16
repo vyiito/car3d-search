@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio'
 import { providers } from './providers.js'
 import { crawlCatalog } from './catalog-crawler.js'
-import { bazaItems, wireItems } from './catalog-adapters.js'
+import { bazaItems } from './catalog-adapters.js'
 import { renderItems, galleryItems } from './commerce-adapters.js'
 import { zifirItems, cgmoodItems } from './remaining-adapters.js'
 import { extractHtmlResults } from './search.js'
@@ -9,6 +9,7 @@ import { enrich3DCad } from './market-adapters.js'
 import { catalogResult } from './structured-adapters.js'
 import { searchCheckpoint } from './search-context.js'
 import { vehicleQueryVariants } from './query-plan.js'
+import { searchWireCatalog } from './wire-store-adapter.js'
 
 const providerById = new Map(providers.map(provider => [provider.id, provider]))
 
@@ -23,15 +24,15 @@ function sectionsMatching(pattern) {
 }
 
 export function searchBazaSections(query, limit = 60) {
-  return crawlCatalog({ query, limit, provider: providerById.get('3d-baza'),
-    seeds: ['https://3d-baza.com/Car', 'https://3d-baza.com/Truck', 'https://3d-baza.com/Bus'],
+  return crawlCatalog({ query, limit, provider: providerById.get('3d-baza'), prioritizeSearch: true,
+    seeds: [`https://3d-baza.com/Car/search/q-${encodeURIComponent(query)}`, 'https://3d-baza.com/Car', 'https://3d-baza.com/Truck', 'https://3d-baza.com/Bus'],
     parse: html => bazaItems(html, query),
     discoverSections: sectionsMatching(/^\/(?:Car|Truck|Bus|Motorcycle|Motorbike)(?:\/(?!filter\/)[^/?]+)?\/?$/),
   })
 }
 
 export function searchRenderHubSections(query, limit = 60) {
-  return crawlCatalog({ query, limit, provider: providerById.get('renderhub'),
+  return crawlCatalog({ prioritizeSearch: true, query, limit, provider: providerById.get('renderhub'),
     seeds: [...vehicleQueryVariants(query).map(term => `https://www.renderhub.com/3d-models?s=${encodeURIComponent(term)}`), 'https://www.renderhub.com/3d-models/vehicles/cars', 'https://www.renderhub.com/3d-models/vehicles/trucks', 'https://www.renderhub.com/3d-models/vehicles/motorcycles', 'https://www.renderhub.com/free-3d-models/vehicles/cars'],
     parse: html => renderItems(html, query),
     discoverSections: sectionsMatching(/^\/(?:free-)?3d-models\/vehicles\/(?:cars|trucks|motorcycles|buses|vans)\/?$/),
@@ -39,18 +40,14 @@ export function searchRenderHubSections(query, limit = 60) {
 }
 
 export function searchWireSections(query, limit = 60) {
-  return crawlCatalog({ query, limit, provider: providerById.get('wire-wheels-club'),
-    seeds: ['https://wirewheelsclub.com/models/', `https://store.wirewheelsclub.com/?s=${encodeURIComponent(query)}&post_type=product`, 'https://store.wirewheelsclub.com/products/'],
-    parse: (html, url) => wireItems(html, url, query, new URL(url).hostname === 'store.wirewheelsclub.com'),
-    discoverSections: sectionsMatching(/^\/product-category\/(?:muscle-car|race-car|convertible|offroad|coupe|sedan|hatchback)\/?$/),
-  })
+  return searchWireCatalog(query, limit)
 }
 
 export function searchZifirSections(query, limit = 60) {
-  return crawlCatalog({ query, limit, provider: providerById.get('zifir3d'),
-    seeds: [`https://zifir3d.com/search?query=${encodeURIComponent(query)}`, 'https://zifir3d.com/'],
+  return crawlCatalog({ prioritizeSearch: true, query, limit, provider: providerById.get('zifir3d'),
+    seeds: [`https://zifir3d.com/search/product?q=${encodeURIComponent(query)}`, 'https://zifir3d.com/'],
     parse: html => zifirItems(html, query),
-    discoverSections: sectionsMatching(/^\/catalog\/(?:convertible|classic|coupe|hatchback|sedan|wagon|suv|racing-car-3d-models|concept-car|police-car|other-models)\/?$/),
+    discoverSections: sectionsMatching(/^\/catalog\/(?:convertible|pickup|classic|coupe|hatchback|sedan|wagon|suv-offroad|van-3d-model|racing-car-3d-models|concept-car|police-car|other-models|free-models)\/?$/),
   })
 }
 
@@ -67,8 +64,8 @@ export function searchGallerySections(query, limit = 60) {
 
 export function searchExportSections(query, limit = 60) {
   const provider = providerById.get('3dexport')
-  return crawlCatalog({ query, limit, provider,
-    seeds: [`https://3dexport.com/3d-models/${encodeURIComponent(query.trim().replace(/\s+/g, '-'))}`, 'https://3dexport.com/3d-models/cars'],
+  return crawlCatalog({ prioritizeSearch: true, query, limit, provider,
+    seeds: [`https://3dexport.com/search?search_keywords=${encodeURIComponent(query)}`, 'https://3dexport.com/3d-models/cars'],
     parse: (html, base) => extractHtmlResults(provider, query, Number.MAX_SAFE_INTEGER, html, base),
     discoverSections: sectionsMatching(/^\/(?:free-)?3d-models\/(?:cars|trucks|motorcycles|buses|vans|transport)\/?$/),
   })

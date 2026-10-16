@@ -63,6 +63,8 @@ export interface SourceSearchStatus {
   searchUrl: string
   durationMs: number
   error?: string
+  failureKind?: 'access-required' | 'blocked' | 'timeout' | 'rate-limit' | 'temporary' | 'integration'
+  retryable?: boolean
   coverage?: SourceCoverage
 }
 

@@ -208,6 +208,12 @@ export async function getResultDetails(sourceId, sourceUrl) {
   const $ = cheerio.load(html)
   $('script:not([type="application/ld+json"]),style,noscript,svg').remove()
   const metadata = pageMetadata($, finalUrl)
+  if (sourceId === 'gta5-mods') return {
+    sourceId, source: provider.name, sourceUrl: finalUrl, ...metadata,
+    imageUrl: metadata.gallery[0] || null, game: 'GTA V', price: 0, isFree: true, priceLabel: 'GRÁTIS',
+    downloadUrl: null, downloadActionUrl: finalUrl, downloadStatus: 'source', downloadCandidates: [],
+    detailsFetchedAt: new Date().toISOString(),
+  }
   const initialCandidates = collectDownloadCandidates($, finalUrl)
   const resolved = await resolveNestedDirect(provider, finalUrl, initialCandidates)
   const action = resolved.candidates.find(candidate => candidate.kind === 'action') || null
