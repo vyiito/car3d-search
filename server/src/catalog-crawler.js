@@ -38,7 +38,7 @@ export function nextCatalogPages(html, currentUrl) {
 }
 
 export async function fetchCatalogPage(url, options = {}) {
-  const request = { ...options, signal: options.signal || AbortSignal.timeout(8000), headers: { 'user-agent': 'VJ3DSearch/1.0 (+https://github.com/vyiito/car3d-search)', accept: 'text/html,application/xhtml+xml', ...options.headers } }
+  const request = { ...options, signal: options.signal || AbortSignal.timeout(16000), headers: { 'user-agent': 'VJ3DSearch/1.0 (+https://github.com/vyiito/car3d-search)', accept: 'text/html,application/xhtml+xml', ...options.headers } }
   let response = await searchFetch(url, request)
   // One bounded retry for an upstream temporary response; never retry access challenges.
   if ([429, 502, 503, 504].includes(response.status) && Number(response.headers.get('retry-after') || 0) <= 1) {

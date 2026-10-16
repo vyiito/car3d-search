@@ -4,7 +4,7 @@ import { gta5Items, searchGta5 } from '../src/gta5-adapter.js'
 import { prepareResults } from '../src/search-core.js'
 import { createSearchEngine } from '../src/search-engine.js'
 import { crawlCatalog, fetchCatalogPage, nextCatalogPages } from '../src/catalog-crawler.js'
-import { searchBazaSections, searchZifirSections, searchExportSections } from '../src/section-adapters.js'
+import { queryCatalog, searchBazaSections, searchZifirSections, searchExportSections } from '../src/section-adapters.js'
 import { searchCGTraderMarketV2 } from '../src/cgtrader-adapter.js'
 import { getResultDetails } from '../src/details.js'
 import { searchWireCatalog, wireStoreItem } from '../src/wire-store-adapter.js'
@@ -98,7 +98,7 @@ test('Baza, Zifir and 3DExport use the search routes and field names published b
   await searchBazaSections('Ford Bronco DR', 1)
   await searchZifirSections('Ford Bronco DR', 1)
   await searchExportSections('Ford Bronco DR', 1)
-  assert.ok(urls.includes('https://3d-baza.com/Car/search/q-Ford%20Bronco%20DR'))
+  assert.ok(urls.includes('https://3d-baza.com/all-models/search/q-Ford%20Bronco%20DR'))
   assert.ok(urls.includes('https://zifir3d.com/search/product?q=Ford%20Bronco%20DR'))
   assert.ok(urls.includes('https://3dexport.com/search?search_keywords=Ford%20Bronco%20DR'))
   assert.ok(!urls.includes('https://zifir3d.com/search?query=Ford%20Bronco%20DR'))
@@ -118,4 +118,23 @@ test('Wire Wheels uses public store pagination and currency units while retainin
   const premium = payload.results.find(row => !row.isFree)
   assert.equal(premium.price, 39.9); assert.equal(premium.priceLabel, '€39.90')
   assert.equal(wireStoreItem({ ...product, prices: {} }).price, null)
+})
+
+test('a working global query completes without downloading unrelated catalog sections', async () => {
+  const visits = []
+  const options = { query: 'BMW E36', provider, searchSeeds: ['https://example.com/search'], browseSeeds: ['https://example.com/cars'],
+    parse: () => [row], fetchPage: async url => { visits.push(url); return { html: '', finalUrl: url } } }
+  const found = await queryCatalog(options)
+  assert.equal(found.results.length, 1); assert.deepEqual(visits, ['https://example.com/search'])
+  visits.length = 0
+  const empty = await queryCatalog({ ...options, parse: () => [] })
+  assert.equal(empty.results.length, 0); assert.equal(empty.stopReason, 'exhausted')
+  assert.deepEqual(visits, ['https://example.com/search'])
+})
+
+test('an unavailable query falls back to published categories and keeps its failure visible', async () => {
+  const payload = await queryCatalog({ query: 'BMW E36', provider, searchSeeds: ['https://example.com/search'], browseSeeds: ['https://example.com/cars'], parse: () => [row],
+    fetchPage: async url => { if (url.endsWith('/search')) throw new Error('HTTP 503'); return { html: '', finalUrl: url } } })
+  assert.equal(payload.results.length, 1); assert.equal(payload.pagesFetched, 1)
+  assert.equal(payload.failedPages.length, 1); assert.equal(payload.failedPages[0].url, 'https://example.com/search')
 })

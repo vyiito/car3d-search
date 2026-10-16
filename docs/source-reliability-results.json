@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T21:12:23.813Z",
+  "generatedAt": "2026-10-16T21:23:12.740Z",
   "perSource": 20,
   "audits": [
     {
@@ -14,7 +14,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 353,
+          "durationMs": 365,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -44,7 +44,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 4,
-          "durationMs": 2888,
+          "durationMs": 2685,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -86,7 +86,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 116,
+          "durationMs": 94,
           "failureKind": "blocked",
           "retryable": false,
           "error": "A fonte bloqueou a consulta automática (HTTP 403). Abra a busca no site original.",
@@ -122,7 +122,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 3469,
+          "durationMs": 3271,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -156,7 +156,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 505,
+          "durationMs": 426,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -186,7 +186,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 252,
+          "durationMs": 206,
           "failureKind": "blocked",
           "retryable": false,
           "error": "A fonte bloqueou a consulta automática (HTTP 403). Abra a busca no site original.",
@@ -223,7 +223,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 976,
+          "durationMs": 1148,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -253,7 +253,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 141,
+          "durationMs": 92,
           "failureKind": "blocked",
           "retryable": false,
           "error": "A fonte bloqueou a consulta automática (HTTP 403). Abra a busca no site original.",
@@ -289,7 +289,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 945,
+          "durationMs": 1057,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -319,7 +319,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 86,
+          "durationMs": 74,
           "failureKind": "blocked",
           "retryable": false,
           "error": "A fonte bloqueou a consulta automática (HTTP 403). Abra a busca no site original.",
@@ -355,7 +355,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 2,
-          "durationMs": 641,
+          "durationMs": 609,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -391,7 +391,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 654,
+          "durationMs": 81,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -421,7 +421,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 101,
+          "durationMs": 125,
           "failureKind": "blocked",
           "retryable": false,
           "error": "A fonte bloqueou a consulta automática (HTTP 202). Abra a busca no site original.",
@@ -454,7 +454,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 824,
+          "durationMs": 800,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -484,7 +484,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 772,
+          "durationMs": 777,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -514,7 +514,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 8,
-          "durationMs": 593,
+          "durationMs": 472,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -572,7 +572,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1783,
+          "durationMs": 1535,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -598,7 +598,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1300,
+          "durationMs": 1028,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -628,7 +628,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 9,
-          "durationMs": 8160,
+          "durationMs": 3839,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -692,7 +692,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 8,
-          "durationMs": 3673,
+          "durationMs": 3294,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -754,7 +754,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1518,
+          "durationMs": 1510,
           "failureKind": "access-required",
           "retryable": false,
           "error": "A fonte exige login ou uma integração autorizada para consultar este catálogo.",
@@ -787,7 +787,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 365,
+          "durationMs": 439,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -817,7 +817,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 3,
-          "durationMs": 1766,
+          "durationMs": 1835,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -859,7 +859,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 8,
-          "durationMs": 3316,
+          "durationMs": 3054,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -913,76 +913,26 @@
         {
           "provider": "3d-baza",
           "name": "3D-Baza",
-          "searchUrl": "https://3d-baza.com/Car/search/q-Ford%20Bronco%20DR",
+          "searchUrl": "https://3d-baza.com/all-models/search/q-Ford%20Bronco%20DR",
           "status": "ok",
           "count": 0,
-          "pagesFetched": 8,
-          "durationMs": 4660,
+          "pagesFetched": 1,
+          "durationMs": 1381,
           "coverage": {
             "depth": "standard",
-            "status": "limited",
-            "hasMore": true,
-            "stopReason": "page-limit",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
             "totalAvailable": null,
             "sections": [
-              "https://3d-baza.com/Car/search/q-Ford%20Bronco%20DR",
-              "https://3d-baza.com/Car",
-              "https://3d-baza.com/Truck",
-              "https://3d-baza.com/Bus",
-              "https://3d-baza.com/Car/Rarity_or_Antique",
-              "https://3d-baza.com/Car/Sedan",
-              "https://3d-baza.com/Car/Suv",
-              "https://3d-baza.com/Car/Pick-Up",
-              "https://3d-baza.com/Car/Race_Car",
-              "https://3d-baza.com/Truck/Semi-Trailer_Truck",
-              "https://3d-baza.com/Truck/Trasporter_Truck",
-              "https://3d-baza.com/Truck/Tipping_Trailer",
-              "https://3d-baza.com/Truck/Tanker_Trailer",
-              "https://3d-baza.com/Truck/Car_Carrier_Truck",
-              "https://3d-baza.com/Truck/Loggong_Truck",
-              "https://3d-baza.com/Truck/Tow_Truck"
+              "https://3d-baza.com/all-models/search/q-Ford%20Bronco%20DR"
             ],
             "checkedSections": [
-              "https://3d-baza.com/Car/search/q-Ford%20Bronco%20DR",
-              "https://3d-baza.com/Car",
-              "https://3d-baza.com/Truck",
-              "https://3d-baza.com/Bus",
-              "https://3d-baza.com/Car/Rarity_or_Antique",
-              "https://3d-baza.com/Car/Sedan",
-              "https://3d-baza.com/Car/Suv",
-              "https://3d-baza.com/Car/Pick-Up"
+              "https://3d-baza.com/all-models/search/q-Ford%20Bronco%20DR"
             ],
             "requests": [
               {
-                "url": "https://3d-baza.com/Car/search/q-Ford%20Bronco%20DR",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Truck",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Bus",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car/Rarity_or_Antique",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car/Sedan",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car/Suv",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car/Pick-Up",
+                "url": "https://3d-baza.com/all-models/search/q-Ford%20Bronco%20DR",
                 "status": 200
               }
             ],
@@ -997,7 +947,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 400,
+          "durationMs": 661,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1027,7 +977,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 2,
-          "durationMs": 6877,
+          "durationMs": 8683,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1048,7 +998,7 @@
                 "status": 200
               },
               {
-                "url": "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products?search=Ford+Bronco+DR&per_page=50&page=1",
+                "url": "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products?search=Ford+Bronco+DR&per_page=50&page=1&_fields=id%2Cname%2Cpermalink%2Cshort_description%2Cimages%2Cprices",
                 "status": 200
               }
             ],
@@ -1063,7 +1013,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 949,
+          "durationMs": 982,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1093,7 +1043,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 2,
-          "durationMs": 1541,
+          "durationMs": 611,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1126,90 +1076,23 @@
           "searchUrl": "https://zifir3d.com/search/product?q=Ford%20Bronco%20DR",
           "status": "ok",
           "count": 0,
-          "pagesFetched": 8,
-          "durationMs": 4680,
+          "pagesFetched": 1,
+          "durationMs": 604,
           "coverage": {
             "depth": "standard",
-            "status": "limited",
-            "hasMore": true,
-            "stopReason": "page-limit",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
             "totalAvailable": null,
             "sections": [
-              "https://zifir3d.com/search/product?q=Ford%20Bronco%20DR",
-              "https://zifir3d.com/",
-              "https://zifir3d.com/catalog/convertible",
-              "https://zifir3d.com/catalog/pickup",
-              "https://zifir3d.com/catalog/classic",
-              "https://zifir3d.com/catalog/coupe",
-              "https://zifir3d.com/catalog/hatchback",
-              "https://zifir3d.com/catalog/sedan",
-              "https://zifir3d.com/catalog/suv-offroad",
-              "https://zifir3d.com/catalog/wagon",
-              "https://zifir3d.com/catalog/van-3d-model",
-              "https://zifir3d.com/catalog/racing-car-3d-models",
-              "https://zifir3d.com/catalog/concept-car",
-              "https://zifir3d.com/catalog/police-car",
-              "https://zifir3d.com/catalog/other-models",
-              "https://zifir3d.com/catalog/free-models",
-              "https://zifir3d.com/catalog/convertible?page=2",
-              "https://zifir3d.com/catalog/pickup?page=2",
-              "https://zifir3d.com/catalog/pickup?page=3",
-              "https://zifir3d.com/catalog/pickup?page=4",
-              "https://zifir3d.com/catalog/coupe?page=2",
-              "https://zifir3d.com/catalog/coupe?page=3",
-              "https://zifir3d.com/catalog/coupe?page=4",
-              "https://zifir3d.com/catalog/coupe?page=5",
-              "https://zifir3d.com/catalog/hatchback?page=2",
-              "https://zifir3d.com/catalog/hatchback?page=3",
-              "https://zifir3d.com/catalog/hatchback?page=4",
-              "https://zifir3d.com/catalog/sedan?page=2",
-              "https://zifir3d.com/catalog/sedan?page=3",
-              "https://zifir3d.com/catalog/sedan?page=4",
-              "https://zifir3d.com/catalog/sedan?page=5",
-              "https://zifir3d.com/catalog/sedan?page=6",
-              "https://zifir3d.com/catalog/sedan?page=7"
+              "https://zifir3d.com/search/product?q=Ford%20Bronco%20DR"
             ],
             "checkedSections": [
-              "https://zifir3d.com/search/product?q=Ford%20Bronco%20DR",
-              "https://zifir3d.com/",
-              "https://zifir3d.com/catalog/convertible",
-              "https://zifir3d.com/catalog/pickup",
-              "https://zifir3d.com/catalog/classic",
-              "https://zifir3d.com/catalog/coupe",
-              "https://zifir3d.com/catalog/hatchback",
-              "https://zifir3d.com/catalog/sedan"
+              "https://zifir3d.com/search/product?q=Ford%20Bronco%20DR"
             ],
             "requests": [
               {
                 "url": "https://zifir3d.com/search/product?q=Ford%20Bronco%20DR",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/convertible",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/pickup",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/classic",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/coupe",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/hatchback",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/sedan",
                 "status": 200
               }
             ],
@@ -1223,66 +1106,23 @@
           "searchUrl": "https://3dexport.com/search?search_keywords=Ford%20Bronco%20DR",
           "status": "ok",
           "count": 0,
-          "pagesFetched": 8,
-          "durationMs": 9596,
+          "pagesFetched": 1,
+          "durationMs": 1197,
           "coverage": {
             "depth": "standard",
-            "status": "limited",
-            "hasMore": true,
-            "stopReason": "page-limit",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
             "totalAvailable": null,
             "sections": [
-              "https://3dexport.com/search?search_keywords=Ford%20Bronco%20DR",
-              "https://3dexport.com/3d-models/cars",
-              "https://3dexport.com/3d-models/cars?page=2",
-              "https://3dexport.com/3d-models/cars?page=3",
-              "https://3dexport.com/3d-models/cars?page=4",
-              "https://3dexport.com/3d-models/cars?page=5",
-              "https://3dexport.com/3d-models/cars?page=6",
-              "https://3dexport.com/3d-models/cars?page=7",
-              "https://3dexport.com/3d-models/cars?page=8"
+              "https://3dexport.com/search?search_keywords=Ford%20Bronco%20DR"
             ],
             "checkedSections": [
-              "https://3dexport.com/search?search_keywords=Ford%20Bronco%20DR",
-              "https://3dexport.com/3d-models/cars",
-              "https://3dexport.com/3d-models/cars?page=2",
-              "https://3dexport.com/3d-models/cars?page=3",
-              "https://3dexport.com/3d-models/cars?page=4",
-              "https://3dexport.com/3d-models/cars?page=5",
-              "https://3dexport.com/3d-models/cars?page=6",
-              "https://3dexport.com/3d-models/cars?page=7"
+              "https://3dexport.com/search?search_keywords=Ford%20Bronco%20DR"
             ],
             "requests": [
               {
                 "url": "https://3dexport.com/search?search_keywords=Ford%20Bronco%20DR",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=2",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=3",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=4",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=5",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=6",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=7",
                 "status": 200
               }
             ],
@@ -1297,7 +1137,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 612,
+          "durationMs": 498,
           "failureKind": "temporary",
           "retryable": true,
           "error": "A fonte está temporariamente indisponível. Tente novamente ou abra o site original.",
@@ -1333,7 +1173,7 @@
           "status": "ok",
           "count": 1,
           "pagesFetched": 8,
-          "durationMs": 5714,
+          "durationMs": 6305,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -1341,23 +1181,14 @@
             "stopReason": "page-limit",
             "totalAvailable": null,
             "sections": [
-              "https://www.renderhub.com/3d-models?s=Ford%20Bronco%20DR",
-              "https://www.renderhub.com/3d-models/vehicles/cars",
-              "https://www.renderhub.com/3d-models/vehicles/trucks",
-              "https://www.renderhub.com/3d-models/vehicles/motorcycles",
-              "https://www.renderhub.com/free-3d-models/vehicles/cars"
+              "https://www.renderhub.com/3d-models?s=Ford%20Bronco%20DR"
             ],
             "checkedSections": [
-              "https://www.renderhub.com/3d-models?s=Ford%20Bronco%20DR",
-              "https://www.renderhub.com/3d-models/vehicles/cars"
+              "https://www.renderhub.com/3d-models?s=Ford%20Bronco%20DR"
             ],
             "requests": [
               {
                 "url": "https://www.renderhub.com/3d-models?s=Ford%20Bronco%20DR",
-                "status": 200
-              },
-              {
-                "url": "https://www.renderhub.com/3d-models/vehicles/cars",
                 "status": 200
               },
               {
@@ -1382,6 +1213,10 @@
               },
               {
                 "url": "https://www.renderhub.com/3d-models-page6?s=Ford+Bronco+DR",
+                "status": 200
+              },
+              {
+                "url": "https://www.renderhub.com/3d-models-page7?s=Ford+Bronco+DR",
                 "status": 200
               }
             ],
@@ -1410,7 +1245,7 @@
           "status": "ok",
           "count": 8,
           "pagesFetched": 1,
-          "durationMs": 487,
+          "durationMs": 541,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1449,76 +1284,26 @@
         {
           "provider": "3d-baza",
           "name": "3D-Baza",
-          "searchUrl": "https://3d-baza.com/Car/search/q-Ford%20Bronco",
+          "searchUrl": "https://3d-baza.com/all-models/search/q-Ford%20Bronco",
           "status": "ok",
           "count": 13,
-          "pagesFetched": 8,
-          "durationMs": 4424,
+          "pagesFetched": 1,
+          "durationMs": 1315,
           "coverage": {
             "depth": "standard",
-            "status": "limited",
-            "hasMore": true,
-            "stopReason": "page-limit",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
             "totalAvailable": null,
             "sections": [
-              "https://3d-baza.com/Car/search/q-Ford%20Bronco",
-              "https://3d-baza.com/Car",
-              "https://3d-baza.com/Truck",
-              "https://3d-baza.com/Bus",
-              "https://3d-baza.com/Car/Rarity_or_Antique",
-              "https://3d-baza.com/Car/Sedan",
-              "https://3d-baza.com/Car/Suv",
-              "https://3d-baza.com/Car/Pick-Up",
-              "https://3d-baza.com/Car/Race_Car",
-              "https://3d-baza.com/Truck/Semi-Trailer_Truck",
-              "https://3d-baza.com/Truck/Trasporter_Truck",
-              "https://3d-baza.com/Truck/Tipping_Trailer",
-              "https://3d-baza.com/Truck/Tanker_Trailer",
-              "https://3d-baza.com/Truck/Car_Carrier_Truck",
-              "https://3d-baza.com/Truck/Loggong_Truck",
-              "https://3d-baza.com/Truck/Tow_Truck"
+              "https://3d-baza.com/all-models/search/q-Ford%20Bronco"
             ],
             "checkedSections": [
-              "https://3d-baza.com/Car/search/q-Ford%20Bronco",
-              "https://3d-baza.com/Car",
-              "https://3d-baza.com/Truck",
-              "https://3d-baza.com/Bus",
-              "https://3d-baza.com/Car/Rarity_or_Antique",
-              "https://3d-baza.com/Car/Sedan",
-              "https://3d-baza.com/Car/Suv",
-              "https://3d-baza.com/Car/Pick-Up"
+              "https://3d-baza.com/all-models/search/q-Ford%20Bronco"
             ],
             "requests": [
               {
-                "url": "https://3d-baza.com/Car/search/q-Ford%20Bronco",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Truck",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Bus",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car/Rarity_or_Antique",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car/Sedan",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car/Suv",
-                "status": 200
-              },
-              {
-                "url": "https://3d-baza.com/Car/Pick-Up",
+                "url": "https://3d-baza.com/all-models/search/q-Ford%20Bronco",
                 "status": 200
               }
             ],
@@ -1545,90 +1330,23 @@
           "searchUrl": "https://zifir3d.com/search/product?q=Ford%20Bronco",
           "status": "ok",
           "count": 6,
-          "pagesFetched": 8,
-          "durationMs": 4961,
+          "pagesFetched": 1,
+          "durationMs": 631,
           "coverage": {
             "depth": "standard",
-            "status": "limited",
-            "hasMore": true,
-            "stopReason": "page-limit",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
             "totalAvailable": null,
             "sections": [
-              "https://zifir3d.com/search/product?q=Ford%20Bronco",
-              "https://zifir3d.com/",
-              "https://zifir3d.com/catalog/convertible",
-              "https://zifir3d.com/catalog/pickup",
-              "https://zifir3d.com/catalog/classic",
-              "https://zifir3d.com/catalog/coupe",
-              "https://zifir3d.com/catalog/hatchback",
-              "https://zifir3d.com/catalog/sedan",
-              "https://zifir3d.com/catalog/suv-offroad",
-              "https://zifir3d.com/catalog/wagon",
-              "https://zifir3d.com/catalog/van-3d-model",
-              "https://zifir3d.com/catalog/racing-car-3d-models",
-              "https://zifir3d.com/catalog/concept-car",
-              "https://zifir3d.com/catalog/police-car",
-              "https://zifir3d.com/catalog/other-models",
-              "https://zifir3d.com/catalog/free-models",
-              "https://zifir3d.com/catalog/convertible?page=2",
-              "https://zifir3d.com/catalog/pickup?page=2",
-              "https://zifir3d.com/catalog/pickup?page=3",
-              "https://zifir3d.com/catalog/pickup?page=4",
-              "https://zifir3d.com/catalog/coupe?page=2",
-              "https://zifir3d.com/catalog/coupe?page=3",
-              "https://zifir3d.com/catalog/coupe?page=4",
-              "https://zifir3d.com/catalog/coupe?page=5",
-              "https://zifir3d.com/catalog/hatchback?page=2",
-              "https://zifir3d.com/catalog/hatchback?page=3",
-              "https://zifir3d.com/catalog/hatchback?page=4",
-              "https://zifir3d.com/catalog/sedan?page=2",
-              "https://zifir3d.com/catalog/sedan?page=3",
-              "https://zifir3d.com/catalog/sedan?page=4",
-              "https://zifir3d.com/catalog/sedan?page=5",
-              "https://zifir3d.com/catalog/sedan?page=6",
-              "https://zifir3d.com/catalog/sedan?page=7"
+              "https://zifir3d.com/search/product?q=Ford%20Bronco"
             ],
             "checkedSections": [
-              "https://zifir3d.com/search/product?q=Ford%20Bronco",
-              "https://zifir3d.com/",
-              "https://zifir3d.com/catalog/convertible",
-              "https://zifir3d.com/catalog/pickup",
-              "https://zifir3d.com/catalog/classic",
-              "https://zifir3d.com/catalog/coupe",
-              "https://zifir3d.com/catalog/hatchback",
-              "https://zifir3d.com/catalog/sedan"
+              "https://zifir3d.com/search/product?q=Ford%20Bronco"
             ],
             "requests": [
               {
                 "url": "https://zifir3d.com/search/product?q=Ford%20Bronco",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/convertible",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/pickup",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/classic",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/coupe",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/hatchback",
-                "status": 200
-              },
-              {
-                "url": "https://zifir3d.com/catalog/sedan",
                 "status": 200
               }
             ],
@@ -1655,66 +1373,23 @@
           "searchUrl": "https://3dexport.com/search?search_keywords=Ford%20Bronco",
           "status": "ok",
           "count": 10,
-          "pagesFetched": 8,
-          "durationMs": 5300,
+          "pagesFetched": 1,
+          "durationMs": 1817,
           "coverage": {
             "depth": "standard",
-            "status": "limited",
-            "hasMore": true,
-            "stopReason": "page-limit",
+            "status": "query-complete",
+            "hasMore": false,
+            "stopReason": "exhausted",
             "totalAvailable": null,
             "sections": [
-              "https://3dexport.com/search?search_keywords=Ford%20Bronco",
-              "https://3dexport.com/3d-models/cars",
-              "https://3dexport.com/3d-models/cars?page=2",
-              "https://3dexport.com/3d-models/cars?page=3",
-              "https://3dexport.com/3d-models/cars?page=4",
-              "https://3dexport.com/3d-models/cars?page=5",
-              "https://3dexport.com/3d-models/cars?page=6",
-              "https://3dexport.com/3d-models/cars?page=7",
-              "https://3dexport.com/3d-models/cars?page=8"
+              "https://3dexport.com/search?search_keywords=Ford%20Bronco"
             ],
             "checkedSections": [
-              "https://3dexport.com/search?search_keywords=Ford%20Bronco",
-              "https://3dexport.com/3d-models/cars",
-              "https://3dexport.com/3d-models/cars?page=2",
-              "https://3dexport.com/3d-models/cars?page=3",
-              "https://3dexport.com/3d-models/cars?page=4",
-              "https://3dexport.com/3d-models/cars?page=5",
-              "https://3dexport.com/3d-models/cars?page=6",
-              "https://3dexport.com/3d-models/cars?page=7"
+              "https://3dexport.com/search?search_keywords=Ford%20Bronco"
             ],
             "requests": [
               {
                 "url": "https://3dexport.com/search?search_keywords=Ford%20Bronco",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=2",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=3",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=4",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=5",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=6",
-                "status": 200
-              },
-              {
-                "url": "https://3dexport.com/3d-models/cars?page=7",
                 "status": 200
               }
             ],
@@ -1739,8 +1414,8 @@
           "searchUrl": "https://www.renderhub.com/3d-models?s=Ford%20Bronco",
           "status": "ok",
           "count": 20,
-          "pagesFetched": 2,
-          "durationMs": 1570,
+          "pagesFetched": 1,
+          "durationMs": 1106,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -1748,23 +1423,14 @@
             "stopReason": "result-limit",
             "totalAvailable": null,
             "sections": [
-              "https://www.renderhub.com/3d-models?s=Ford%20Bronco",
-              "https://www.renderhub.com/3d-models/vehicles/cars",
-              "https://www.renderhub.com/3d-models/vehicles/trucks",
-              "https://www.renderhub.com/3d-models/vehicles/motorcycles",
-              "https://www.renderhub.com/free-3d-models/vehicles/cars"
+              "https://www.renderhub.com/3d-models?s=Ford%20Bronco"
             ],
             "checkedSections": [
-              "https://www.renderhub.com/3d-models?s=Ford%20Bronco",
-              "https://www.renderhub.com/3d-models/vehicles/cars"
+              "https://www.renderhub.com/3d-models?s=Ford%20Bronco"
             ],
             "requests": [
               {
                 "url": "https://www.renderhub.com/3d-models?s=Ford%20Bronco",
-                "status": 200
-              },
-              {
-                "url": "https://www.renderhub.com/3d-models/vehicles/cars",
                 "status": 200
               }
             ],
@@ -1799,7 +1465,7 @@
           "status": "ok",
           "count": 6,
           "pagesFetched": 2,
-          "durationMs": 7253,
+          "durationMs": 8217,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1820,7 +1486,7 @@
                 "status": 200
               },
               {
-                "url": "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products?search=Ford&per_page=50&page=1",
+                "url": "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products?search=Ford&per_page=50&page=1&_fields=id%2Cname%2Cpermalink%2Cshort_description%2Cimages%2Cprices",
                 "status": 200
               }
             ],
