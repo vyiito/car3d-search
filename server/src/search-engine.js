@@ -72,7 +72,7 @@ export function createSearchEngine({ providerList, adapterMap, genericSearch,
           }
           return false
         })),
-        requests: state.requests.map(({ url, status, error, optional }) => ({ url, status: status || null, ...(error ? { error } : {}), ...(optional ? { optional: true } : {}) })),
+        requests: state.requests.map(({ url, status, error, optional, recovered }) => ({ url, status: status || null, ...(error ? { error } : {}), ...(optional ? { optional: true } : {}), ...(recovered ? { recovered: true } : {}) })),
         failedPages: payload?.failedPages || [],
       }
       const source = { provider: provider.id, name: provider.name, searchUrl,

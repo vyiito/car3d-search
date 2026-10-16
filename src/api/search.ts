@@ -50,7 +50,7 @@ export interface SourceCoverage {
   totalAvailable: number | null
   sections: string[]
   checkedSections?: string[]
-  requests: Array<{ url: string; status: number | null; error?: string; optional?: boolean }>
+  requests: Array<{ url: string; status: number | null; error?: string; optional?: boolean; recovered?: boolean }>
   failedPages: Array<{ url: string; error: string }>
 }
 
