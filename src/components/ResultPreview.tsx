@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ImageOff, LoaderCircle } from 'lucide-react'
 import type { GlobalSearchResult } from '../api/search'
 import { recoverPreview } from '../api/previews'
+import { previewUrl } from '../../server/src/preview-url.js'
 
 export default function ResultPreview({ result, onResolved }: { result: GlobalSearchResult; onResolved?: (url: string) => void }) {
   const root = useRef<HTMLSpanElement>(null)
@@ -12,10 +13,8 @@ export default function ResultPreview({ result, onResolved }: { result: GlobalSe
   const [loading, setLoading] = useState(false)
   const notified = useRef<string | null>(null)
   const candidates = useMemo(() => {
-    const urls = [result.imageUrl, ...(result.previewUrls || []), ...(result.gallery || []), ...recovered].map(value => {
-      if (!value || typeof value !== 'string') return null
-      try { const url = new URL(value, result.sourceUrl); return ['https:', 'http:'].includes(url.protocol) ? url.href : null } catch { return null }
-    }).filter((url): url is string => Boolean(url))
+    const urls = [result.imageUrl, ...(result.previewUrls || []), ...(result.gallery || []), ...recovered]
+      .map(value => previewUrl(value, result.sourceUrl)).filter((url): url is string => Boolean(url))
     return [...new Set(urls)]
   }, [result.imageUrl, result.previewUrls, result.gallery, result.sourceUrl, recovered])
   const src = candidates.find(url => !failed.includes(url))

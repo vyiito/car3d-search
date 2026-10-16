@@ -42,6 +42,25 @@ test('a visible item without a listing image recovers the preview from its own p
   await page.screenshot({ path: '.qa/previews/recovered-card.png' })
 })
 
+test('RenderHub promotional images from old results are skipped and replaced by the car preview', async ({ page }) => {
+  let lookups = 0, badgeRequests = 0
+  const sale = 'https://cdn.renderhub.com/images/sale.png'
+  const sourceUrl = 'https://www.renderhub.com/cars/ford-bronco-2023'
+  await serveSearch(page, query => [{ ...model(query), sourceId: 'renderhub', source: 'RenderHub', sourceUrl, imageUrl: sale, previewUrls: [sale], gallery: ['https://cdn.renderhub.com/images/icart.png'] }])
+  await page.route('https://cdn.renderhub.com/images/**', route => { badgeRequests++; return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="30"><text y="25">SALE</text></svg>' }) })
+  await page.route(url => url.pathname === '/api/preview', route => {
+    lookups++
+    expect(new URL(route.request().url()).searchParams.get('url')).toBe(sourceUrl)
+    return route.fulfill({ json: { images: [sale, image] } })
+  })
+  await page.goto('/?q=Ford+Bronco')
+  await page.locator('.card').scrollIntoViewIfNeeded()
+  await expect(page.locator('.thumb img')).toHaveAttribute('src', image)
+  await expect.poll(() => page.locator('.thumb img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0)
+  expect(lookups).toBe(1)
+  expect(badgeRequests).toBe(0)
+})
+
 test('unavailable metadata leaves an honest fallback without retrying on each render', async ({ page }) => {
   let lookups = 0
   await serveSearch(page)
