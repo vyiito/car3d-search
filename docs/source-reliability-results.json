@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-16T21:23:12.740Z",
+  "generatedAt": "2026-10-16T21:32:23.266Z",
   "perSource": 20,
   "audits": [
     {
@@ -14,7 +14,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 365,
+          "durationMs": 347,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -44,7 +44,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 4,
-          "durationMs": 2685,
+          "durationMs": 2856,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -122,7 +122,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 3271,
+          "durationMs": 3491,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -156,7 +156,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 426,
+          "durationMs": 501,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -186,7 +186,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 206,
+          "durationMs": 207,
           "failureKind": "blocked",
           "retryable": false,
           "error": "A fonte bloqueou a consulta automática (HTTP 403). Abra a busca no site original.",
@@ -223,7 +223,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1148,
+          "durationMs": 663,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -253,7 +253,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 92,
+          "durationMs": 132,
           "failureKind": "blocked",
           "retryable": false,
           "error": "A fonte bloqueou a consulta automática (HTTP 403). Abra a busca no site original.",
@@ -289,7 +289,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1057,
+          "durationMs": 1106,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -319,7 +319,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 74,
+          "durationMs": 65,
           "failureKind": "blocked",
           "retryable": false,
           "error": "A fonte bloqueou a consulta automática (HTTP 403). Abra a busca no site original.",
@@ -355,7 +355,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 2,
-          "durationMs": 609,
+          "durationMs": 761,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -391,7 +391,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 81,
+          "durationMs": 298,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -421,7 +421,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 125,
+          "durationMs": 114,
           "failureKind": "blocked",
           "retryable": false,
           "error": "A fonte bloqueou a consulta automática (HTTP 202). Abra a busca no site original.",
@@ -454,7 +454,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 800,
+          "durationMs": 747,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -484,7 +484,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 777,
+          "durationMs": 1237,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -514,7 +514,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 8,
-          "durationMs": 472,
+          "durationMs": 485,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -572,7 +572,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1535,
+          "durationMs": 2343,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -598,7 +598,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1028,
+          "durationMs": 1093,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -628,7 +628,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 9,
-          "durationMs": 3839,
+          "durationMs": 8264,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -692,7 +692,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 8,
-          "durationMs": 3294,
+          "durationMs": 3548,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -754,7 +754,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1510,
+          "durationMs": 1530,
           "failureKind": "access-required",
           "retryable": false,
           "error": "A fonte exige login ou uma integração autorizada para consultar este catálogo.",
@@ -787,7 +787,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 439,
+          "durationMs": 329,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -817,7 +817,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 3,
-          "durationMs": 1835,
+          "durationMs": 1801,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -859,7 +859,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 8,
-          "durationMs": 3054,
+          "durationMs": 3379,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -917,7 +917,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1381,
+          "durationMs": 1293,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -947,7 +947,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 661,
+          "durationMs": 431,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -977,7 +977,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 2,
-          "durationMs": 8683,
+          "durationMs": 6897,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -986,11 +986,11 @@
             "totalAvailable": null,
             "sections": [
               "https://wirewheelsclub.com/models/",
-              "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products"
+              "https://store.wirewheelsclub.com/wp-json/wp/v2/product"
             ],
             "checkedSections": [
               "https://wirewheelsclub.com/models/",
-              "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products"
+              "https://store.wirewheelsclub.com/wp-json/wp/v2/product"
             ],
             "requests": [
               {
@@ -998,7 +998,7 @@
                 "status": 200
               },
               {
-                "url": "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products?search=Ford+Bronco+DR&per_page=50&page=1&_fields=id%2Cname%2Cpermalink%2Cshort_description%2Cimages%2Cprices",
+                "url": "https://store.wirewheelsclub.com/wp-json/wp/v2/product?search=Ford+Bronco+DR&per_page=50&page=1&_embed=wp%3Afeaturedmedia&_fields=id%2Ctitle%2Clink%2Ccontent%2C_links%2C_embedded",
                 "status": 200
               }
             ],
@@ -1013,7 +1013,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 982,
+          "durationMs": 944,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1043,7 +1043,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 2,
-          "durationMs": 611,
+          "durationMs": 594,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1077,7 +1077,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 604,
+          "durationMs": 611,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1107,7 +1107,7 @@
           "status": "ok",
           "count": 0,
           "pagesFetched": 1,
-          "durationMs": 1197,
+          "durationMs": 1245,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1137,7 +1137,7 @@
           "status": "error",
           "count": 0,
           "pagesFetched": 0,
-          "durationMs": 498,
+          "durationMs": 514,
           "failureKind": "temporary",
           "retryable": true,
           "error": "A fonte está temporariamente indisponível. Tente novamente ou abra o site original.",
@@ -1173,7 +1173,7 @@
           "status": "ok",
           "count": 1,
           "pagesFetched": 8,
-          "durationMs": 6305,
+          "durationMs": 6796,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -1245,7 +1245,7 @@
           "status": "ok",
           "count": 8,
           "pagesFetched": 1,
-          "durationMs": 541,
+          "durationMs": 534,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1288,7 +1288,7 @@
           "status": "ok",
           "count": 13,
           "pagesFetched": 1,
-          "durationMs": 1315,
+          "durationMs": 1277,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1331,7 +1331,7 @@
           "status": "ok",
           "count": 6,
           "pagesFetched": 1,
-          "durationMs": 631,
+          "durationMs": 649,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1374,7 +1374,7 @@
           "status": "ok",
           "count": 10,
           "pagesFetched": 1,
-          "durationMs": 1817,
+          "durationMs": 1896,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1415,7 +1415,7 @@
           "status": "ok",
           "count": 20,
           "pagesFetched": 1,
-          "durationMs": 1106,
+          "durationMs": 941,
           "coverage": {
             "depth": "standard",
             "status": "limited",
@@ -1465,7 +1465,7 @@
           "status": "ok",
           "count": 6,
           "pagesFetched": 2,
-          "durationMs": 8217,
+          "durationMs": 13562,
           "coverage": {
             "depth": "standard",
             "status": "query-complete",
@@ -1474,11 +1474,11 @@
             "totalAvailable": null,
             "sections": [
               "https://wirewheelsclub.com/models/",
-              "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products"
+              "https://store.wirewheelsclub.com/wp-json/wp/v2/product"
             ],
             "checkedSections": [
               "https://wirewheelsclub.com/models/",
-              "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products"
+              "https://store.wirewheelsclub.com/wp-json/wp/v2/product"
             ],
             "requests": [
               {
@@ -1486,8 +1486,14 @@
                 "status": 200
               },
               {
-                "url": "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products?search=Ford&per_page=50&page=1&_fields=id%2Cname%2Cpermalink%2Cshort_description%2Cimages%2Cprices",
+                "url": "https://store.wirewheelsclub.com/wp-json/wp/v2/product?search=Ford&per_page=50&page=1&_embed=wp%3Afeaturedmedia&_fields=id%2Ctitle%2Clink%2Ccontent%2C_links%2C_embedded",
                 "status": 200
+              },
+              {
+                "url": "https://store.wirewheelsclub.com/wp-json/wc/store/v1/products?include=1784%2C1766%2C1535&per_page=50&_fields=id%2Cprices",
+                "status": null,
+                "error": "The operation was aborted due to timeout",
+                "optional": true
               }
             ],
             "failedPages": []
@@ -1496,8 +1502,7 @@
             {
               "title": "1965 Ford Mustang Fastback",
               "sourceUrl": "https://store.wirewheelsclub.com/product/1965-ford-mustang-fastback/",
-              "imageUrl": "https://store.wirewheelsclub.com/wp-content/uploads/65_Ford_Mustang_v2_01.jpg",
-              "priceLabel": "€9.95"
+              "imageUrl": "https://store.wirewheelsclub.com/wp-content/uploads/65_Ford_Mustang_v2_01.jpg"
             },
             {
               "title": "1965 Ford Mustang Fastback",
