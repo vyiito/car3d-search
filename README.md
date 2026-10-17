@@ -49,7 +49,15 @@ Cada status da API contém `coverage`, com profundidade, motivo da parada, pági
 
 Para repetir a inspeção pública das entradas: `node scripts/audit-source-coverage.mjs`. O mapa de navegação e as respostas ficam em `.qa/source-audit`, fora do Git.
 
-## API
+## Ferramentas e conversão KN5
+
+A página independente `tools.html`, destacada no menu, oferece upload KN5, descriptografia, conversão para OBJ/MTL/texturas, download ZIP e histórico local paginado. O processamento é feito por um agente Windows conectado por HTTPS à API; o site informa quando ele está offline. Selecione a pasta do mod para preservar automaticamente o nome original usado por algumas proteções, ou informe esse nome no campo opcional.
+
+Resultados ficam disponíveis por 60 minutos. O serviço atual usa armazenamento temporário, que pode ser perdido em reinicializações ou deploys do Render. Modelos com chaves indisponíveis ou texturas externas ausentes geram um erro explícito.
+
+Veja [a arquitetura e os limites](docs/converter-architecture.md) e [a configuração do agente](worker/README.md). Nenhum programa ou dado de chave de terceiros é incluído no repositório.
+
+## API de pesquisa
 
 ```text
 GET /health

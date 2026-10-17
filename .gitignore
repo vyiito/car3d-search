@@ -7,3 +7,5 @@ dist/
 .qa/
 test-results/
 playwright-report/
+__pycache__/
+*.py[cod]
