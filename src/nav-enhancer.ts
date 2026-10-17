@@ -114,7 +114,7 @@ function install() {
 
   header.querySelectorAll<HTMLAnchorElement>('nav a').forEach(link => {
     const label = link.textContent?.trim().toUpperCase() || ''
-    if (label.startsWith('GITHUB')) return
+    if (label.startsWith('GITHUB') || link.classList.contains('toolsNavLink')) return
     link.addEventListener('click', event => {
       event.preventDefault()
       if (label === 'MARCAS') openHub('brands')
