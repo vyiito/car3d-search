@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Box, Camera, Check, CircleAlert, Eye, EyeOff, Focus, FolderOpen, Grid2X2, Layers, LoaderCircle, Maximize2, MousePointer2, Palette, Rotate3D, Search, Upload, X } from 'lucide-react'
 import { prepareBundle, type ModelBundle, type ViewerSource } from '../viewer/files'
 import { prepareModel } from '../viewer/model'
@@ -8,6 +8,7 @@ import '../workshop.css'
 type Props = { source: ViewerSource | null; onSource: (source: ViewerSource | null) => void }
 const format = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })
 const formats = '.glb,.gltf,.obj,.mtl,.bin,.zip,.png,.jpg,.jpeg,.webp,.bmp,.dds,.tga,.ktx2'
+const partPageSize = 100
 
 export default function ViewerWorkspace({ source, onSource }: Props) {
   const [bundle, setBundle] = useState<ModelBundle | null>(null)
@@ -20,6 +21,8 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
   const [selected, setSelected] = useState<string | null>(null)
   const [surfaceId, setSurfaceId] = useState('')
   const [search, setSearch] = useState('')
+  const [partPage, setPartPage] = useState(0)
+  const [revealRequest, setRevealRequest] = useState(0)
   const [wireframe, setWireframe] = useState(false)
   const [rotate, setRotate] = useState(false)
   const [grid, setGrid] = useState(true)
@@ -33,10 +36,22 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
   const texture = useRef<HTMLInputElement>(null)
   const runtime = useRef<ViewerRuntime | null>(null)
   const infoRef = useRef<ModelInfo | null>(null)
+  const partList = useRef<HTMLDivElement>(null)
+  const selectedRow = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    const list = partList.current, row = selectedRow.current
+    if (!list || !row) return
+    const listBox = list.getBoundingClientRect(), rowBox = row.getBoundingClientRect()
+    const top = listBox.top + list.clientTop, bottom = top + list.clientHeight
+    // Scroll only the parts panel, keeping the camera and the page in place.
+    if (rowBox.top < top) list.scrollTop += rowBox.top - top
+    else if (rowBox.bottom > bottom) list.scrollTop += rowBox.bottom - bottom
+  }, [selected, partPage, search, revealRequest])
 
   useEffect(() => {
     const controller = new AbortController()
-    setBundle(null); setModel(''); setInfo(null); setError(''); setNotice(''); setWarnings([]); setSelected(null); setSurfaceId(''); setSearch('')
+    setBundle(null); setModel(''); setInfo(null); setError(''); setNotice(''); setWarnings([]); setSelected(null); setSurfaceId(''); setSearch(''); setPartPage(0)
     if (!source) { setState('empty'); return () => controller.abort() }
     setState('loading')
     void prepareBundle(source, controller.signal).then(value => {
@@ -50,13 +65,19 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
   useEffect(() => {
     if (!bundle || !model || !host.current) return
     const controller = new AbortController(), container = host.current
-    setState('loading'); setInfo(null); setWarnings([]); setNotice(''); setSelected(null); setSurfaceId(''); setSearch(''); setWireframe(false); setRotate(false); setGrid(true); setView('perspective'); setTextureBusy(false)
+    setState('loading'); setInfo(null); setWarnings([]); setNotice(''); setSelected(null); setSurfaceId(''); setSearch(''); setPartPage(0); setWireframe(false); setRotate(false); setGrid(true); setView('perspective'); setTextureBusy(false)
     void prepareModel(bundle, model, controller.signal).then(async prepared => {
       const { createViewer } = await import('../viewer/runtime')
       controller.signal.throwIfAborted()
       return createViewer(container, bundle, model, controller.signal, {
         change: next => { if (controller.signal.aborted) return; infoRef.current = next; setInfo(next); setSurfaceId(previous => next.materials.some(item => item.id === previous) ? previous : next.materials[0]?.id || '') },
-        select: id => { if (controller.signal.aborted) return; setSelected(id); const part = infoRef.current?.parts.find(item => item.id === id); if (part?.materials[0]) setSurfaceId(part.materials[0]) },
+        select: (id, revealInList) => {
+          if (controller.signal.aborted) return
+          setSelected(id)
+          const parts = infoRef.current?.parts || [], index = parts.findIndex(item => item.id === id), part = parts[index]
+          if (part?.materials[0]) setSurfaceId(part.materials[0])
+          if (revealInList && index >= 0) { setSearch(''); setPartPage(Math.floor(index / partPageSize)); setRevealRequest(value => value + 1) }
+        },
         warning: message => { if (!controller.signal.aborted) setWarnings(current => current.includes(message) || current.length >= 80 ? current : [...current, message]) },
       }, prepared)
     }).then(viewer => { if (controller.signal.aborted) viewer.dispose(); else { runtime.current = viewer; setState('ready') } }).catch(failure => {
@@ -88,6 +109,7 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
   const ready = state === 'ready'
   const surface = info?.materials.find(item => item.id === surfaceId)
   const filtered = info?.parts.filter(part => part.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) || []
+  const pageParts = filtered.slice(partPage * partPageSize, (partPage + 1) * partPageSize)
   const visible = info?.parts.filter(part => part.visible).length || 0
   const selectedPart = info?.parts.find(part => part.id === selected)
 
@@ -120,8 +142,10 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
         <div className="viewerExport"><span><Camera size={15}/> A imagem acompanha a vista e os materiais atuais.<small>PNG com fundo transparente.</small></span><button className="toolsSecondary" disabled={!ready} onClick={() => void screenshot()}><Camera size={15}/> Baixar PNG</button></div>
       </div>
       <aside className="viewerInspector" aria-label="Inspetor do modelo">
-        <section className="viewerParts"><div className="inspectorTitle"><h3><Layers size={14}/> PEÇAS</h3><span>{visible}/{info?.parts.length || 0} visíveis</span></div><label className="viewerPartSearch"><Search size={14}/><input aria-label="Buscar peça" value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar na hierarquia…" disabled={!ready}/></label>
-          <div className="viewerPartList">{info ? filtered.slice(0, 100).map(part => <div className={`viewerPartRow ${selected === part.id ? 'selected' : ''} ${!part.visible ? 'hiddenPart' : ''}`} key={part.id}><button className="viewerPartName" aria-pressed={selected === part.id} onClick={() => runtime.current?.select(selected === part.id ? null : part.id)}><Box size={13}/><span>{part.name}<small>{format(part.triangles)} triângulos</small></span></button><button className="viewerPartVisibility" aria-label={`${part.visible ? 'Ocultar' : 'Mostrar'} ${part.name}`} onClick={() => runtime.current?.visibility(part.id)}>{part.visible ? <Eye size={15}/> : <EyeOff size={15}/>}</button></div>) : <p>As peças do modelo aparecem aqui.</p>}{info && !filtered.length && <p>Nenhuma peça com esse nome.</p>}{filtered.length > 100 && <p>Exibindo 100 de {filtered.length}. Use a busca para localizar uma peça.</p>}</div>
+        <section className="viewerParts"><div className="inspectorTitle"><h3><Layers size={14}/> PEÇAS</h3><span>{visible}/{info?.parts.length || 0} visíveis</span></div><label className="viewerPartSearch"><Search size={14}/><input aria-label="Buscar peça" value={search} onChange={event => { setSearch(event.target.value); setPartPage(0); if (partList.current) partList.current.scrollTop = 0 }} placeholder="Buscar na hierarquia…" disabled={!ready}/></label>
+          <p className="viewerSelectedPart" role="status">{selectedPart ? <>Selecionada: <strong>{selectedPart.name}</strong>{!selectedPart.visible && ' · oculta'}</> : 'Clique no modelo ou na lista para selecionar uma peça.'}</p>
+          <div className="viewerPartList" ref={partList}>{info ? pageParts.map(part => <div ref={selected === part.id ? selectedRow : undefined} className={`viewerPartRow ${selected === part.id ? 'selected' : ''} ${!part.visible ? 'hiddenPart' : ''}`} key={part.id}><button className="viewerPartName" aria-pressed={selected === part.id} onClick={() => runtime.current?.select(selected === part.id ? null : part.id)}><Box size={13}/><span>{part.name}<small>{format(part.triangles)} triângulos</small></span></button><button className="viewerPartVisibility" aria-label={`${part.visible ? 'Ocultar' : 'Mostrar'} ${part.name}`} onClick={() => runtime.current?.visibility(part.id)}>{part.visible ? <Eye size={15}/> : <EyeOff size={15}/>}</button></div>) : <p>As peças do modelo aparecem aqui.</p>}{info && !filtered.length && <p>Nenhuma peça com esse nome.</p>}</div>
+          {filtered.length > partPageSize && <nav className="viewerPartPages" aria-label="Páginas de peças"><button disabled={partPage === 0} onClick={() => { setPartPage(partPage - 1); if (partList.current) partList.current.scrollTop = 0 }}>Anterior</button><span>{partPage * partPageSize + 1}–{Math.min((partPage + 1) * partPageSize, filtered.length)} de {filtered.length}</span><button disabled={(partPage + 1) * partPageSize >= filtered.length} onClick={() => { setPartPage(partPage + 1); if (partList.current) partList.current.scrollTop = 0 }}>Próxima</button></nav>}
           <div className="viewerPartActions"><button disabled={!ready || !selected} onClick={() => selected && runtime.current?.isolate(selected)}>Isolar peça</button><button disabled={!ready || !selectedPart} onClick={() => selected && runtime.current?.visibility(selected)}>{selectedPart?.visible === false ? <Eye size={13}/> : <EyeOff size={13}/>} {selectedPart?.visible === false ? 'Mostrar peça' : 'Ocultar peça'}</button><button disabled={!ready || !selected} onClick={() => selected && runtime.current?.fit(selected)}>Enquadrar peça</button><button disabled={!ready} onClick={() => runtime.current?.showAll()}>Mostrar todas</button></div>
         </section>
         <section className="viewerMaterials"><div className="inspectorTitle"><h3><Palette size={14}/> MATERIAIS</h3><span>{selectedPart ? 'Da peça selecionada' : 'Do modelo'}</span></div><label className="viewerMaterialSelect">Material<select aria-label="Material para editar" value={surfaceId} disabled={!ready} onChange={event => setSurfaceId(event.target.value)}>{!info && <option value="">Abra um modelo</option>}{info?.materials.map(item => <option key={item.id} value={item.id}>{selectedPart?.materials.includes(item.id) ? '• ' : ''}{item.name}</option>)}</select></label>

@@ -14,6 +14,8 @@ Abra `tools.html#viewer`. A bancada aceita GLB/glTF 2.0, OBJ/MTL e suas texturas
 
 Selecione peças pelo clique na malha ou pela lista pesquisável. É possível ocultar, mostrar, isolar e enquadrar peças; mudar a vista, ativar wireframe, rotação automática e grade; editar cor, opacidade, rugosidade e metalização; substituir a textura de cor; e restaurar o material carregado.
 
+A seleção ganha uma sobreposição roxa na geometria e uma linha destacada na lista, sem alterar os materiais do arquivo. Ao clicar no modelo, a lista abre a página correspondente e rola somente seu painel até a peça; uma busca que esconderia essa seleção é limpa. A lista tem páginas de 100 peças, com acesso às demais por Anterior/Próxima. O destaque desaparece ao ocultar a peça e não entra no PNG exportado.
+
 Os ajustes de material valem somente para esta prévia. A imagem PNG exportada inclui os ajustes atuais e tem fundo transparente. A exportação de um modelo editado não faz parte desta versão. O enquadramento por eixo é identificado por +Z, +X e Topo; a orientação original do modelo é preservada. Dimensões são expressas nas unidades do modelo.
 
 ## Limites e ciclo de vida

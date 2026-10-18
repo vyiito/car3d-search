@@ -64,6 +64,73 @@ test('local OBJ ZIP loads materials and textures, selects and isolates pieces, e
   expect(failures).toEqual([]); expect(requests).toEqual([])
 })
 
+test('picking a model piece reveals its page, scrolls only the parts list and highlights its geometry', async ({ page }, testInfo) => {
+  const failures: string[] = []
+  page.on('pageerror', error => failures.push(error.message))
+  page.on('console', message => { if (message.type() === 'error') failures.push(message.text()) })
+  await setup(page)
+  const target = 169, count = 220
+  const model = Array.from({ length: count }, (_, index) => {
+    const x = index % 2 ? -1.6 : 1.6, v = index * 3 + 1
+    const vertices = index === target ? 'v -0.8 -0.8 0\nv 0.8 -0.8 0\nv 0 0.8 0' : `v ${x - 0.1} -0.1 0\nv ${x + 0.1} -0.1 0\nv ${x} 0.1 0`
+    return `o Peca_${index}\n${vertices}\nf ${v} ${v + 1} ${v + 2}`
+  }).join('\n')
+  await page.getByLabel('Abrir arquivos no visualizador', { exact: true }).setInputFiles(file('pieces.obj', model))
+  await expect(page.locator('.viewerStats')).toContainText('220 peças', { timeout: 20000 })
+  await page.getByRole('button', { name: '+Z', exact: true }).click()
+  const canvas = page.locator('.workshopCanvas canvas'), list = page.locator('.viewerPartList')
+  await canvas.scrollIntoViewIfNeeded()
+  const pageY = await page.evaluate(() => window.scrollY)
+  const before = await canvas.screenshot({ path: testInfo.outputPath('unselected.png') })
+  await canvas.click({ position: { x: (await canvas.boundingBox())!.width / 2, y: (await canvas.boundingBox())!.height / 2 } })
+  const row = page.locator('.viewerPartRow.selected')
+  await expect(row).toContainText(`Peca_${target}`)
+  await expect(row.getByRole('button', { name: `Peca_${target} 1 triângulos`, exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('navigation', { name: 'Páginas de peças' })).toContainText('101–200 de 220')
+  const position = await row.evaluate(node => {
+    const parent = node.parentElement!, rect = node.getBoundingClientRect(), listRect = parent.getBoundingClientRect()
+    return { inside: rect.top >= listRect.top - 1 && rect.bottom <= listRect.bottom + 1, scroll: parent.scrollTop, pageY: window.scrollY }
+  })
+  expect(position.inside).toBe(true); expect(position.scroll).toBeGreaterThan(0); expect(position.pageY).toBe(pageY)
+  await expect(page.locator('.viewerSelectedPart')).toContainText(`Selecionada: Peca_${target}`)
+  const highlighted = await canvas.screenshot({ path: testInfo.outputPath('highlighted.png') })
+  const purplePixels = async (bytes: Buffer) => page.evaluate(async encoded => {
+    const image = await createImageBitmap(await (await fetch('data:image/png;base64,' + encoded)).blob())
+    const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height
+    const context = canvas.getContext('2d')!; context.drawImage(image, 0, 0)
+    const data = context.getImageData(0, 0, canvas.width, canvas.height).data
+    let pixels = 0
+    for (let i = 0; i < data.length; i += 4) if (data[i] > 100 && data[i + 2] > data[i] * 1.15 && data[i + 1] < data[i] * 0.95) pixels++
+    return pixels
+  }, bytes.toString('base64'))
+  expect(await purplePixels(highlighted)).toBeGreaterThan(await purplePixels(before) + 1000)
+  // Repeating the same model selection must reveal a row scrolled away manually.
+  await list.evaluate(node => { node.scrollTop = 0 })
+  await canvas.click({ position: { x: (await canvas.boundingBox())!.width / 2, y: (await canvas.boundingBox())!.height / 2 } })
+  expect(await list.evaluate(node => node.scrollTop)).toBeGreaterThan(0)
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Baixar PNG', exact: true }).click()
+  const exported = await download
+  expect(await purplePixels(await readFile((await exported.path())!))).toBeLessThan(await purplePixels(highlighted) - 1000)
+  // Picking a piece also clears a filter that would otherwise hide the selection.
+  await page.getByLabel('Buscar peça', { exact: true }).fill('Peca_0')
+  await canvas.click({ position: { x: (await canvas.boundingBox())!.width / 2, y: (await canvas.boundingBox())!.height / 2 } })
+  await expect(page.getByLabel('Buscar peça', { exact: true })).toHaveValue('')
+  await expect(page.locator('.viewerPartRow.selected')).toContainText(`Peca_${target}`)
+  // List selection changes the same highlight; clicking again clears it.
+  await page.getByRole('button', { name: `Peca_${target} 1 triângulos`, exact: true }).click()
+  await expect(page.locator('.viewerPartRow.selected')).toHaveCount(0)
+  await expect(page.locator('.viewerSelectedPart')).toContainText('Clique no modelo')
+  expect(await purplePixels(await canvas.screenshot())).toBeLessThan(await purplePixels(highlighted) - 1000)
+  await page.getByRole('navigation', { name: 'Páginas de peças' }).getByRole('button', { name: 'Próxima' }).click()
+  await expect(list).toContainText('Peca_219')
+  await page.getByLabel('Buscar peça', { exact: true }).fill('Peca_219')
+  await page.getByRole('button', { name: 'Peca_219 1 triângulos', exact: true }).click()
+  await expect(page.getByLabel('Buscar peça', { exact: true })).toHaveValue('Peca_219')
+  await expect(page.locator('.viewerPartRow.selected')).toContainText('Peca_219')
+  expect(failures).toEqual([])
+})
+
 test('embedded GLB works and the exported PNG has transparency', async ({ page }, testInfo) => {
   await setup(page)
   await page.getByLabel('Abrir arquivos no visualizador', { exact: true }).setInputFiles(file('car.glb', makeGlb()))
