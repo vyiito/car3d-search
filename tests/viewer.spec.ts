@@ -106,15 +106,21 @@ test('the private conversion result opens with its textures and keeps the access
 })
 
 test('bad archives and external glTF dependencies are rejected without external requests; missing textures are explained', async ({ page }) => {
+  const rendererImports: string[] = []
+  page.on('request', request => { if (request.url().includes('/src/viewer/runtime.ts')) rendererImports.push(request.url()) })
   await setup(page)
   const malicious = Buffer.from(zipSync({ '../car.obj': strToU8(obj) }))
   await page.getByLabel('Abrir arquivos no visualizador', { exact: true }).setInputFiles(file('bad.zip', malicious))
   await expect(page.getByRole('alert')).toContainText('caminho inválido')
+  const session = await page.context().newCDPSession(page)
+  await session.send('Emulation.setCPUThrottlingRate', { rate: 6 })
   const external: string[] = []
   page.on('request', request => { if (request.url().includes('untrusted.example')) external.push(request.url()) })
   await page.getByLabel('Abrir arquivos no visualizador', { exact: true }).setInputFiles(file('bad.gltf', JSON.stringify({ asset: { version: '2.0' }, buffers: [{ uri: 'https://untrusted.example/secret.bin', byteLength: 36 }] })))
   await expect(page.getByRole('alert')).toContainText('endereço externo')
   expect(external).toEqual([])
+  expect(rendererImports).toEqual([])
+  await session.send('Emulation.setCPUThrottlingRate', { rate: 1 }); await session.detach()
   await page.getByLabel('Abrir arquivos no visualizador', { exact: true }).setInputFiles([file('car.obj', obj), file('car.mtl', mtl)])
   await expect(page.locator('.viewerStats')).toContainText('2 triângulos', { timeout: 20000 })
   await expect(page.locator('.viewerWarnings')).toContainText('Textura ausente')

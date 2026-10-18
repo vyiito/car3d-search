@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Box, Camera, Check, CircleAlert, Eye, EyeOff, Focus, FolderOpen, Grid2X2, Layers, LoaderCircle, Maximize2, MousePointer2, Palette, Rotate3D, Search, Upload, X } from 'lucide-react'
 import { prepareBundle, type ModelBundle, type ViewerSource } from '../viewer/files'
+import { prepareModel } from '../viewer/model'
 import type { ModelInfo, ViewerRuntime, View } from '../viewer/runtime'
 import '../workshop.css'
 
@@ -50,13 +51,14 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
     if (!bundle || !model || !host.current) return
     const controller = new AbortController(), container = host.current
     setState('loading'); setInfo(null); setWarnings([]); setNotice(''); setSelected(null); setSurfaceId(''); setSearch(''); setWireframe(false); setRotate(false); setGrid(true); setView('perspective'); setTextureBusy(false)
-    void import('../viewer/runtime').then(({ createViewer }) => {
+    void prepareModel(bundle, model, controller.signal).then(async prepared => {
+      const { createViewer } = await import('../viewer/runtime')
       controller.signal.throwIfAborted()
       return createViewer(container, bundle, model, controller.signal, {
         change: next => { if (controller.signal.aborted) return; infoRef.current = next; setInfo(next); setSurfaceId(previous => next.materials.some(item => item.id === previous) ? previous : next.materials[0]?.id || '') },
         select: id => { if (controller.signal.aborted) return; setSelected(id); const part = infoRef.current?.parts.find(item => item.id === id); if (part?.materials[0]) setSurfaceId(part.materials[0]) },
         warning: message => { if (!controller.signal.aborted) setWarnings(current => current.includes(message) || current.length >= 80 ? current : [...current, message]) },
-      })
+      }, prepared)
     }).then(viewer => { if (controller.signal.aborted) viewer.dispose(); else { runtime.current = viewer; setState('ready') } }).catch(failure => {
       if (!controller.signal.aborted) { setState('error'); setError(failure instanceof Error ? failure.message : 'Seu navegador não conseguiu abrir a prévia 3D.') }
     })
