@@ -23,7 +23,7 @@ export type ViewerRuntime = {
   surface: (id: string, patch: Partial<Pick<Surface, 'color' | 'opacity' | 'roughness' | 'metalness'>>) => void;
   resetSurface: (id: string) => void; replaceTexture: (id: string, file: File) => Promise<void>; screenshot: () => Promise<Blob>;
 }
-type Hooks = { select: (id: string | null) => void; change: (info: ModelInfo) => void; warning: (message: string) => void }
+type Hooks = { select: (id: string | null, revealInList: boolean) => void; change: (info: ModelInfo) => void; warning: (message: string) => void }
 const texturePattern = /\.(png|jpe?g|webp|bmp|dds|tga|ktx2)(?:[?#].*)?$/i
 const FALLBACK_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGOYPWXZfwAGeALV6MNEnwAAAABJRU5ErkJggg=='
 
@@ -54,9 +54,15 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
   const fill = new THREE.DirectionalLight(0xc7b5ff, 1.3); fill.position.set(-4, 3, -5); scene.add(fill)
   const grid = new THREE.GridHelper(20, 20, 0x685181, 0x30243e)
   scene.add(grid)
-  const selection = new THREE.Box3Helper(new THREE.Box3(), 0xb98bff); selection.visible = false; scene.add(selection)
+  const selection = new THREE.Group(); selection.visible = false; scene.add(selection)
+  const selectionBox = new THREE.Box3Helper(new THREE.Box3(), 0xc7a3ff)
+  const boxMaterial = selectionBox.material as THREE.LineBasicMaterial
+  boxMaterial.depthTest = false; boxMaterial.depthWrite = false; selectionBox.renderOrder = 1001; selection.add(selectionBox)
+  const selectionMaterial = new THREE.MeshBasicMaterial({ color: 0xb483ff, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })
+  let selectionMesh: THREE.Mesh | null = null
   const manager = new THREE.LoadingManager()
   const urls = new Map<string, string>(), generated = new Set<string>(), textures = new Set<THREE.Texture>(), materials = new Set<THREE.Material>(), geometries = new Set<THREE.BufferGeometry>()
+  materials.add(selectionMaterial)
   const decoderUrls = new Set(['basis/basis_transcoder.js', 'basis/basis_transcoder.wasm', 'draco/draco_wasm_wrapper.js', 'draco/draco_decoder.wasm'].map(path => new URL(`${import.meta.env.BASE_URL}vendor/three/${path}`, location.href).href))
   const kinds = new Map<string, TextureKind>(), rawDds = new Set<string>(), cpuDxt = new Set<string>(), badTextures = new Set<string>()
   const meshes = new Map<string, THREE.Mesh>(), surfaces = new Map<string, { live: THREE.MeshStandardMaterial; original: THREE.MeshStandardMaterial }>()
@@ -155,7 +161,7 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
     controls.dispose(); draco.dispose(); ktx.dispose()
     track(scene)
     geometries.forEach(value => value.dispose()); materials.forEach(value => value.dispose()); textures.forEach(value => { value.dispose(); (value.source.data as ImageBitmap)?.close?.() })
-    environmentTarget.dispose(); selection.geometry.dispose(); (selection.material as THREE.Material).dispose()
+    environmentTarget.dispose(); selectionBox.geometry.dispose(); boxMaterial.dispose()
     renderer.dispose(); renderer.forceContextLoss(); renderer.domElement.remove()
     generated.forEach(url => URL.revokeObjectURL(url)); generated.clear(); urls.clear()
     waiters.splice(0).forEach(resolve => resolve())
@@ -168,11 +174,25 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
     if (disposed) return
     const piece = selected ? meshes.get(selected) : null
     selection.visible = Boolean(piece?.visible)
-    if (piece) selection.box.setFromObject(piece)
+    if (piece) {
+      selectionBox.box.setFromObject(piece)
+      if (selectionMesh) { piece.updateWorldMatrix(true, false); selectionMesh.matrix.copy(piece.matrixWorld) }
+    }
     const list = parts()
     hooks.change({ parts: list, materials: materialInfo(), triangles: list.reduce((sum, part) => sum + part.triangles, 0), vertices: [...meshes.values()].reduce((sum, mesh) => sum + mesh.geometry.attributes.position.count, 0), dimensions: bounds().getSize(new THREE.Vector3()).toArray(), textures: loadedTextures })
   }
-  function select(id: string | null) { selected = id && meshes.has(id) ? id : null; update(); hooks.select(selected) }
+  function select(id: string | null, revealInList = false) {
+    selected = id && meshes.has(id) ? id : null
+    if (selectionMesh) { selection.remove(selectionMesh); selectionMesh = null }
+    const piece = selected ? meshes.get(selected) : null
+    if (piece) {
+      // Share the geometry (and skin/morph data) without changing the model's materials.
+      selectionMesh = piece.clone(false); selectionMesh.material = selectionMaterial
+      selectionMesh.matrixAutoUpdate = false; selectionMesh.visible = true; selectionMesh.renderOrder = 1000
+      selection.add(selectionMesh)
+    }
+    update(); hooks.select(selected, revealInList)
+  }
   function fit(id?: string, direction?: THREE.Vector3) {
     const object = id ? meshes.get(id) : root
     if (!object || disposed) return
@@ -192,7 +212,7 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
     const rect = renderer.domElement.getBoundingClientRect(), point = new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1)
     const ray = new THREE.Raycaster(); ray.setFromCamera(point, camera)
     const hit = ray.intersectObjects([...meshes.values()].filter(mesh => mesh.visible), false)[0]
-    select(hit?.object.uuid || null)
+    select(hit?.object.uuid || null, true)
   }
   try {
     for (const [name, file] of bundle.files) if (texturePattern.test(name)) {
