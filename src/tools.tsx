@@ -1,10 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { ArrowLeft, ArrowRight, ArrowUpRight, Check, CircleAlert, CircleCheck, Clock3, Download, FileArchive, FileBox, History, LoaderCircle, RotateCcw, Upload, Wrench, X } from 'lucide-react'
-import { cancelConversion, conversionDownload, converterCapabilities, getConversion, terminalConversion, uploadConversion, type ConversionCapabilities, type ConversionJob, type SavedConversion } from './api/conversions'
+import { ArrowLeft, ArrowRight, ArrowUpRight, Box, Check, CircleAlert, CircleCheck, Clock3, Download, FileArchive, FileBox, History, LoaderCircle, RotateCcw, Upload, Wrench, X } from 'lucide-react'
+import { cancelConversion, conversionArchive, conversionDownload, converterCapabilities, getConversion, terminalConversion, uploadConversion, type ConversionCapabilities, type ConversionJob, type SavedConversion } from './api/conversions'
+import type { ViewerSource } from './viewer/files'
 import './styles.css'
 import './purple-overrides.css'
 import './tools.css'
+import './workshop.css'
+
+const ViewerWorkspace = lazy(() => import('./components/ViewerWorkspace'))
+const toolsTab = () => ['history', 'viewer'].includes(window.location.hash.slice(1)) ? window.location.hash.slice(1) : 'converter'
 
 const HISTORY_KEY = 'vj:conversions:v1'
 const PER_PAGE = 6
@@ -20,7 +25,10 @@ const count = (value: number) => value.toLocaleString('pt-BR')
 const date = (value: number) => new Date(value).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 
 function Tools() {
-  const [tab, setTab] = useState(window.location.hash === '#history' ? 'history' : 'converter')
+  const [tab, setTab] = useState(toolsTab)
+  const [viewerSource, setViewerSource] = useState<ViewerSource | null>(null)
+  const [previewing, setPreviewing] = useState<string | null>(null)
+  const previewAbort = useRef<AbortController | null>(null)
   const [history, setHistory] = useState<SavedConversion[]>(readHistory)
   const [selected, setSelected] = useState<string | null>(() => readHistory()[0]?.job.id || null)
   const [capabilities, setCapabilities] = useState<ConversionCapabilities | null>(null)
@@ -48,7 +56,7 @@ function Tools() {
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)) } catch {}
   }, [history])
   useEffect(() => {
-    const restore = () => setTab(window.location.hash === '#history' ? 'history' : 'converter')
+    const restore = () => setTab(toolsTab())
     window.addEventListener('hashchange', restore)
     return () => window.removeEventListener('hashchange', restore)
   }, [])
@@ -81,10 +89,29 @@ function Tools() {
     void refresh()
     return () => { alive = false; clearTimeout(timer); controller.abort() }
   }, [selected])
-  useEffect(() => () => upload.current?.abort(), [])
+  useEffect(() => () => { upload.current?.abort(); previewAbort.current?.abort() }, [])
 
   function navigate(value: string) {
     setTab(value); window.location.hash = value; setError(null)
+  }
+  function tabKeys(event: React.KeyboardEvent<HTMLDivElement>) {
+    const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
+    const current = tabs.indexOf(document.activeElement as HTMLButtonElement)
+    const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : event.key === 'ArrowRight' ? (current + 1) % tabs.length : event.key === 'ArrowLeft' ? (current + tabs.length - 1) % tabs.length : -1
+    if (index < 0) return
+    event.preventDefault(); tabs[index].click(); tabs[index].focus()
+  }
+  async function preview(saved: SavedConversion) {
+    previewAbort.current?.abort()
+    const controller = new AbortController(); previewAbort.current = controller
+    setPreviewing(saved.job.id); setError(null)
+    try {
+      const file = await conversionArchive(saved, controller.signal)
+      controller.signal.throwIfAborted()
+      setViewerSource({ files: [file], label: saved.job.filename }); navigate('viewer')
+    } catch (failure) {
+      if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : 'Não foi possível abrir o resultado.')
+    } finally { if (previewAbort.current === controller) { previewAbort.current = null; setPreviewing(null) } }
   }
   function choose(files: FileList | File[] | null, directory = false) {
     if (uploading || !files?.length) return
@@ -139,15 +166,23 @@ function Tools() {
 
   return <div className="toolsPage">
     <header className="toolsHeader"><a className="brand" href="./"><span className="brandMark">VJ</span><span>3D SEARCH<small>AUTOMOTIVE TOOLBOX</small></span></a><nav aria-label="Navegação principal"><a href="./">CATÁLOGO</a><a href="tools.html" aria-current="page"><Wrench size={14}/> FERRAMENTAS <span className="toolsNew">NOVO</span></a></nav><a className="toolsReturn" href="./"><ArrowLeft size={14}/><span>Voltar à busca</span></a></header>
-    <div className="toolsContainer">
-      <div className="toolsBreadcrumb"><a href="./">VJ 3D</a><span>/</span> FERRAMENTAS <span>/</span> CONVERSOR KN5</div>
-      <section className="toolsHero">
-        <div><div className="toolsEyebrow"><span/> VJ WORKSHOP / 01</div><h1>DA PISTA<br/>AO SEU <em>EDITOR.</em></h1><p>Transforme seus arquivos do Assetto Corsa em modelos prontos para importar. Envie o KN5 e baixe a malha, os materiais e as texturas em um só lugar.</p><div className="toolsHeroTags"><span>DESCRIPTOGRAFIA INCLUÍDA</span><span>OBJ + MTL + TEXTURAS</span></div></div>
+    <main className="toolsContainer">
+      <div className="toolsBreadcrumb"><a href="./">VJ 3D</a><span>/</span> FERRAMENTAS <span>/</span> {tab === 'viewer' ? 'VISUALIZADOR 3D' : tab === 'history' ? 'MINHAS CONVERSÕES' : 'CONVERSOR KN5'}</div>
+      <section className={`toolsHero ${tab === 'viewer' ? 'toolsHeroViewer' : ''}`}>
+        <div><div className="toolsEyebrow"><span/> VJ WORKSHOP / 01</div><h1>DA PISTA<br/>AO SEU <em>EDITOR.</em></h1><p>Converta seus arquivos do Assetto Corsa, confira as peças em 3D e explore os materiais e as texturas em um só lugar.</p><div className="toolsHeroTags"><span>DESCRIPTOGRAFIA INCLUÍDA</span><span>OBJ + MTL + TEXTURAS</span></div></div>
         <div className="formatVisual" aria-hidden="true"><div className="formatLines"/><div className="formatSource"><FileBox size={34} strokeWidth={1}/><strong>.KN5</strong><small>ASSETTO CORSA</small></div><div className="formatConnector"><span/><ArrowRight size={25}/><span/></div><div className="formatTarget"><FileArchive size={34} strokeWidth={1}/><strong>.OBJ</strong><small>SEU PRÓXIMO PROJETO</small></div><div className="formatVisualFooter"><span>01 / CONVERT ENGINE</span><b>VJ</b></div></div>
       </section>
-      <div className="toolsTabs" role="tablist" aria-label="Ferramentas"><button id="converter-tab" role="tab" aria-selected={tab === 'converter'} aria-controls="converter-panel" onClick={() => navigate('converter')}><Wrench size={16}/> Conversor KN5 <span>01</span></button><button id="history-tab" role="tab" aria-selected={tab === 'history'} aria-controls="history-panel" onClick={() => navigate('history')}><History size={16}/> Minhas conversões <span>{history.length}</span></button><div className={`converterAvailability ${capabilities?.online && !connectionError ? 'online' : ''}`} role="status"><i/>{connectionError ? 'Conexão indisponível' : !capabilities ? 'Conectando ao conversor' : capabilities.online ? 'Conversor online' : 'Conversor offline'}</div></div>
+      <div className="toolsTabBar">
+        <div className="toolsTabs" role="tablist" aria-label="Ferramentas" onKeyDown={tabKeys}>
+          <button id="converter-tab" role="tab" tabIndex={tab === 'converter' ? 0 : -1} aria-selected={tab === 'converter'} aria-controls="converter-panel" onClick={() => navigate('converter')}><Wrench size={16}/> Conversor KN5 <span>01</span></button>
+          <button id="viewer-tab" role="tab" tabIndex={tab === 'viewer' ? 0 : -1} aria-selected={tab === 'viewer'} aria-controls="viewer-panel" onClick={() => navigate('viewer')}><Box size={16}/> Visualizador 3D <span>NOVO</span></button>
+          <button id="history-tab" role="tab" tabIndex={tab === 'history' ? 0 : -1} aria-selected={tab === 'history'} aria-controls="history-panel" onClick={() => navigate('history')}><History size={16}/> Minhas conversões <span>{history.length}</span></button>
+        </div>
+        <div className={`converterAvailability ${capabilities?.online && !connectionError ? 'online' : ''}`} role="status"><i/>{connectionError ? 'Conexão indisponível' : !capabilities ? 'Conectando ao conversor' : capabilities.online ? 'Conversor online' : 'Conversor offline'}</div>
+      </div>
       {error && <div className="toolsError" role="alert"><CircleAlert size={17}/><span>{error}</span><button aria-label="Fechar aviso" onClick={() => setError(null)}><X size={16}/></button></div>}
-      {tab === 'converter' ? <div className="converterLayout" id="converter-panel" role="tabpanel" aria-labelledby="converter-tab">
+      {previewing && <div className="toolsPreviewProgress" role="status"><LoaderCircle className="toolsSpin" size={16}/><span>Baixando o ZIP privado para abrir no visualizador…</span><button className="toolsSecondary" onClick={() => { previewAbort.current?.abort(); setPreviewing(null) }}>Cancelar abertura</button></div>}
+      <div className="converterLayout" id="converter-panel" role="tabpanel" aria-labelledby="converter-tab" hidden={tab !== 'converter'} tabIndex={0}>
         <section className="converterMain"><div className="toolsPanelHeading"><span className="toolsStepNumber">01</span><div><h2>Seu arquivo. Outro formato.</h2><p>Selecione ou arraste um KN5 para começar.</p></div><span className="toolsFormatTag">KN5 → OBJ</span></div>
           <input ref={input} id="kn5-file" type="file" accept=".kn5" aria-label="Selecionar arquivo KN5" disabled={uploading} onChange={event => choose(event.target.files)}/>
           <input ref={node => { directoryInput.current = node; node?.setAttribute('webkitdirectory', '') }} type="file" multiple aria-label="Selecionar pasta do mod" disabled={uploading} onChange={event => choose(event.target.files, true)}/>
@@ -165,15 +200,17 @@ function Tools() {
           {current && <div className={`conversionCurrent ${current.job.status}`} aria-live="polite"><div className="currentHeading"><span>{current.job.status === 'completed' ? <CircleCheck size={22}/> : terminalConversion(current.job) ? <CircleAlert size={22}/> : <LoaderCircle className="toolsSpin" size={22}/>}</span><div><small>SUA CONVERSÃO</small><h3>{labels[current.job.status]}</h3><p>{current.job.filename}</p></div><button aria-label="Ocultar conversão" onClick={() => setSelected(null)}><X size={17}/></button></div>
             {!terminalConversion(current.job) && <><progress aria-label="Progresso da conversão" max="100" value={current.job.progress}/><ol className="conversionSteps">{[['decrypting', 'Abrir KN5'], ['converting', 'Converter'], ['packaging', 'Empacotar'], ['completed', 'Baixar']].map(([stage, label], index) => <li key={stage} className={current.job.progress >= [25, 50, 75, 100][index] ? 'active' : ''}><span>{String(index + 1).padStart(2, '0')}</span>{label}</li>)}</ol><div className="currentActions"><span>{current.job.status === 'queued' ? `Posição na fila: ${current.job.queuePosition || 1}` : 'Você pode continuar navegando enquanto processamos.'}</span><button disabled={busy === current.job.id} onClick={() => void cancel(current)}>Cancelar</button></div></>}
             {current.job.error && <p className="currentError">{current.job.error}</p>}
-            {current.job.status === 'completed' && <><div className="conversionSummary"><span><b>{count(current.job.report?.triangles || 0)}</b> triângulos</span><span><b>{current.job.report?.materials || 0}</b> materiais</span><span><b>{current.job.report?.textures || 0}</b> texturas</span></div>{Boolean(current.job.report?.placeholderTextures) && <p className="currentError">O modelo contém {current.job.report?.placeholderTextures} textura(s) de 1 pixel. Elas podem ser cores sólidas ou substitutas; confira o resultado no seu editor.</p>}<div className="currentDownload"><span>ZIP · {bytes(current.job.outputBytes)}<small>Disponível até {date(current.job.expiresAt)}</small></span><button className="toolsPrimary" disabled={busy === current.job.id} onClick={() => void download(current)}><Download size={16}/> BAIXAR ZIP</button></div></>}
+            {current.job.status === 'completed' && <><div className="conversionSummary"><span><b>{count(current.job.report?.triangles || 0)}</b> triângulos</span><span><b>{current.job.report?.materials || 0}</b> materiais</span><span><b>{current.job.report?.textures || 0}</b> texturas</span></div>{Boolean(current.job.report?.placeholderTextures) && <p className="currentError">O modelo contém {current.job.report?.placeholderTextures} textura(s) de 1 pixel. Elas podem ser cores sólidas ou substitutas; confira o resultado no seu editor.</p>}<div className="currentPreview"><button className="toolsSecondary" disabled={Boolean(previewing)} onClick={() => void preview(current)}><Box size={16}/> VISUALIZAR RESULTADO</button><span>Abra as peças, os materiais e as texturas aqui.</span></div><div className="currentDownload"><span>ZIP · {bytes(current.job.outputBytes)}<small>Disponível até {date(current.job.expiresAt)}</small></span><button className="toolsPrimary" disabled={busy === current.job.id} onClick={() => void download(current)}><Download size={16}/> BAIXAR ZIP</button></div></>}
           </div>}
         </section>
         <aside className="converterAside"><div className="toolsPanelHeading"><span className="toolsStepNumber">02</span><h2>O que você recebe</h2></div><div className="outputFile"><span>OBJ</span><div><strong>Modelo 3D</strong><p>Malha com grupos e coordenadas UV.</p></div><Check size={15}/></div><div className="outputFile"><span>MTL</span><div><strong>Materiais</strong><p>Materiais vinculados à geometria.</p></div><Check size={15}/></div><div className="outputFile"><span>TEX</span><div><strong>Texturas</strong><p>Imagens incorporadas ao KN5 original.</p></div><Check size={15}/></div><div className="toolsZipNote"><FileArchive size={22}/><p>Tudo em um ZIP.<br/><strong>Extraia junto e importe o OBJ.</strong></p></div><div className="toolsNotes"><h3>Antes de converter</h3><p>Os materiais são uma aproximação dos shaders do jogo. Rig e animações não são preservados no OBJ.</p><p>Arquivos enviados e resultados são temporários. Baixe seu ZIP em até {capabilities?.retentionMinutes || 60} minutos após a conclusão.</p><a href="./">Encontrar outro modelo no catálogo <ArrowRight size={14}/></a></div></aside>
-      </div> : <section className="conversionHistory" id="history-panel" role="tabpanel" aria-labelledby="history-tab"><div className="historyHeading"><div><span className="toolsEyebrow">SEU HISTÓRICO / LOCAL</span><h2>Minhas conversões<span>.</span></h2><p>Os últimos 20 envios deste navegador. Os downloads são temporários.</p></div><span>{activeCount ? `${activeCount} em andamento` : `${history.length} conversões`}</span></div>
-        {history.length ? <><div className="historyList">{history.slice((page - 1) * PER_PAGE, page * PER_PAGE).map(saved => <article key={saved.job.id}><FileBox size={24}/><div className="historyIdentity"><strong>{saved.job.filename}</strong><small>{date(saved.job.createdAt)} {saved.job.outputBytes > 0 && `· ${bytes(saved.job.outputBytes)}`}</small></div><span className={`historyStatus ${saved.job.status}`}>{labels[saved.job.status]}</span><button className="toolsSecondary" onClick={() => { setSelected(saved.job.id); navigate('converter') }}>Ver detalhes <ArrowUpRight size={14}/></button>{saved.job.status === 'completed' && <button className="historyDownload" disabled={busy === saved.job.id} aria-label={`Baixar ${saved.job.filename}`} onClick={() => void download(saved)}><Download size={17}/></button>}</article>)}</div><nav className="toolsPagination" aria-label="Páginas de conversões"><span>{history.length} conversões · {PER_PAGE} por página</span><div><button disabled={page === 1} aria-label="Página anterior de conversões" onClick={() => setPage(value => value - 1)}><ArrowLeft size={15}/></button>{Array.from({ length: pages }, (_, index) => <button key={index} aria-label={`Página ${index + 1} de conversões`} aria-current={page === index + 1 ? 'page' : undefined} onClick={() => setPage(index + 1)}>{index + 1}</button>)}<button disabled={page === pages} aria-label="Próxima página de conversões" onClick={() => setPage(value => value + 1)}><ArrowRight size={15}/></button></div></nav></> : <div className="historyEmpty"><History size={36} strokeWidth={1}/><h3>Seu próximo projeto começa aqui.</h3><p>Quando você enviar um KN5, acompanhe a conversão por esta aba.</p><button className="toolsPrimary" onClick={() => navigate('converter')}>CONVERTER MEU PRIMEIRO ARQUIVO <ArrowRight size={16}/></button></div>}
-      </section>}
+      </div>
+      <section id="viewer-panel" role="tabpanel" aria-labelledby="viewer-tab" hidden={tab !== 'viewer'} tabIndex={0}>{tab === 'viewer' && <Suspense fallback={<p className="viewerPrivacy" role="status">Preparando visualizador…</p>}><ViewerWorkspace source={viewerSource} onSource={source => { previewAbort.current?.abort(); setViewerSource(source) }}/></Suspense>}</section>
+      <section className="conversionHistory" id="history-panel" role="tabpanel" aria-labelledby="history-tab" hidden={tab !== 'history'} tabIndex={0}><div className="historyHeading"><div><span className="toolsEyebrow">SEU HISTÓRICO / LOCAL</span><h2>Minhas conversões<span>.</span></h2><p>Os últimos 20 envios deste navegador. Os downloads são temporários.</p></div><span>{activeCount ? `${activeCount} em andamento` : `${history.length} conversões`}</span></div>
+        {history.length ? <><div className="historyList">{history.slice((page - 1) * PER_PAGE, page * PER_PAGE).map(saved => <article key={saved.job.id}><FileBox size={24}/><div className="historyIdentity"><strong>{saved.job.filename}</strong><small>{date(saved.job.createdAt)} {saved.job.outputBytes > 0 && `· ${bytes(saved.job.outputBytes)}`}</small></div><span className={`historyStatus ${saved.job.status}`}>{labels[saved.job.status]}</span><button className="toolsSecondary" onClick={() => { setSelected(saved.job.id); navigate('converter') }}>Ver detalhes <ArrowUpRight size={14}/></button>{saved.job.status === 'completed' && <button className="toolsSecondary" disabled={Boolean(previewing)} aria-label={`Visualizar ${saved.job.filename}`} onClick={() => void preview(saved)}><Box size={14}/> Visualizar</button>}{saved.job.status === 'completed' && <button className="historyDownload" disabled={busy === saved.job.id} aria-label={`Baixar ${saved.job.filename}`} onClick={() => void download(saved)}><Download size={17}/></button>}</article>)}</div><nav className="toolsPagination" aria-label="Páginas de conversões"><span>{history.length} conversões · {PER_PAGE} por página</span><div><button disabled={page === 1} aria-label="Página anterior de conversões" onClick={() => setPage(value => value - 1)}><ArrowLeft size={15}/></button>{Array.from({ length: pages }, (_, index) => <button key={index} aria-label={`Página ${index + 1} de conversões`} aria-current={page === index + 1 ? 'page' : undefined} onClick={() => setPage(index + 1)}>{index + 1}</button>)}<button disabled={page === pages} aria-label="Próxima página de conversões" onClick={() => setPage(value => value + 1)}><ArrowRight size={15}/></button></div></nav></> : <div className="historyEmpty"><History size={36} strokeWidth={1}/><h3>Seu próximo projeto começa aqui.</h3><p>Quando você enviar um KN5, acompanhe a conversão por esta aba.</p><button className="toolsPrimary" onClick={() => navigate('converter')}>CONVERTER MEU PRIMEIRO ARQUIVO <ArrowRight size={16}/></button></div>}
+      </section>
       <div className="toolsBottomLink"><span>PRECISA DO MODELO PRIMEIRO?</span><a href="./">Explore o catálogo automotivo <ArrowUpRight size={17}/></a></div>
-    </div><footer className="toolsFooter"><span>VJ 3D / FERRAMENTAS</span><small>DA BUSCA AO SEU PRÓXIMO PROJETO.</small><a href="https://github.com/vyiito/car3d-search" target="_blank" rel="noreferrer">GITHUB <ArrowUpRight size={12}/></a></footer>
+    </main><footer className="toolsFooter"><span>VJ 3D / FERRAMENTAS</span><small>DA BUSCA AO SEU PRÓXIMO PROJETO.</small><a href="https://github.com/vyiito/car3d-search" target="_blank" rel="noreferrer">GITHUB <ArrowUpRight size={12}/></a></footer>
   </div>
 }
 

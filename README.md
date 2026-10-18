@@ -57,6 +57,8 @@ Resultados ficam disponíveis por 60 minutos. O serviço atual usa armazenamento
 
 Veja [a arquitetura e os limites](docs/converter-architecture.md) e [a configuração do agente](worker/README.md). Nenhum programa ou dado de chave de terceiros é incluído no repositório.
 
+A aba **Visualizador 3D** abre GLB/glTF, OBJ/MTL com texturas, pastas e ZIPs localmente no navegador. Oferece seleção e isolamento de peças, vistas, wireframe, edição temporária de materiais, troca de textura e PNG com fundo transparente. **Visualizar resultado**, no conversor e no histórico, abre o ZIP privado da conversão nessa bancada. Veja [formatos, limites e controles](docs/viewer-workshop.md).
+
 ## API de pesquisa
 
 ```text
