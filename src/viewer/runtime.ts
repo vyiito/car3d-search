@@ -25,7 +25,7 @@ export type ViewerRuntime = {
 }
 type Hooks = { select: (id: string | null) => void; change: (info: ModelInfo) => void; warning: (message: string) => void }
 const texturePattern = /\.(png|jpe?g|webp|bmp|dds|tga|ktx2)(?:[?#].*)?$/i
-const FALLBACK_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/mXPo5QAAAABJRU5ErkJggg=='
+const FALLBACK_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGOYPWXZfwAGeALV6MNEnwAAAABJRU5ErkJggg=='
 
 export async function createViewer(host: HTMLElement, bundle: ModelBundle, modelPath: string, signal: AbortSignal, hooks: Hooks, prepared: PreparedModel): Promise<ViewerRuntime> {
   signal.throwIfAborted()

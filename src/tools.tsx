@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowLeft, ArrowRight, ArrowUpRight, Box, Check, CircleAlert, CircleCheck, Clock3, Download, FileArchive, FileBox, History, LoaderCircle, RotateCcw, Upload, Wrench, X } from 'lucide-react'
 import { cancelConversion, conversionArchive, conversionDownload, converterCapabilities, getConversion, terminalConversion, uploadConversion, type ConversionCapabilities, type ConversionJob, type SavedConversion } from './api/conversions'
@@ -29,6 +29,7 @@ function Tools() {
   const [viewerSource, setViewerSource] = useState<ViewerSource | null>(null)
   const [previewing, setPreviewing] = useState<string | null>(null)
   const previewAbort = useRef<AbortController | null>(null)
+  const focusPreview = useRef(false)
   const [history, setHistory] = useState<SavedConversion[]>(readHistory)
   const [selected, setSelected] = useState<string | null>(() => readHistory()[0]?.job.id || null)
   const [capabilities, setCapabilities] = useState<ConversionCapabilities | null>(null)
@@ -52,13 +53,21 @@ function Tools() {
   const pages = Math.max(1, Math.ceil(history.length / PER_PAGE))
   const activeCount = history.filter(item => !terminalConversion(item.job)).length
 
+  useLayoutEffect(() => {
+    if (tab !== 'viewer' || !focusPreview.current) return
+    focusPreview.current = false
+    const panel = document.getElementById('viewer-panel')
+    panel?.focus({ preventScroll: true }); panel?.scrollIntoView({ block: 'start' })
+  }, [tab, viewerSource])
+
   useEffect(() => {
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history)) } catch {}
   }, [history])
   useEffect(() => {
     const restore = () => setTab(toolsTab())
     window.addEventListener('hashchange', restore)
-    return () => window.removeEventListener('hashchange', restore)
+    window.addEventListener('popstate', restore)
+    return () => { window.removeEventListener('hashchange', restore); window.removeEventListener('popstate', restore) }
   }, [])
   useEffect(() => {
     let alive = true, timer: ReturnType<typeof setTimeout>
@@ -92,7 +101,8 @@ function Tools() {
   useEffect(() => () => { upload.current?.abort(); previewAbort.current?.abort() }, [])
 
   function navigate(value: string) {
-    setTab(value); window.location.hash = value; setError(null)
+    if (window.location.hash !== `#${value}`) window.history.pushState(null, '', `#${value}`)
+    setTab(value); setError(null)
   }
   function tabKeys(event: React.KeyboardEvent<HTMLDivElement>) {
     const tabs = [...event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
@@ -108,12 +118,8 @@ function Tools() {
     try {
       const file = await conversionArchive(saved, controller.signal)
       controller.signal.throwIfAborted()
+      focusPreview.current = true
       setViewerSource({ files: [file], label: saved.job.filename }); navigate('viewer')
-      requestAnimationFrame(() => {
-        if (window.location.hash !== '#viewer' || controller.signal.aborted) return
-        const panel = document.getElementById('viewer-panel')
-        panel?.focus({ preventScroll: true }); panel?.scrollIntoView({ block: 'start' })
-      })
     } catch (failure) {
       if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : 'Não foi possível abrir o resultado.')
     } finally { if (previewAbort.current === controller) { previewAbort.current = null; setPreviewing(null) } }
