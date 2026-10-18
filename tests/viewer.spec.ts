@@ -104,6 +104,10 @@ test('picking a model piece reveals its page, scrolls only the parts list and hi
     return pixels
   }, bytes.toString('base64'))
   expect(await purplePixels(highlighted)).toBeGreaterThan(await purplePixels(before) + 1000)
+  // Repeating the same model selection must reveal a row scrolled away manually.
+  await list.evaluate(node => { node.scrollTop = 0 })
+  await canvas.click({ position: { x: (await canvas.boundingBox())!.width / 2, y: (await canvas.boundingBox())!.height / 2 } })
+  expect(await list.evaluate(node => node.scrollTop)).toBeGreaterThan(0)
   const download = page.waitForEvent('download')
   await page.getByRole('button', { name: 'Baixar PNG', exact: true }).click()
   const exported = await download

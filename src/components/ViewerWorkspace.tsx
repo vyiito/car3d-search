@@ -22,6 +22,7 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
   const [surfaceId, setSurfaceId] = useState('')
   const [search, setSearch] = useState('')
   const [partPage, setPartPage] = useState(0)
+  const [revealRequest, setRevealRequest] = useState(0)
   const [wireframe, setWireframe] = useState(false)
   const [rotate, setRotate] = useState(false)
   const [grid, setGrid] = useState(true)
@@ -46,7 +47,7 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
     // Scroll only the parts panel, keeping the camera and the page in place.
     if (rowBox.top < top) list.scrollTop += rowBox.top - top
     else if (rowBox.bottom > bottom) list.scrollTop += rowBox.bottom - bottom
-  }, [selected, partPage, search])
+  }, [selected, partPage, search, revealRequest])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -75,7 +76,7 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
           setSelected(id)
           const parts = infoRef.current?.parts || [], index = parts.findIndex(item => item.id === id), part = parts[index]
           if (part?.materials[0]) setSurfaceId(part.materials[0])
-          if (revealInList && index >= 0) { setSearch(''); setPartPage(Math.floor(index / partPageSize)) }
+          if (revealInList && index >= 0) { setSearch(''); setPartPage(Math.floor(index / partPageSize)); setRevealRequest(value => value + 1) }
         },
         warning: message => { if (!controller.signal.aborted) setWarnings(current => current.includes(message) || current.length >= 80 ? current : [...current, message]) },
       }, prepared)
