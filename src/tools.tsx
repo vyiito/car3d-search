@@ -109,6 +109,11 @@ function Tools() {
       const file = await conversionArchive(saved, controller.signal)
       controller.signal.throwIfAborted()
       setViewerSource({ files: [file], label: saved.job.filename }); navigate('viewer')
+      requestAnimationFrame(() => {
+        if (window.location.hash !== '#viewer' || controller.signal.aborted) return
+        const panel = document.getElementById('viewer-panel')
+        panel?.focus({ preventScroll: true }); panel?.scrollIntoView({ block: 'start' })
+      })
     } catch (failure) {
       if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : 'Não foi possível abrir o resultado.')
     } finally { if (previewAbort.current === controller) { previewAbort.current = null; setPreviewing(null) } }

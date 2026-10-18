@@ -100,6 +100,7 @@ test('the private conversion result opens with its textures and keeps the access
   await page.getByRole('button', { name: 'VISUALIZAR RESULTADO', exact: true }).click()
   await expect(page).toHaveURL(/#viewer$/)
   await expect(page.locator('.viewerStats')).toContainText('2 triângulos', { timeout: 20000 })
+  await expect(page.getByRole('tabpanel', { name: /Visualizador 3D/ })).toBeFocused()
   await expect(page.locator('.viewerTexture')).toContainText('color.png')
   expect(requested.some(url => url.includes(accessToken))).toBe(false)
 })
