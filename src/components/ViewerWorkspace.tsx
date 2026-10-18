@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Box, Camera, Check, CircleAlert, Eye, EyeOff, Focus, FolderOpen, Grid2X2, Layers, LoaderCircle, Maximize2, MousePointer2, Palette, Rotate3D, Search, Upload, X } from 'lucide-react'
+import { Box, Camera, Check, CircleAlert, Download, Eye, EyeOff, Focus, FolderOpen, Grid2X2, Layers, LoaderCircle, Maximize2, MousePointer2, Palette, Rotate3D, Search, Upload, X } from 'lucide-react'
 import { prepareBundle, type ModelBundle, type ViewerSource } from '../viewer/files'
 import { prepareModel } from '../viewer/model'
 import type { ModelInfo, ViewerRuntime, View } from '../viewer/runtime'
@@ -19,6 +19,10 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
   const [warnings, setWarnings] = useState<string[]>([])
   const [info, setInfo] = useState<ModelInfo | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [multi, setMulti] = useState(false)
+  const [exportBusy, setExportBusy] = useState(false)
+  const [exportProgress, setExportProgress] = useState('')
   const [surfaceId, setSurfaceId] = useState('')
   const [search, setSearch] = useState('')
   const [partPage, setPartPage] = useState(0)
@@ -38,6 +42,7 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
   const infoRef = useRef<ModelInfo | null>(null)
   const partList = useRef<HTMLDivElement>(null)
   const selectedRow = useRef<HTMLDivElement>(null)
+  const exportController = useRef<AbortController | null>(null)
 
   useLayoutEffect(() => {
     const list = partList.current, row = selectedRow.current
@@ -51,7 +56,7 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
 
   useEffect(() => {
     const controller = new AbortController()
-    setBundle(null); setModel(''); setInfo(null); setError(''); setNotice(''); setWarnings([]); setSelected(null); setSurfaceId(''); setSearch(''); setPartPage(0)
+    setBundle(null); setModel(''); setInfo(null); setError(''); setNotice(''); setWarnings([]); setSelected(null); setSelectedIds([]); setSurfaceId(''); setSearch(''); setPartPage(0)
     if (!source) { setState('empty'); return () => controller.abort() }
     setState('loading')
     void prepareBundle(source, controller.signal).then(value => {
@@ -65,15 +70,15 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
   useEffect(() => {
     if (!bundle || !model || !host.current) return
     const controller = new AbortController(), container = host.current
-    setState('loading'); setInfo(null); setWarnings([]); setNotice(''); setSelected(null); setSurfaceId(''); setSearch(''); setPartPage(0); setWireframe(false); setRotate(false); setGrid(true); setView('perspective'); setTextureBusy(false)
+    setState('loading'); setInfo(null); setWarnings([]); setNotice(''); setSelected(null); setSelectedIds([]); setMulti(false); setExportBusy(false); setExportProgress(''); setSurfaceId(''); setSearch(''); setPartPage(0); setWireframe(false); setRotate(false); setGrid(true); setView('perspective'); setTextureBusy(false)
     void prepareModel(bundle, model, controller.signal).then(async prepared => {
       const { createViewer } = await import('../viewer/runtime')
       controller.signal.throwIfAborted()
       return createViewer(container, bundle, model, controller.signal, {
         change: next => { if (controller.signal.aborted) return; infoRef.current = next; setInfo(next); setSurfaceId(previous => next.materials.some(item => item.id === previous) ? previous : next.materials[0]?.id || '') },
-        select: (id, revealInList) => {
+        select: (ids, id, revealInList) => {
           if (controller.signal.aborted) return
-          setSelected(id)
+          setSelected(id); setSelectedIds(ids)
           const parts = infoRef.current?.parts || [], index = parts.findIndex(item => item.id === id), part = parts[index]
           if (part?.materials[0]) setSurfaceId(part.materials[0])
           if (revealInList && index >= 0) { setSearch(''); setPartPage(Math.floor(index / partPageSize)); setRevealRequest(value => value + 1) }
@@ -83,7 +88,7 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
     }).then(viewer => { if (controller.signal.aborted) viewer.dispose(); else { runtime.current = viewer; setState('ready') } }).catch(failure => {
       if (!controller.signal.aborted) { setState('error'); setError(failure instanceof Error ? failure.message : 'Seu navegador não conseguiu abrir a prévia 3D.') }
     })
-    return () => { controller.abort(); runtime.current?.dispose(); runtime.current = null; infoRef.current = null }
+    return () => { exportController.current?.abort(); exportController.current = null; controller.abort(); runtime.current?.dispose(); runtime.current = null; infoRef.current = null }
   }, [bundle, model])
 
   function open(files: FileList | File[] | null) { if (files?.length) onSource({ files: [...files] }) }
@@ -106,12 +111,30 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     } catch (failure) { if (runtime.current === engine) setNotice(failure instanceof Error ? failure.message : 'Não foi possível salvar a imagem.') }
   }
+  async function downloadPieces(ids: string[], separate = false) {
+    const engine = runtime.current
+    if (!engine || !ids.length || exportController.current || textureBusy) return
+    const controller = new AbortController(); exportController.current = controller
+    setExportBusy(true); setExportProgress('Preparando download…'); setNotice('')
+    try {
+      const result = await engine.exportParts(ids, separate, controller.signal, message => { if (runtime.current === engine && !controller.signal.aborted) setExportProgress(message) })
+      if (controller.signal.aborted || runtime.current !== engine) return
+      const url = URL.createObjectURL(result.blob), anchor = document.createElement('a')
+      anchor.href = url; anchor.download = result.name; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (failure) {
+      if (runtime.current === engine && !controller.signal.aborted) setNotice(failure instanceof Error ? failure.message : 'Não foi possível exportar as peças.')
+    } finally {
+      if (exportController.current === controller) { exportController.current = null; setExportBusy(false); setExportProgress('') }
+    }
+  }
   const ready = state === 'ready'
   const surface = info?.materials.find(item => item.id === surfaceId)
   const filtered = info?.parts.filter(part => part.name.toLocaleLowerCase().includes(search.toLocaleLowerCase())) || []
   const pageParts = filtered.slice(partPage * partPageSize, (partPage + 1) * partPageSize)
   const visible = info?.parts.filter(part => part.visible).length || 0
   const selectedPart = info?.parts.find(part => part.id === selected)
+  const selectedSet = new Set(selectedIds)
+  const allSelectedHidden = Boolean(selectedIds.length) && info?.parts.filter(part => selectedSet.has(part.id)).every(part => !part.visible)
 
   return <section className="viewerWorkspace" aria-label="Bancada de visualização 3D">
     <div className="workshopHeading"><div><span className="toolsEyebrow"><Box size={13}/> VJ WORKSHOP / 02</span><h2>Seu modelo. <em>Em cada detalhe.</em></h2><p>Abra, explore as peças e confira o acabamento antes de importar no seu editor.</p></div><span className="viewerLocalBadge"><Check size={13}/> ARQUIVOS ABERTOS LOCALMENTE</span></div>
@@ -134,25 +157,27 @@ export default function ViewerWorkspace({ source, onSource }: Props) {
             {state === 'error' && <button className="toolsSecondary" onClick={() => input.current?.click()}>Abrir outro arquivo</button>}
             {state === 'empty' && <small>O KN5 pode ser aberto aqui depois de passar pelo conversor.</small>}
           </div>}
-          {ready && <div className="viewerCanvasHint"><MousePointer2 size={12}/> Arraste para girar · scroll para zoom · clique para selecionar</div>}
+          {ready && <div className="viewerCanvasHint"><MousePointer2 size={12}/> Arraste para girar · scroll para zoom · Ctrl/Cmd ou Shift + clique para somar peças</div>}
           {dragging && <div className="viewerDropHint"><Upload size={30}/><strong>Solte os arquivos para abrir</strong></div>}
         </div>
         <div className="viewerToolbar"><div className="viewerViewButtons" role="group" aria-label="Vistas do modelo">{([['perspective', '3/4'], ['front', '+Z'], ['side', '+X'], ['top', 'Topo']] as const).map(([value, label]) => <button key={value} disabled={!ready} aria-pressed={view === value} onClick={() => { setView(value); runtime.current?.view(value) }}>{label}</button>)}</div><div className="viewerDisplayButtons"><button disabled={!ready} aria-pressed={wireframe} title="Ver malha" onClick={() => { setWireframe(!wireframe); runtime.current?.wireframe(!wireframe) }}><Grid2X2 size={15}/><span>Malha</span></button><button disabled={!ready} aria-pressed={rotate} title="Girar automaticamente" onClick={() => { setRotate(!rotate); runtime.current?.rotate(!rotate) }}><Rotate3D size={15}/><span>Girar</span></button><button disabled={!ready} aria-pressed={grid} title="Mostrar grade" onClick={() => { setGrid(!grid); runtime.current?.grid(!grid) }}><Layers size={15}/><span>Grade</span></button><button disabled={!ready} aria-label="Enquadrar modelo" title="Enquadrar modelo" onClick={() => runtime.current?.fit()}><Focus size={16}/></button><button disabled={!ready} aria-label="Tela cheia do visualizador" title="Tela cheia" onClick={() => { void stage.current?.requestFullscreen?.().catch(() => setNotice('A tela cheia não está disponível neste navegador.')) }}><Maximize2 size={15}/></button></div></div>
         <div className="viewerStats" aria-label="Dados do modelo"><span><b>{info ? format(info.triangles) : '—'}</b> triângulos</span><span><b>{info ? format(info.parts.length) : '—'}</b> peças</span><span><b>{info ? format(info.materials.length) : '—'}</b> materiais</span><span><b>{info ? format(info.textures) : '—'}</b> texturas no pacote</span></div>
-        <div className="viewerExport"><span><Camera size={15}/> A imagem acompanha a vista e os materiais atuais.<small>PNG com fundo transparente.</small></span><button className="toolsSecondary" disabled={!ready} onClick={() => void screenshot()}><Camera size={15}/> Baixar PNG</button></div>
+        <div className="viewerExport"><span><Camera size={15}/> A imagem acompanha a vista e os materiais atuais.<small>PNG com fundo transparente.</small></span><button className="toolsSecondary" disabled={!ready || exportBusy} onClick={() => void screenshot()}><Camera size={15}/> Baixar PNG</button></div>
       </div>
       <aside className="viewerInspector" aria-label="Inspetor do modelo">
         <section className="viewerParts"><div className="inspectorTitle"><h3><Layers size={14}/> PEÇAS</h3><span>{visible}/{info?.parts.length || 0} visíveis</span></div><label className="viewerPartSearch"><Search size={14}/><input aria-label="Buscar peça" value={search} onChange={event => { setSearch(event.target.value); setPartPage(0); if (partList.current) partList.current.scrollTop = 0 }} placeholder="Buscar na hierarquia…" disabled={!ready}/></label>
-          <p className="viewerSelectedPart" role="status">{selectedPart ? <>Selecionada: <strong>{selectedPart.name}</strong>{!selectedPart.visible && ' · oculta'}</> : 'Clique no modelo ou na lista para selecionar uma peça.'}</p>
-          <div className="viewerPartList" ref={partList}>{info ? pageParts.map(part => <div ref={selected === part.id ? selectedRow : undefined} className={`viewerPartRow ${selected === part.id ? 'selected' : ''} ${!part.visible ? 'hiddenPart' : ''}`} key={part.id}><button className="viewerPartName" aria-pressed={selected === part.id} onClick={() => runtime.current?.select(selected === part.id ? null : part.id)}><Box size={13}/><span>{part.name}<small>{format(part.triangles)} triângulos</small></span></button><button className="viewerPartVisibility" aria-label={`${part.visible ? 'Ocultar' : 'Mostrar'} ${part.name}`} onClick={() => runtime.current?.visibility(part.id)}>{part.visible ? <Eye size={15}/> : <EyeOff size={15}/>}</button></div>) : <p>As peças do modelo aparecem aqui.</p>}{info && !filtered.length && <p>Nenhuma peça com esse nome.</p>}</div>
+          <div className="viewerSelectionControls"><button disabled={!ready} aria-pressed={multi} onClick={() => { setMulti(!multi); runtime.current?.multiple(!multi) }}><MousePointer2 size={13}/> Seleção múltipla</button><button disabled={!selectedIds.length} onClick={() => runtime.current?.select(null)}>Limpar seleção</button></div>
+          <p className="viewerSelectedPart" role="status">{selectedPart ? <>{selectedIds.length > 1 ? `${selectedIds.length} peças selecionadas · Ativa: ` : 'Selecionada: '}<strong>{selectedPart.name}</strong>{!selectedPart.visible && ' · oculta'}</> : 'Clique no modelo ou na lista para selecionar uma peça.'}</p>
+          <div className="viewerPartList" ref={partList}>{info ? pageParts.map(part => <div ref={selected === part.id ? selectedRow : undefined} className={`viewerPartRow ${selectedSet.has(part.id) ? 'selected' : ''} ${!part.visible ? 'hiddenPart' : ''}`} key={part.id}><label className="viewerPartCheck"><input type="checkbox" aria-label={`Selecionar ${part.name}`} checked={selectedSet.has(part.id)} onChange={() => runtime.current?.select(part.id, true)}/></label><button className="viewerPartName" aria-pressed={selectedSet.has(part.id)} onClick={event => runtime.current?.select(!multi && !event.ctrlKey && !event.metaKey && !event.shiftKey && selectedIds.length === 1 && selected === part.id ? null : part.id, multi || event.ctrlKey || event.metaKey || event.shiftKey)}><Box size={13}/><span>{part.name}<small>{format(part.triangles)} triângulos</small></span></button><button className="viewerPartDownload" disabled={exportBusy || textureBusy} aria-label={`Baixar peça ${part.name}`} title={`Baixar ${part.name} em GLB`} onClick={() => void downloadPieces([part.id])}><Download size={14}/></button><button className="viewerPartVisibility" aria-label={`${part.visible ? 'Ocultar' : 'Mostrar'} ${part.name}`} onClick={() => runtime.current?.visibility(part.id)}>{part.visible ? <Eye size={15}/> : <EyeOff size={15}/>}</button></div>) : <p>As peças do modelo aparecem aqui.</p>}{info && !filtered.length && <p>Nenhuma peça com esse nome.</p>}</div>
           {filtered.length > partPageSize && <nav className="viewerPartPages" aria-label="Páginas de peças"><button disabled={partPage === 0} onClick={() => { setPartPage(partPage - 1); if (partList.current) partList.current.scrollTop = 0 }}>Anterior</button><span>{partPage * partPageSize + 1}–{Math.min((partPage + 1) * partPageSize, filtered.length)} de {filtered.length}</span><button disabled={(partPage + 1) * partPageSize >= filtered.length} onClick={() => { setPartPage(partPage + 1); if (partList.current) partList.current.scrollTop = 0 }}>Próxima</button></nav>}
-          <div className="viewerPartActions"><button disabled={!ready || !selected} onClick={() => selected && runtime.current?.isolate(selected)}>Isolar peça</button><button disabled={!ready || !selectedPart} onClick={() => selected && runtime.current?.visibility(selected)}>{selectedPart?.visible === false ? <Eye size={13}/> : <EyeOff size={13}/>} {selectedPart?.visible === false ? 'Mostrar peça' : 'Ocultar peça'}</button><button disabled={!ready || !selected} onClick={() => selected && runtime.current?.fit(selected)}>Enquadrar peça</button><button disabled={!ready} onClick={() => runtime.current?.showAll()}>Mostrar todas</button></div>
+          <div className="viewerPartActions"><button disabled={!ready || !selectedIds.length} onClick={() => runtime.current?.isolate(selectedIds)}>{selectedIds.length > 1 ? 'Isolar selecionadas' : 'Isolar peça'}</button><button disabled={!ready || !selectedIds.length} onClick={() => runtime.current?.visibility(selectedIds)}>{allSelectedHidden ? <Eye size={13}/> : <EyeOff size={13}/>} {selectedIds.length > 1 ? allSelectedHidden ? 'Mostrar selecionadas' : 'Ocultar selecionadas' : allSelectedHidden ? 'Mostrar peça' : 'Ocultar peça'}</button><button disabled={!ready || !selectedIds.length} onClick={() => runtime.current?.fit(selectedIds)}>{selectedIds.length > 1 ? 'Enquadrar seleção' : 'Enquadrar peça'}</button><button disabled={!ready} onClick={() => runtime.current?.showAll()}>Mostrar todas</button></div>
+          <div className="viewerPieceExport"><button className="toolsSecondary" disabled={!ready || !selectedIds.length || exportBusy || textureBusy} onClick={() => void downloadPieces(selectedIds)}><Download size={14}/>{selectedIds.length > 1 ? 'Baixar selecionadas (GLB)' : 'Baixar peça (GLB)'}</button>{selectedIds.length > 1 && <button className="toolsSecondary" disabled={exportBusy || textureBusy} onClick={() => void downloadPieces(selectedIds, true)}><Download size={14}/> Peças separadas (ZIP)</button>}<p>GLB com os materiais atuais e as texturas. O ZIP contém um GLB por peça, mantendo suas posições relativas. Exportação estática, sem animações.</p>{exportBusy && <div className="viewerExportProgress"><span role="status"><LoaderCircle className="toolsSpin" size={13}/>{exportProgress}</span><button onClick={() => exportController.current?.abort()}>Cancelar download</button></div>}</div>
         </section>
-        <section className="viewerMaterials"><div className="inspectorTitle"><h3><Palette size={14}/> MATERIAIS</h3><span>{selectedPart ? 'Da peça selecionada' : 'Do modelo'}</span></div><label className="viewerMaterialSelect">Material<select aria-label="Material para editar" value={surfaceId} disabled={!ready} onChange={event => setSurfaceId(event.target.value)}>{!info && <option value="">Abra um modelo</option>}{info?.materials.map(item => <option key={item.id} value={item.id}>{selectedPart?.materials.includes(item.id) ? '• ' : ''}{item.name}</option>)}</select></label>
-          <div className="viewerMaterialColor"><label>Cor<input type="color" aria-label="Cor do material" disabled={!surface || !ready} value={surface?.color || '#b7afc2'} onChange={event => runtime.current?.surface(surfaceId, { color: event.target.value })}/></label><span>{surface?.color.toUpperCase() || '—'}</span></div>
-          {([['opacity', 'Opacidade'], ['roughness', 'Rugosidade'], ['metalness', 'Metalização']] as const).map(([key, label]) => <label className="viewerSlider" key={key}><span>{label}<b>{surface ? Math.round(surface[key] * 100) + '%' : '—'}</b></span><input type="range" aria-label={label} min="0" max="1" step="0.01" value={surface?.[key] ?? 1} disabled={!ready || !surface} onChange={event => runtime.current?.surface(surfaceId, { [key]: Number(event.target.value) })}/></label>)}
-          <div className="viewerTexture"><span>TEXTURA DE COR</span><strong>{surface?.texture || 'Sem textura difusa'}</strong><button className="toolsSecondary" disabled={!ready || !surface || textureBusy} onClick={() => texture.current?.click()}>{textureBusy ? <LoaderCircle className="toolsSpin" size={13}/> : <Upload size={13}/>} Trocar textura</button></div>
-          <button className="viewerResetMaterial" disabled={!ready || !surface || textureBusy} onClick={() => runtime.current?.resetSurface(surfaceId)}>Restaurar material original</button><p className="viewerMaterialNote">Ajustes temporários nesta prévia. Materiais de jogos podem ter aparência diferente dos shaders originais.</p>
+        <section className="viewerMaterials"><div className="inspectorTitle"><h3><Palette size={14}/> MATERIAIS</h3><span>{selectedIds.length > 1 ? 'Da peça ativa' : selectedPart ? 'Da peça selecionada' : 'Do modelo'}</span></div><label className="viewerMaterialSelect">Material<select aria-label="Material para editar" value={surfaceId} disabled={!ready || exportBusy} onChange={event => setSurfaceId(event.target.value)}>{!info && <option value="">Abra um modelo</option>}{info?.materials.map(item => <option key={item.id} value={item.id}>{selectedPart?.materials.includes(item.id) ? '• ' : ''}{item.name}</option>)}</select></label>
+          <div className="viewerMaterialColor"><label>Cor<input type="color" aria-label="Cor do material" disabled={!surface || !ready || exportBusy} value={surface?.color || '#b7afc2'} onChange={event => runtime.current?.surface(surfaceId, { color: event.target.value })}/></label><span>{surface?.color.toUpperCase() || '—'}</span></div>
+          {([['opacity', 'Opacidade'], ['roughness', 'Rugosidade'], ['metalness', 'Metalização']] as const).map(([key, label]) => <label className="viewerSlider" key={key}><span>{label}<b>{surface ? Math.round(surface[key] * 100) + '%' : '—'}</b></span><input type="range" aria-label={label} min="0" max="1" step="0.01" value={surface?.[key] ?? 1} disabled={!ready || !surface || exportBusy} onChange={event => runtime.current?.surface(surfaceId, { [key]: Number(event.target.value) })}/></label>)}
+          <div className="viewerTexture"><span>TEXTURA DE COR</span><strong>{surface?.texture || 'Sem textura difusa'}</strong><button className="toolsSecondary" disabled={!ready || !surface || textureBusy || exportBusy} onClick={() => texture.current?.click()}>{textureBusy ? <LoaderCircle className="toolsSpin" size={13}/> : <Upload size={13}/>} Trocar textura</button></div>
+          <button className="viewerResetMaterial" disabled={!ready || !surface || textureBusy || exportBusy} onClick={() => runtime.current?.resetSurface(surfaceId)}>Restaurar material original</button><p className="viewerMaterialNote">Os downloads das peças incluem estes ajustes. Alterar um material compartilhado também afeta outras peças que o usam. Materiais de jogos podem diferir dos shaders originais.</p>
         </section>
         {info && <div className="viewerDimensions"><span>DIMENSÕES / UNIDADES DO MODELO</span><strong>{info.dimensions.map(format).join(' × ')}</strong></div>}
       </aside>

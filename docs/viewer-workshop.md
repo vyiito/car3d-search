@@ -14,9 +14,20 @@ Abra `tools.html#viewer`. A bancada aceita GLB/glTF 2.0, OBJ/MTL e suas texturas
 
 Selecione peças pelo clique na malha ou pela lista pesquisável. É possível ocultar, mostrar, isolar e enquadrar peças; mudar a vista, ativar wireframe, rotação automática e grade; editar cor, opacidade, rugosidade e metalização; substituir a textura de cor; e restaurar o material carregado.
 
+As caixas da lista somam ou removem peças da seleção. Ctrl/Cmd ou Shift + clique também alternam uma peça; ativar **Seleção múltipla** permite esse comportamento sem teclado, tanto na lista quanto no modelo. A última peça selecionada fica ativa para o editor de materiais. Ocultar, mostrar, isolar e enquadrar atuam sobre o conjunto selecionado; a seleção permanece ao mudar a busca ou a página. **Limpar seleção** remove todas as marcações.
+
 A seleção ganha uma sobreposição roxa na geometria e uma linha destacada na lista, sem alterar os materiais do arquivo. Ao clicar no modelo, a lista abre a página correspondente e rola somente seu painel até a peça; uma busca que esconderia essa seleção é limpa. A lista tem páginas de 100 peças, com acesso às demais por Anterior/Próxima. O destaque desaparece ao ocultar a peça e não entra no PNG exportado.
 
-Os ajustes de material valem somente para esta prévia. A imagem PNG exportada inclui os ajustes atuais e tem fundo transparente. A exportação de um modelo editado não faz parte desta versão. O enquadramento por eixo é identificado por +Z, +X e Topo; a orientação original do modelo é preservada. Dimensões são expressas nas unidades do modelo.
+Os ajustes de material aparecem no PNG e nos downloads 3D das peças. Um material compartilhado afeta todas as peças que o usam. O enquadramento por eixo é identificado por +Z, +X e Topo; a orientação original do modelo é preservada. Dimensões são expressas nas unidades do modelo.
+
+## Download de peças
+
+- O ícone de download na linha baixa somente aquela peça em GLB, sem alterar a seleção. **Baixar selecionadas (GLB)** cria um arquivo com as peças escolhidas e **Peças separadas (ZIP)** entrega um GLB por peça, com nomes únicos e seguros.
+- Cada GLB incorpora os materiais atuais e as texturas necessários. O pacote original da conversão permanece inalterado. A geometria é uma fotografia estática da prévia: transformações, poses e instâncias são aplicadas às malhas; animações e esqueletos não são exportados. As peças mantêm suas posições relativas na cena centralizada do visualizador, permitindo remontá-las juntas. Peças selecionadas ocultas também entram no download.
+- A seleção roxa, caixa, grade e demais peças não entram no GLB. A imagem PNG também exclui os indicadores de seleção e tem fundo transparente.
+- Texturas de imagem são incorporadas diretamente; DDS/KTX2 são convertidas em pixels exportáveis pelo renderizador. Mapas de opacidade separados são combinados com a textura de cor quando usam o mesmo canal UV. Um canal UV diferente gera um erro explicativo, evitando omitir a transparência silenciosamente. Materiais continuam sendo a aproximação exibida na prévia, sem shaders proprietários dos jogos.
+- O exportador é carregado sob demanda. O trabalho pode ser cancelado, e trocar/fechar o modelo cancela a exportação. A renderização da cena pausa durante a geração; cópias de geometria, materiais, texturas e alvos temporários são liberados ao finalizar ou falhar. O modelo carregado não é alterado.
+- Até 2 milhões de triângulos (contando instâncias), 192 MiB estimados de buffers copiados, 96 milhões de pixels e 256 MiB de download. Texturas repetidas em GLBs separados contam novamente para o tamanho total do ZIP. Para pacotes maiores, exporte grupos menores.
 
 ## Limites e ciclo de vida
 
@@ -30,5 +41,7 @@ Os ajustes de material valem somente para esta prévia. A imagem PNG exportada i
 ## Verificação
 
 `npx playwright test tests/viewer.spec.ts` cobre abertura OBJ/ZIP e GLB, texturas incorporadas e separadas, seleção/visibilidade, edição/restauração de materiais, substituição de textura, PNG transparente, resultado privado de conversão, dependências externas recusadas, ZIP com caminho inseguro ou expansão excessiva, troca de modelos, pixels DDS conhecidos, navegação de teclado e celular.
+
+`npx playwright test tests/viewer-export.spec.ts` cobre seleção múltipla, comandos em grupo, downloads individuais sem alterar a seleção, GLB conjunto e ZIP separado, reabertura, textura orientada e com cores preservadas, materiais editados, posição relativa, transformações espelhadas, mapa de opacidade e cancelamento com nova tentativa.
 
 A bancada também foi conferida com um ZIP real do conversor: 289.988 triângulos, 246 peças, 84 materiais e 133 arquivos de textura. As abas de Ferramentas têm navegação por setas, Home e End, painéis identificados e o estado do agente fica fora do tablist. O conteúdo principal usa o landmark `main`.

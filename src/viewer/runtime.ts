@@ -17,13 +17,15 @@ export type Part = { id: string; name: string; visible: boolean; triangles: numb
 export type Surface = { id: string; name: string; color: string; opacity: number; roughness: number; metalness: number; texture: string | null }
 export type ModelInfo = { parts: Part[]; materials: Surface[]; triangles: number; vertices: number; dimensions: number[]; textures: number }
 export type View = 'perspective' | 'front' | 'side' | 'top'
+type PartIds = string | string[]
 export type ViewerRuntime = {
-  dispose: () => void; select: (id: string | null) => void; visibility: (id: string) => void; isolate: (id: string) => void; showAll: () => void;
-  fit: (id?: string) => void; view: (view: View) => void; wireframe: (enabled: boolean) => void; rotate: (enabled: boolean) => void; grid: (enabled: boolean) => void;
+  dispose: () => void; select: (id: string | null, additive?: boolean) => void; visibility: (ids: PartIds) => void; isolate: (ids: PartIds) => void; showAll: () => void; multiple: (enabled: boolean) => void;
+  fit: (ids?: PartIds) => void; view: (view: View) => void; wireframe: (enabled: boolean) => void; rotate: (enabled: boolean) => void; grid: (enabled: boolean) => void;
   surface: (id: string, patch: Partial<Pick<Surface, 'color' | 'opacity' | 'roughness' | 'metalness'>>) => void;
   resetSurface: (id: string) => void; replaceTexture: (id: string, file: File) => Promise<void>; screenshot: () => Promise<Blob>;
+  exportParts: (ids: string[], separate: boolean, signal: AbortSignal, progress: (message: string) => void) => Promise<import('./export').PieceExport>;
 }
-type Hooks = { select: (id: string | null, revealInList: boolean) => void; change: (info: ModelInfo) => void; warning: (message: string) => void }
+type Hooks = { select: (ids: string[], active: string | null, revealInList: boolean) => void; change: (info: ModelInfo) => void; warning: (message: string) => void }
 const texturePattern = /\.(png|jpe?g|webp|bmp|dds|tga|ktx2)(?:[?#].*)?$/i
 const FALLBACK_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGOYPWXZfwAGeALV6MNEnwAAAABJRU5ErkJggg=='
 
@@ -59,7 +61,7 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
   const boxMaterial = selectionBox.material as THREE.LineBasicMaterial
   boxMaterial.depthTest = false; boxMaterial.depthWrite = false; selectionBox.renderOrder = 1001; selection.add(selectionBox)
   const selectionMaterial = new THREE.MeshBasicMaterial({ color: 0xb483ff, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })
-  let selectionMesh: THREE.Mesh | null = null
+  const selectionMeshes = new Map<string, THREE.Mesh>()
   const manager = new THREE.LoadingManager()
   const urls = new Map<string, string>(), generated = new Set<string>(), textures = new Set<THREE.Texture>(), materials = new Set<THREE.Material>(), geometries = new Set<THREE.BufferGeometry>()
   materials.add(selectionMaterial)
@@ -70,7 +72,7 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
   const draco = new DRACOLoader().setDecoderPath({ js: `${import.meta.env.BASE_URL}vendor/three/draco/draco_wasm_wrapper.js`, wasm: `${import.meta.env.BASE_URL}vendor/three/draco/draco_decoder.wasm` })
   const ktx = new KTX2Loader(manager).setTranscoderPath(`${import.meta.env.BASE_URL}vendor/three/basis/`).detectSupport(renderer)
   const modelParent = modelPath.slice(0, modelPath.lastIndexOf('/') + 1)
-  let disposed = false, root: THREE.Object3D | null = null, selected: string | null = null, wireframe = false, inView = true, pixelCount = 0
+  let disposed = false, root: THREE.Object3D | null = null, selected = new Set<string>(), active: string | null = null, multi = false, wireframe = false, inView = true, pixelCount = 0, exporting = false
   let loadedTextures = 0, pending = 0
   const waiters: (() => void)[] = []
   const originalStart = manager.itemStart.bind(manager), originalEnd = manager.itemEnd.bind(manager)
@@ -172,31 +174,36 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
   const bounds = () => root ? new THREE.Box3().setFromObject(root) : new THREE.Box3()
   function update() {
     if (disposed) return
-    const piece = selected ? meshes.get(selected) : null
-    selection.visible = Boolean(piece?.visible)
-    if (piece) {
-      selectionBox.box.setFromObject(piece)
-      if (selectionMesh) { piece.updateWorldMatrix(true, false); selectionMesh.matrix.copy(piece.matrixWorld) }
+    selectionBox.box.makeEmpty()
+    for (const [id, overlay] of selectionMeshes) {
+      const piece = meshes.get(id)!
+      overlay.visible = piece.visible
+      if (piece.visible) { selectionBox.box.union(new THREE.Box3().setFromObject(piece)); piece.updateWorldMatrix(true, false); overlay.matrix.copy(piece.matrixWorld) }
     }
+    selection.visible = !selectionBox.box.isEmpty()
     const list = parts()
     hooks.change({ parts: list, materials: materialInfo(), triangles: list.reduce((sum, part) => sum + part.triangles, 0), vertices: [...meshes.values()].reduce((sum, mesh) => sum + mesh.geometry.attributes.position.count, 0), dimensions: bounds().getSize(new THREE.Vector3()).toArray(), textures: loadedTextures })
   }
-  function select(id: string | null, revealInList = false) {
-    selected = id && meshes.has(id) ? id : null
-    if (selectionMesh) { selection.remove(selectionMesh); selectionMesh = null }
-    const piece = selected ? meshes.get(selected) : null
-    if (piece) {
+  function select(id: string | null, additive = false, revealInList = false) {
+    if (!id || !meshes.has(id)) { if (!additive) selected.clear() }
+    else if (additive) { if (selected.has(id)) selected.delete(id); else selected.add(id) }
+    else selected = new Set([id])
+    active = id && selected.has(id) ? id : [...selected][selected.size - 1] || null
+    for (const [key, overlay] of selectionMeshes) if (!selected.has(key)) { selection.remove(overlay); selectionMeshes.delete(key) }
+    for (const key of selected) if (!selectionMeshes.has(key)) {
       // Share the geometry (and skin/morph data) without changing the model's materials.
-      selectionMesh = piece.clone(false); selectionMesh.material = selectionMaterial
-      selectionMesh.matrixAutoUpdate = false; selectionMesh.visible = true; selectionMesh.renderOrder = 1000
-      selection.add(selectionMesh)
+      const overlay = meshes.get(key)!.clone(false); overlay.material = selectionMaterial
+      overlay.matrixAutoUpdate = false; overlay.renderOrder = 1000
+      selectionMeshes.set(key, overlay); selection.add(overlay)
     }
-    update(); hooks.select(selected, revealInList)
+    update(); hooks.select([...selected], active, revealInList)
   }
-  function fit(id?: string, direction?: THREE.Vector3) {
-    const object = id ? meshes.get(id) : root
-    if (!object || disposed) return
-    const box = new THREE.Box3().setFromObject(object), size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3())
+  const idsArray = (ids: PartIds) => typeof ids === 'string' ? [ids] : ids
+  function fit(ids?: PartIds, direction?: THREE.Vector3) {
+    if (!root || disposed) return
+    const box = ids ? idsArray(ids).reduce((bounds, id) => { const mesh = meshes.get(id); return mesh ? bounds.union(new THREE.Box3().setFromObject(mesh)) : bounds }, new THREE.Box3()) : new THREE.Box3().setFromObject(root)
+    if (box.isEmpty()) return
+    const size = box.getSize(new THREE.Vector3()), center = box.getCenter(new THREE.Vector3())
     const aspect = Math.min(camera.aspect, 1)
     const distance = Math.max(size.length() / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) / aspect * 1.15, 0.01)
     const axis = direction || camera.position.clone().sub(controls.target).normalize()
@@ -212,7 +219,7 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
     const rect = renderer.domElement.getBoundingClientRect(), point = new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1)
     const ray = new THREE.Raycaster(); ray.setFromCamera(point, camera)
     const hit = ray.intersectObjects([...meshes.values()].filter(mesh => mesh.visible), false)[0]
-    select(hit?.object.uuid || null, true)
+    select(hit?.object.uuid || null, multi || event.ctrlKey || event.metaKey || event.shiftKey, true)
   }
   try {
     for (const [name, file] of bundle.files) if (texturePattern.test(name)) {
@@ -316,11 +323,12 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
     intersection = new IntersectionObserver(entries => { inView = entries[0].isIntersecting }); intersection.observe(host)
     renderer.domElement.addEventListener('pointerdown', pointerDown); renderer.domElement.addEventListener('pointerup', pointerUp)
     let previous = performance.now()
-    renderer.setAnimationLoop(time => { const delta = Math.min((time - previous) / 1000, 0.05); previous = time; if (disposed || document.hidden || !inView) return; controls.update(delta); renderer.render(scene, camera) })
+    renderer.setAnimationLoop(time => { const delta = Math.min((time - previous) / 1000, 0.05); previous = time; if (disposed || exporting || document.hidden || !inView) return; controls.update(delta); renderer.render(scene, camera) })
     update()
     return {
-      dispose, select, fit, visibility: id => { const mesh = meshes.get(id); if (mesh) mesh.visible = !mesh.visible; update() },
-      isolate: id => { meshes.forEach((mesh, key) => { mesh.visible = key === id }); select(id); fit(id) },
+      dispose, select, fit, multiple: enabled => { multi = enabled },
+      visibility: ids => { const targets = idsArray(ids).map(id => meshes.get(id)).filter((mesh): mesh is THREE.Mesh => Boolean(mesh)), show = !targets.some(mesh => mesh.visible); targets.forEach(mesh => { mesh.visible = show }); update() },
+      isolate: ids => { const keys = new Set(idsArray(ids)); meshes.forEach((mesh, key) => { mesh.visible = keys.has(key) }); update(); fit(ids) },
       showAll: () => { meshes.forEach(mesh => { mesh.visible = true }); update(); fit() },
       view: view => { camera.up.set(0, 1, 0); const axis = { perspective: new THREE.Vector3(1, 0.5, 1), front: new THREE.Vector3(0, 0, 1), side: new THREE.Vector3(1, 0, 0), top: new THREE.Vector3(0, 1, 0.0001) }; fit(undefined, axis[view]) },
       wireframe: enabled => { wireframe = enabled; surfaces.forEach(({ live }) => { live.wireframe = enabled }) },
@@ -360,6 +368,17 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
         renderer.domElement.toBlob(blob => blob ? resolve(blob) : reject(new Error('Não foi possível gerar a imagem.')), 'image/png')
         scene.background = background; grid.visible = visible; selection.visible = highlighted; renderer.render(scene, camera)
       }),
+      exportParts: async (ids, separate, cancel, progress) => {
+        if (exporting) throw new Error('Aguarde o download atual terminar.')
+        exporting = true
+        const combined = AbortSignal.any([signal, cancel])
+        try {
+          combined.throwIfAborted()
+          const { exportPieces } = await import('./export')
+          combined.throwIfAborted()
+          return await exportPieces([...new Set(ids)].map(id => meshes.get(id)).filter((mesh): mesh is THREE.Mesh => Boolean(mesh)), separate, renderer, combined, progress)
+        } finally { exporting = false }
+      },
     }
   } catch (error) { if (root) track(root); dispose(); throw error }
 }

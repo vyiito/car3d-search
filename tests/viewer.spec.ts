@@ -237,6 +237,19 @@ test('KTX2 textures in an OBJ package retain the correct texture type', async ({
   await expect(page.locator('.viewerStats')).toContainText('2 triângulos', { timeout: 20000 })
   await expect(page.locator('.viewerTexture')).toContainText('color.ktx2')
   await expect(page.locator('.viewerWarnings')).toHaveCount(0)
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Baixar peça Carroceria', exact: true }).click()
+  const saved = await readFile((await (await download).path())!), length = saved.readUInt32LE(12)
+  const document = JSON.parse(saved.subarray(20, 20 + length).toString()), binary = saved.subarray(28 + length)
+  const imageView = document.bufferViews[document.images[0].bufferView]
+  const image = binary.subarray(imageView.byteOffset || 0, (imageView.byteOffset || 0) + imageView.byteLength)
+  const pixel = await page.evaluate(async encoded => {
+    const image = await createImageBitmap(await (await fetch('data:image/png;base64,' + encoded)).blob())
+    const canvas = document.createElement('canvas'); canvas.width = 1; canvas.height = 1
+    const context = canvas.getContext('2d')!; context.drawImage(image, 0, 0)
+    return [...context.getImageData(0, 0, 1, 1).data]
+  }, image.toString('base64'))
+  pixel.forEach((value, index) => expect(Math.abs(value - [64, 128, 255, 255][index])).toBeLessThanOrEqual(1))
   expect(errors).toEqual([])
 })
 
