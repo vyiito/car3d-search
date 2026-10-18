@@ -26,12 +26,33 @@ export async function cancelConversion(saved: SavedConversion): Promise<Conversi
   if (!response.ok) throw await responseError(response)
   return response.json()
 }
-export async function conversionDownload(saved: SavedConversion): Promise<string> {
-  const response = await fetch(`${API_BASE}/api/conversions/${saved.job.id}/download-ticket`, { method: 'POST', headers: { Authorization: `Bearer ${saved.accessToken}` }, signal: requestSignal(undefined, 15000) })
+export async function conversionDownload(saved: SavedConversion, signal?: AbortSignal): Promise<string> {
+  const response = await fetch(`${API_BASE}/api/conversions/${saved.job.id}/download-ticket`, { method: 'POST', headers: { Authorization: `Bearer ${saved.accessToken}` }, signal: requestSignal(signal, 15000) })
   if (!response.ok) throw await responseError(response)
   const payload = await response.json()
   if (!/^\/api\/conversion-download\/[a-f0-9]{64}$/.test(payload.url)) throw new Error('Link de download inválido.')
   return API_BASE + payload.url
+}
+export async function conversionArchive(saved: SavedConversion, signal: AbortSignal): Promise<File> {
+  const limit = 256 * 1024 ** 2
+  if (saved.job.outputBytes > limit) throw new Error('Este ZIP excede 256 MB. Baixe-o e abra uma parte do modelo no visualizador.')
+  const url = await conversionDownload(saved, signal)
+  const response = await fetch(url, { signal: requestSignal(signal, 120000), cache: 'no-store' })
+  if (!response.ok) throw await responseError(response)
+  if (!response.body || Number(response.headers.get('content-length')) > limit) { await response.body?.cancel(); throw new Error('O arquivo excede o limite da prévia ou não está disponível.') }
+  const reader = response.body.getReader(), chunks: Uint8Array<ArrayBuffer>[] = []
+  let size = 0
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      size += value.byteLength
+      if (size > limit) throw new Error('O ZIP excede 256 MB. Baixe-o para selecionar um modelo menor.')
+      chunks.push(value as Uint8Array<ArrayBuffer>)
+    }
+    signal.throwIfAborted()
+    return new File(chunks, saved.job.filename.replace(/\.kn5$/i, '') + '-convertido.zip', { type: 'application/zip' })
+  } finally { await reader.cancel().catch(() => {}); reader.releaseLock() }
 }
 export function uploadConversion(file: File, progress: (percent: number) => void, signal: AbortSignal, carFolder = ''): Promise<SavedConversion> {
   return new Promise((resolve, reject) => {

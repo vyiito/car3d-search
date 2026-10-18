@@ -4,6 +4,23 @@ const token = 'a'.repeat(64)
 const job = (index = 1, status = 'completed') => ({ id: `12345678-1234-1234-1234-${String(index).padStart(12, '0')}`, filename: `Carro ${index}.kn5`, status, progress: status === 'completed' ? 100 : 10, createdAt: Date.now() - index * 1000, updatedAt: Date.now(), expiresAt: Date.now() + 3600000, queuePosition: 1, error: null, outputBytes: 5000, report: { vertices: 3, triangles: 1, meshes: 1, materials: 1, textures: 1, placeholderTextures: 0 } })
 const capabilities = { enabled: true, online: true, maxInputBytes: 134217728, maxOutputBytes: 268435456, retentionMinutes: 60, waiting: 0 }
 
+test('site typography loads from the site when external font services are unavailable', async ({ page }) => {
+  const external: string[] = [], local: string[] = []
+  page.on('request', request => { const url = new URL(request.url()); if (/fonts\.(googleapis|gstatic)\.com/.test(url.hostname)) external.push(request.url()); if (url.pathname.startsWith('/fonts/')) local.push(request.url()) })
+  await page.route(/https:\/\/fonts\.(googleapis|gstatic)\.com\//, route => route.abort())
+  await page.route('**/api/conversions/capabilities', route => route.fulfill({ json: capabilities }))
+  await page.goto('/tools.html')
+  const loaded = await page.evaluate(async () => {
+    await document.fonts.load('400 16px "Archivo Black"', 'CATÁLOGO')
+    await document.fonts.load('800 16px Inter', 'Veículos · Škoda')
+    return [...document.fonts].filter(font => font.status === 'loaded').map(font => font.family)
+  })
+  expect(loaded.some(name => name.includes('Archivo Black'))).toBe(true)
+  expect(loaded.some(name => name.includes('Inter'))).toBe(true)
+  expect(local.length).toBeGreaterThan(0)
+  expect(external).toEqual([])
+})
+
 test('tools navigation opens a separate page on desktop and mobile without being swallowed by the navigation hub', async ({ page }) => {
   await page.route('**/api/**', route => new URL(route.request().url()).pathname.startsWith('/api/') ? route.fulfill({ json: { results: [], sources: [], providerCount: 33, searchedProviders: 0, successfulProviders: 0, ...capabilities } }) : route.continue())
   await page.goto('/')
