@@ -4,6 +4,7 @@ import { normalizeSearchResult, isVehicleResult } from '../../server/src/search-
 
 export interface ProgressiveSourceEvent {
   type: 'source'
+  interim?: boolean
   source: SourceSearchStatus
   results: GlobalSearchResult[]
   completed: number

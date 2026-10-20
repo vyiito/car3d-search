@@ -64,6 +64,34 @@ test('local OBJ ZIP loads materials and textures, selects and isolates pieces, e
   expect(failures).toEqual([]); expect(requests).toEqual([])
 })
 
+test('an idle viewer stops drawing and redraws after display and camera changes', async ({ page }) => {
+  await page.addInitScript(() => {
+    ;(window as any).viewerDraws = 0
+    for (const name of ['drawArrays', 'drawElements'] as const) {
+      const original = WebGL2RenderingContext.prototype[name]
+      ;(WebGL2RenderingContext.prototype as any)[name] = function (...args: any[]) { (window as any).viewerDraws++; return (original as any).apply(this, args) }
+    }
+  })
+  await setup(page); await openZip(page)
+  await page.locator('.workshopCanvas canvas').scrollIntoViewIfNeeded()
+  await page.waitForFunction(() => (window as any).viewerDraws > 0)
+  const idle = await page.evaluate(async () => {
+    let last = (window as any).viewerDraws, stable = 0
+    for (let i = 0; i < 100; i++) {
+      await new Promise(requestAnimationFrame)
+      const current = (window as any).viewerDraws
+      stable = current === last ? stable + 1 : 0; last = current
+      if (stable >= 8) return current
+    }
+    throw new Error('A cena parada continua redesenhando a cada frame.')
+  })
+  await page.getByRole('button', { name: 'Malha', exact: true }).click()
+  await page.waitForFunction(before => (window as any).viewerDraws > before, idle)
+  const afterDisplay = await page.evaluate(() => (window as any).viewerDraws)
+  await page.getByRole('button', { name: '+Z', exact: true }).click()
+  await page.waitForFunction(before => (window as any).viewerDraws > before, afterDisplay)
+})
+
 test('picking a model piece reveals its page, scrolls only the parts list and highlights its geometry', async ({ page }, testInfo) => {
   const failures: string[] = []
   page.on('pageerror', error => failures.push(error.message))

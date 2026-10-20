@@ -349,3 +349,34 @@ test('GTA5-Mods participates in search and blocked sources offer the original si
   await expect(blocked.getByRole('link', { name: /BUSCAR NO SITE/ })).toBeVisible()
   await expect(blocked.getByRole('button', { name: /Aprofundar/ })).toHaveCount(0)
 })
+
+test('a first-page result appears while its source is still searching and deferred access remains explicit', async ({ page }) => {
+  await page.route(url => url.pathname === '/api/preview', route => route.fulfill({ status: 404, json: { error: 'No preview in fixture' } }))
+  const model = result(1), initial = source('sketchfab', 1)
+  const blocked = { ...source('free3d', 0), name: 'Free3D', status: 'error', failureKind: 'blocked', retryable: false, deferred: true, retryAt: '2030-01-01T15:05:00Z', error: 'A fonte bloqueou a consulta automática.', coverage: { depth: 'standard', status: 'partial', hasMore: true, stopReason: 'access-backoff', totalAvailable: null, sections: [], requests: [], failedPages: [] } }
+  await page.addInitScript(({ model, initial, blocked }) => {
+    const native = window.fetch
+    window.fetch = (input, options) => {
+      if (!String(input).includes('/api/search/stream')) return native(input, options)
+      return Promise.resolve(new Response(new ReadableStream({ start(controller) {
+        const push = (event: unknown) => controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`))
+        push({ type: 'start', providerCount: 2 })
+        push({ type: 'source', interim: true, source: initial, results: [model], completed: 0, totalResults: 1 })
+        ;(window as any).finishSearch = () => {
+          push({ type: 'source', source: { ...initial, cached: true }, results: [model], completed: 1, totalResults: 1 })
+          push({ type: 'source', source: blocked, results: [], completed: 2, totalResults: 1 })
+          push({ type: 'done', providerCount: 2, completed: 2, totalResults: 1, successfulProviders: 1 }); controller.close()
+        }
+      } }), { headers: { 'Content-Type': 'text/event-stream' } }))
+    }
+  }, { model, initial, blocked })
+  await page.goto('/?q=BMW+E36')
+  await expect(page.locator('.card')).toHaveCount(1)
+  await expect(page.locator('.globalLoading')).toContainText('0/2')
+  await page.evaluate(() => (window as any).finishSearch())
+  await expect(page.locator('.globalLoading')).toHaveCount(0)
+  await expect(page.locator('.card')).toHaveCount(1)
+  await page.locator('.sourceStatusSection > summary').click()
+  await expect(page.locator('.sourceStatusSection')).toContainText('Consulta recente reutilizada do cache')
+  await expect(page.locator('.sourceCoverageCard').filter({ hasText: 'Free3D' })).toContainText('Novas tentativas automáticas estão em pausa')
+})

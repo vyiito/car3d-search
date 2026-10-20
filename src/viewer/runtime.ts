@@ -72,7 +72,9 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
   const draco = new DRACOLoader().setDecoderPath({ js: `${import.meta.env.BASE_URL}vendor/three/draco/draco_wasm_wrapper.js`, wasm: `${import.meta.env.BASE_URL}vendor/three/draco/draco_decoder.wasm` })
   const ktx = new KTX2Loader(manager).setTranscoderPath(`${import.meta.env.BASE_URL}vendor/three/basis/`).detectSupport(renderer)
   const modelParent = modelPath.slice(0, modelPath.lastIndexOf('/') + 1)
-  let disposed = false, root: THREE.Object3D | null = null, selected = new Set<string>(), active: string | null = null, multi = false, wireframe = false, inView = true, pixelCount = 0, exporting = false
+  let disposed = false, root: THREE.Object3D | null = null, selected = new Set<string>(), active: string | null = null, multi = false, wireframe = false, inView = true, pixelCount = 0, exporting = false, needsRender = true
+  const invalidate = () => { needsRender = true }
+  controls.addEventListener('change', invalidate)
   let loadedTextures = 0, pending = 0
   const waiters: (() => void)[] = []
   const originalStart = manager.itemStart.bind(manager), originalEnd = manager.itemEnd.bind(manager)
@@ -160,7 +162,7 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
     resize?.disconnect(); intersection?.disconnect(); renderer.setAnimationLoop(null)
     renderer.domElement.removeEventListener('pointerdown', pointerDown)
     renderer.domElement.removeEventListener('pointerup', pointerUp)
-    controls.dispose(); draco.dispose(); ktx.dispose()
+    controls.removeEventListener('change', invalidate); controls.dispose(); draco.dispose(); ktx.dispose()
     track(scene)
     geometries.forEach(value => value.dispose()); materials.forEach(value => value.dispose()); textures.forEach(value => { value.dispose(); (value.source.data as ImageBitmap)?.close?.() })
     environmentTarget.dispose(); selectionBox.geometry.dispose(); boxMaterial.dispose()
@@ -174,6 +176,7 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
   const bounds = () => root ? new THREE.Box3().setFromObject(root) : new THREE.Box3()
   function update() {
     if (disposed) return
+    invalidate()
     selectionBox.box.makeEmpty()
     for (const [id, overlay] of selectionMeshes) {
       const piece = meshes.get(id)!
@@ -318,12 +321,17 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
     if (box.isEmpty() || !size.toArray().every(Number.isFinite) || !size.length() || size.length() > 1e9) throw new Error('O arquivo não contém uma geometria válida para visualizar.')
     root.position.sub(box.getCenter(new THREE.Vector3())); scene.add(root)
     grid.scale.setScalar(size.length() / 12); grid.position.y = -size.y / 2
-    const onResize = () => { const width = host.clientWidth, height = host.clientHeight; if (!width || !height || disposed) return; renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix() }
+    const onResize = () => { const width = host.clientWidth, height = host.clientHeight; if (!width || !height || disposed) return; renderer.setSize(width, height, false); camera.aspect = width / height; camera.updateProjectionMatrix(); invalidate() }
     resize = new ResizeObserver(onResize); resize.observe(host); onResize(); fit(undefined, new THREE.Vector3(1, 0.5, 1))
-    intersection = new IntersectionObserver(entries => { inView = entries[0].isIntersecting }); intersection.observe(host)
+    intersection = new IntersectionObserver(entries => { inView = entries[0].isIntersecting; if (inView) invalidate() }); intersection.observe(host)
     renderer.domElement.addEventListener('pointerdown', pointerDown); renderer.domElement.addEventListener('pointerup', pointerUp)
     let previous = performance.now()
-    renderer.setAnimationLoop(time => { const delta = Math.min((time - previous) / 1000, 0.05); previous = time; if (disposed || exporting || document.hidden || !inView) return; controls.update(delta); renderer.render(scene, camera) })
+    renderer.setAnimationLoop(time => {
+      const delta = Math.min((time - previous) / 1000, 0.05); previous = time
+      if (disposed || exporting || document.hidden || !inView) return
+      const changed = controls.update(delta)
+      if (changed || needsRender) { needsRender = false; renderer.render(scene, camera) }
+    })
     update()
     return {
       dispose, select, fit, multiple: enabled => { multi = enabled },
@@ -331,8 +339,8 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
       isolate: ids => { const keys = new Set(idsArray(ids)); meshes.forEach((mesh, key) => { mesh.visible = keys.has(key) }); update(); fit(ids) },
       showAll: () => { meshes.forEach(mesh => { mesh.visible = true }); update(); fit() },
       view: view => { camera.up.set(0, 1, 0); const axis = { perspective: new THREE.Vector3(1, 0.5, 1), front: new THREE.Vector3(0, 0, 1), side: new THREE.Vector3(1, 0, 0), top: new THREE.Vector3(0, 1, 0.0001) }; fit(undefined, axis[view]) },
-      wireframe: enabled => { wireframe = enabled; surfaces.forEach(({ live }) => { live.wireframe = enabled }) },
-      rotate: enabled => { controls.autoRotate = enabled }, grid: enabled => { grid.visible = enabled },
+      wireframe: enabled => { wireframe = enabled; surfaces.forEach(({ live }) => { live.wireframe = enabled }); invalidate() },
+      rotate: enabled => { controls.autoRotate = enabled; invalidate() }, grid: enabled => { grid.visible = enabled; invalidate() },
       surface: (id, patch) => { const entry = surfaces.get(id); if (!entry) return; if (patch.color) entry.live.color.set(patch.color); for (const key of ['opacity', 'roughness', 'metalness'] as const) if (patch[key] !== undefined) entry.live[key] = THREE.MathUtils.clamp(patch[key], 0, 1); entry.live.transparent = entry.live.opacity < 1 || entry.original.transparent; entry.live.needsUpdate = true; update() },
       resetSurface: id => { const entry = surfaces.get(id); if (!entry) return; const old = entry.live.map; entry.live.copy(entry.original); entry.live.wireframe = wireframe; replacementPixels.delete(id); if (old && old !== entry.original.map && ![...surfaces.values()].some(other => other.live.map === old || other.original.map === old)) { old.dispose(); textures.delete(old) } update() },
       replaceTexture: async (id, file) => {
@@ -377,7 +385,7 @@ export async function createViewer(host: HTMLElement, bundle: ModelBundle, model
           const { exportPieces } = await import('./export')
           combined.throwIfAborted()
           return await exportPieces([...new Set(ids)].map(id => meshes.get(id)).filter((mesh): mesh is THREE.Mesh => Boolean(mesh)), separate, renderer, combined, progress)
-        } finally { exporting = false }
+        } finally { exporting = false; invalidate() }
       },
     }
   } catch (error) { if (root) track(root); dispose(); throw error }

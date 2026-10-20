@@ -9,6 +9,7 @@ export function searchCheckpoint(payload) {
   const state = context.getStore()
   if (!state) return
   state.progress = { ...state.progress, ...payload }
+  state.onCheckpoint?.(state.progress)
 }
 export async function searchFetch(url, options = {}) {
   const state = context.getStore(), signal = state?.signal
