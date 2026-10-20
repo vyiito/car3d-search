@@ -23,6 +23,7 @@ export function registerProgressiveSearchRoute(app, search = progressiveSearch) 
 
     let completed = 0
     let totalResults = 0
+    const completedSources = new Set(), sourceResults = new Map()
     let closed = false
     const controller = new AbortController()
     res.on('close', () => { closed = true; controller.abort() })
@@ -41,8 +42,10 @@ export function registerProgressiveSearchRoute(app, search = progressiveSearch) 
         emit: event => {
           if (closed) return
           if (event?.type === 'source') {
-            completed += 1
-            totalResults += Array.isArray(event.results) ? event.results.length : 0
+            if (!event.interim) completedSources.add(event.source.provider)
+            completed = completedSources.size
+            sourceResults.set(event.source.provider, Array.isArray(event.results) ? event.results : [])
+            totalResults = new Set([...sourceResults.values()].flat().map(result => result.id || `${result.sourceId}:${result.sourceUrl}`)).size
           }
           writeEvent(res, { ...event, completed, totalResults })
         },

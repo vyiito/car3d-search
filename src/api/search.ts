@@ -65,6 +65,12 @@ export interface SourceSearchStatus {
   error?: string
   failureKind?: 'access-required' | 'blocked' | 'timeout' | 'rate-limit' | 'temporary' | 'integration'
   retryable?: boolean
+  cached?: boolean
+  stale?: boolean
+  deferred?: boolean
+  checkedAt?: string
+  cachedAt?: string
+  retryAt?: string
   coverage?: SourceCoverage
 }
 
