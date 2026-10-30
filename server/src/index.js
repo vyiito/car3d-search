@@ -8,6 +8,7 @@ import { searchReferencePack, buildReferenceZip } from './reference-engine.js'
 import { registerProgressiveSearchRoute } from './progressive-route.js'
 import { registerPreviewRoute } from './preview-resolver.js'
 import { createConversionService } from './conversions.js'
+import { registerClassicReferenceRoutes } from './classic-references.js'
 
 const app = express()
 const port = Number(process.env.PORT || 10000)
@@ -24,6 +25,7 @@ const conversions = createConversionService()
 conversions.register(app)
 registerProgressiveSearchRoute(app)
 registerPreviewRoute(app)
+registerClassicReferenceRoutes(app)
 
 function trimCache(target, max = 120, remove = 20) {
   if (target.size <= max) return
