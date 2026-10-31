@@ -1,0 +1,13 @@
+VJ CLASSIC Reader — acesso pelo seu navegador
+
+1. Extraia este ZIP em uma pasta permanente.
+2. No Chrome, abra chrome://extensions; no Edge, edge://extensions.
+3. Ative o modo do desenvolvedor e escolha "Carregar sem compactação".
+4. Selecione a pasta que contém manifest.json.
+5. Recarregue o VJ e clique em "Conectar leitor" nas referências.
+
+A extensão se comunica somente com o VJ e lê páginas públicas de busca e veículos do CLASSIC.COM. Não lê cookies, senhas ou o histórico do navegador. Não requer uma conta ou chave de API do CLASSIC.COM. Galerias que exigem login/assinatura continuam limitadas ao acesso que você tem no site.
+
+O leitor abre uma aba temporária do CLASSIC.COM e usa os controles públicos da galeria. Aguarde a leitura; a aba fecha e retorna ao VJ quando termina. Se uma verificação de acesso aparecer, você precisa concluí-la no site original; a extensão não resolve desafios nem altera as proteções do navegador.
+
+As fotos continuam pertencendo aos titulares. Cada ZIP inclui as fontes. Até 200 fotos e 64 MB por ZIP. "Todas" se refere à galeria carregada, e a interface informa quando há mais fotos na fonte.

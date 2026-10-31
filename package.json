@@ -4,6 +4,8 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/package-classic-reader.mjs",
+    "prebuild": "node scripts/package-classic-reader.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",

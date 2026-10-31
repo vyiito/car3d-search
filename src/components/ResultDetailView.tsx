@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowUpRight, Calendar, CarFront, Check, Clipboard, Database,
   Download, ExternalLink, FileText, Gamepad2, HardDrive, ImageOff, Images, Link2,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { getResultDetails, vjDirectDownloadUrl, type GlobalSearchResult } from '../api/search'
 import ModelViewer from './ModelViewer'
+import ClassicReferences from './ClassicReferences'
 import '../detail.css'
 import { marketKind, formatPrice } from '../../server/src/search-core.js'
 
@@ -21,6 +22,7 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
   const [error, setError] = useState(false)
   const [activeImage, setActiveImage] = useState(0)
   const [copied, setCopied] = useState(false)
+  const references = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setDetail(result)
@@ -90,6 +92,8 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
 
           {viewerUrl && <ModelViewer url={viewerUrl} title={detail.title}/>} 
 
+          <div ref={references} className="assetReferencesAnchor"><ClassicReferences result={result}/></div>
+
           <section className="assetDescriptionPanel"><span className="assetSectionCode">DESCRIPTION / 06</span><h3>SOBRE ESTE ASSET</h3><p>{detail.description || 'A fonte não forneceu uma descrição detalhada para este modelo. Use os metadados extraídos e a página original para verificar informações adicionais.'}</p></section>
         </section>
 
@@ -100,6 +104,7 @@ export default function ResultDetailView({ result, onClose, onEnriched }: Props)
           <div className="assetPrimaryActions">
             {confirmedDownloadHref && <a href={confirmedDownloadHref} className="assetDownload direct"><Download size={17}/><span><b>BAIXAR DIRETO</b><small>arquivo final confirmado pelo VJ</small></span><ArrowUpRight size={16}/></a>}
             <a href={detail.sourceUrl} target="_blank" rel="noreferrer" className="assetSourceAction"><ExternalLink size={15}/> VER PÁGINA ORIGINAL</a>
+            <button className="assetSourceAction assetReferenceShortcut" onClick={() => references.current?.scrollIntoView({ block: 'start', behavior: 'auto' })}><Images size={15}/> FOTOS DO CARRO REAL</button>
           </div>
 
           <section className="assetSpecSection"><span className="assetSectionCode">METADATA / 02</span><div className="assetSpecGrid"><div><UserRound size={15}/><span>AUTOR</span><strong>{detail.author || 'Não informado'}</strong></div><div><Database size={15}/><span>FONTE</span><strong>{detail.source}</strong></div>{detail.game&&<div><Gamepad2 size={15}/><span>JOGO / SOURCE</span><strong>{detail.game}</strong></div>}<div><Calendar size={15}/><span>ANO</span><strong>{detail.year || 'Não identificado'}</strong></div><div><HardDrive size={15}/><span>TAMANHO</span><strong>{detail.fileSize || 'Não informado'}</strong></div><div><ShieldCheck size={15}/><span>PREÇO</span><strong>{priceLabel}</strong></div><div><Link2 size={15}/><span>DOWNLOAD</span><strong>{confirmedDownloadHref ? 'Direto confirmado' : 'Somente pela fonte'}</strong></div></div></section>

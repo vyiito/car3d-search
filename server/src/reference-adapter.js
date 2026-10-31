@@ -1,5 +1,7 @@
 import crypto from 'node:crypto'
 
+export { makeZip }
+
 const UA = 'VJ3DSearch/3.3 (+https://github.com/vyiito/car3d-search)'
 const CACHE_TTL_MS = 30 * 60 * 1000
 const MAX_CACHE = 120
