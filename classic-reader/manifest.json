@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "VJ · CLASSIC Reader",
+  "description": "Conecta o VJ às páginas públicas do CLASSIC.COM abertas no seu navegador.",
+  "version": "1.0.0",
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    { "matches": ["https://vyiito.github.io/car3d-search/*", "http://127.0.0.1:5173/*", "http://localhost:5173/*"], "js": ["vj-bridge.js"], "run_at": "document_start" },
+    { "matches": ["https://www.classic.com/search*", "https://www.classic.com/veh/*", "https://www.classic.com/a/*/lots/*"], "js": ["classic-page.js"], "run_at": "document_idle" }
+  ]
+}

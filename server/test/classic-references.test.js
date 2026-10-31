@@ -113,11 +113,11 @@ test('published gallery originals replace low-resolution JSON-LD copies without 
 })
 
 test('published pagination preserves the exact query and never fabricates a complete catalog', async () => {
-  const { service, requests } = setup({ search: searchHtml + '<a href="?page=1" rel="next">Next</a>' })
+  const { service, requests } = setup({ search: searchHtml + '<a href="?page=2" rel="next">Next</a>' })
   assert.equal((await service.search(asset)).hasMore, true)
   await service.search(asset, { page: 2 })
   assert.equal(new URL(requests[1]).searchParams.get('q'), '2023 Ford Bronco DR')
-  assert.equal(new URL(requests[1]).searchParams.get('page'), '1')
+  assert.equal(new URL(requests[1]).searchParams.get('page'), '2')
   await assert.rejects(service.search(asset, { page: 200 }), /Página inválida/)
 })
 
@@ -145,4 +145,35 @@ test('route validates requests and serves ZIP through a bounded JSON selection',
     const invalid = await fetch(base + '/api/classic/references/zip', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ galleryId: gallery.id, ids: [] }) })
     assert.equal(invalid.status, 400)
   } finally { await new Promise(resolve => server.close(resolve)) }
+})
+
+test('browser search keeps exact identity and real one-based pagination', () => {
+  const { service } = setup()
+  const document = { url: origin + '/search/?q=2023+Ford+Bronco+DR&page=1', listings: [{ title: '2023 Ford Bronco DR', url: origin + listing }, { title: '2023 Ford Bronco Raptor', url: origin + other }], nextUrl: origin + '/search/?q=2023+Ford+Bronco+DR&page=2' }
+  const payload = service.importBrowser(asset, 'search', document)
+  assert.equal(payload.transport, 'browser'); assert.equal(payload.listings.length, 1); assert.equal(payload.page, 1); assert.equal(payload.hasMore, true)
+  assert.throws(() => service.importBrowser(asset, 'search', { ...document, url: origin + '/search/?q=BMW+M3' }), /não corresponde/)
+  assert.throws(() => service.importBrowser(asset, 'search', { ...document, url: 'https://evil.test/search/?q=2023+Ford+Bronco+DR' }), /CLASSIC.COM/)
+})
+
+test('browser galleries produce server-issued download IDs and preserve source and declared limits', async () => {
+  const { service } = setup()
+  const pack = service.importBrowser(asset, 'gallery', { url: origin + listing, title: '2023 Ford Bronco DR', images: [{ url: photo('front') + '?w=2000' }, { url: photo('rear') + '?w=2000' }], totalAvailable: 110, resolution: 'published-full' })
+  assert.equal(pack.images.length, 2); assert.equal(pack.totalAvailable, 110); assert.equal(pack.limited, true)
+  assert.equal(pack.resolution, 'published-full'); assert.equal(pack.transport, 'browser')
+  const zip = await service.zip(pack.id, { ids: [pack.images[0].id] })
+  assert.equal(zip.count, 1); assert.match(zip.buffer.toString(), /CLASSIC.COM/)
+  assert.throws(() => service.importBrowser(asset, 'gallery', { url: origin + listing, title: pack.title, images: [{ url: 'http://127.0.0.1/secret.jpg' }] }), /não permitido/)
+  const wrong = service.importBrowser(asset, 'gallery', { url: origin + other, title: '2023 Ford Bronco Raptor', images: [{ url: photo('wrong') }] })
+  assert.equal(wrong.status, 'mismatch'); assert.equal(wrong.images.length, 0)
+})
+
+test('photo downloads run with bounded parallelism while preserving ZIP order', async () => {
+  let active = 0, maximum = 0
+  const urls = Array.from({ length: 7 }, (_, i) => photo('photo-' + i))
+  const { service } = setup({ imageResponse: async () => { active++; maximum = Math.max(maximum, active); await new Promise(resolve => setImmediate(resolve)); active--; return new Response(jpeg, { headers: { 'content-type': 'image/jpeg' } }) } })
+  const pack = service.importBrowser(asset, 'gallery', { url: origin + listing, title: '2023 Ford Bronco DR', images: urls.map(url => ({ url })) })
+  const zip = await service.zip(pack.id, { all: true })
+  assert.equal(zip.count, 7); assert.equal(maximum, 3); assert.equal(active, 0)
+  const content = zip.buffer.toString(); assert.ok(content.indexOf('001_') < content.indexOf('002_')); assert.ok(content.indexOf('002_') < content.indexOf('003_'))
 })

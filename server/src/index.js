@@ -20,6 +20,7 @@ const ALL_NATIVE_IDS = progressiveNativeIds
 app.disable('x-powered-by')
 app.set('trust proxy', 1)
 app.use(cors({ origin: [...allowedOrigin.split(',').map(origin => origin.trim()), 'http://localhost:5173', 'http://127.0.0.1:5173'], methods: ['GET', 'POST', 'DELETE'], allowedHeaders: ['Content-Type', 'Authorization', 'X-File-Name', 'X-Car-Folder', 'X-Lease-Token'] }))
+app.use('/api/classic/references/browser-import', express.json({ limit: '192kb' }))
 app.use(express.json({ limit: '32kb' }))
 const conversions = createConversionService()
 conversions.register(app)

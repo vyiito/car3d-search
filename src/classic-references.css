@@ -1,5 +1,6 @@
 .classicPanel{position:relative;padding:28px;border-top:1px solid #ffffff16;color:#eeeaf5;background:#0d0b10}
 .assetReferencesAnchor{scroll-margin-top:88px;min-width:0}.assetReferenceShortcut{width:100%;background:transparent;font-family:inherit;cursor:pointer}
+.classicReader{margin:16px 0;padding:12px;border:1px solid #b48bd04d}.classicReader summary{color:#d4c3e8;cursor:pointer;font-size:12px}.classicReader ol{padding-left:20px;font-size:12px;line-height:1.7;color:#c8bfd2}.classicReader li{margin:8px 0}.classicReader code{font-size:11px;overflow-wrap:anywhere}
 .classicHeading,.classicGalleryTitle{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .classicHeading h3{display:flex;align-items:center;gap:8px;margin:8px 0 0;font-size:19px;letter-spacing:-.4px}
 .classicPanel a{display:inline-flex;align-items:center;gap:6px;color:var(--accent2,#c18cff);font-size:12px;text-decoration:underline;text-underline-offset:3px}

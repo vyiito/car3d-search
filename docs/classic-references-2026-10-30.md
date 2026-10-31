@@ -1,53 +1,50 @@
 # Referências CLASSIC.COM — 30/10/2026
 
-## Situação real
+## Resultado real e condição de uso
 
-O usuário pediu para buscar o veículo exato no CLASSIC.COM ao abrir um modelo, mostrar suas fotografias e baixar as selecionadas ou a galeria carregada em ZIP. Ele confirmou que ainda não tem acesso à API de parceiros.
+O CLASSIC.COM continua sendo a única fonte desta integração. As consultas HTTP do servidor e o navegador isolado de testes receberam HTTP 403. O navegador comum conseguiu abrir a busca e a galeria pública, sem login e sem resolver desafios de acesso.
 
-O teste HTTP normal de busca retornou **403**, com página de verificação de acesso. O navegador também apresentou uma verificação. A chamada real pelo novo leitor para `2023 Ford Bronco DR` retornou `status: blocked`, zero exemplares e mensagem de acesso recusado; uma busca seguinte por `1995 BMW M3 E36` respeitou a pausa de novas tentativas. **Nenhuma galeria real completa foi extraída ou validada.**
+Teste real: **1991 Acura NSX**, exemplar [JH4NA1155MT002364](https://www.classic.com/veh/1991-acura-nsx-senna-jh4na1155mt002364-pdYG574/). Foram lidas **110 fotos** da galeria pública. As URLs com largura de 2000 vieram dos atributos publicados da visualização ampliada; nenhuma resolução foi inventada. Galerias históricas protegidas não foram acessadas.
 
-A implementação permanece em um PR de rascunho, sem publicação em produção enquanto a extração real estiver sem validação. Os testes com HTML e respostas controladas verificam o funcionamento do código, e não provam disponibilidade da fonte.
+O servidor importou esses metadados e gerou os dois arquivos reais:
 
-## Implementação
+- Três fotos selecionadas: 970.796 bytes.
+- Galeria completa, 110 fotos: 33.347.684 bytes, aproximadamente 11,4 segundos. Integridade CRC do ZIP verificada, sem erros, com `sources.txt`.
 
-- Painel dentro dos detalhes do modelo, com busca automática, edição da identidade pesquisada, exemplares separados, ampliação das fotos e seleção múltipla. Pode consultar diretamente um link de veículo/lote informado pelo usuário.
-- Leitor de páginas públicas: pesquisa padrão do CLASSIC.COM, links de exemplares e dados estruturados JSON-LD. Galerias são lidas somente da página do exemplar que corresponde à identidade; imagens de recomendações, vendedores e logotipos ficam fora.
-- Reutiliza a verificação existente de marca, modelo, geração, versão e ano explícito. A identidade é verificada de novo ao abrir cada exemplar. Ausência de correspondência não produz uma galeria aproximada.
-- Seleciona versões de imagem efetivamente publicadas na página. Não modifica URLs para inventar uma resolução maior. Quando só há capa, a interface informa que é uma prévia, sem afirmar que encontrou todas as fotos.
-- Reconhece recusa HTTP, verificação de acesso e galeria restrita. Não usa cookies, credenciais pessoais, endpoints privados, resolução de desafios ou recursos de evasão de bloqueio.
-- Cada ZIP aceita apenas IDs de fotos de uma galeria criada pelo servidor. URLs arbitrárias fornecidas pelo cliente não são baixadas. Páginas e redirecionamentos ficam no CLASSIC.COM; fotografias e seus redirecionamentos ficam no domínio `images.classic.com`, caminho `/vehicles/`.
-- Valida tamanho declarado, tamanho efetivo, tipo de conteúdo e assinatura do arquivo. O ZIP inclui `sources.txt`; não atribui licenças abertas às fotografias.
-- A troca de modelo/galeria ou fechamento da tela cancela consultas e preparação de ZIP em andamento. Resultados antigos não substituem a seleção atual.
+Os artefatos estão em `.qa/classic-live-*`, ignorados pelo Git. Esse ensaio comprova a leitura pública e a geração do ZIP com fotos reais. A instalação da extensão no navegador pessoal do usuário ainda não foi realizada; os testes da extensão e da interface usam páginas e respostas controladas.
 
-## Limites explícitos
+## Como o site funciona
 
-- Até 5 páginas de busca consultadas sob demanda, 24 exemplares por página e 200 fotos por galeria. A interface informa truncamento quando detectado.
-- Até 12 MB por foto e 64 MB de conteúdo de imagens por ZIP. Arquivos que excedem os limites pedem uma seleção menor; falhas de download não geram silenciosamente um ZIP incompleto.
-- Duas leituras de página e uma preparação de ZIP por vez por processo, com filas de até oito consultas e dois ZIPs pendentes. Cache em memória de até 60 entradas por conjunto, normalmente por 15 minutos; acesso recusado gera pausa de um minuto.
-- Leitura de HTML de até 4 MB e tempo limite de dez segundos por página. ZIP com prazo total de 90 segundos.
-- “Baixar todas” significa todas as fotos da **galeria carregada daquele exemplar**, conforme indica a interface. Não promete todas as fotos do catálogo ou conteúdo que a fonte não expõe.
+O painel dos detalhes pesquisa a marca, modelo, geração, versão e ano. Cada exemplar tem sua própria galeria, ampliação, seleção múltipla, ZIP selecionado e ZIP da galeria carregada. Há um campo para consultar diretamente um link de exemplar.
 
-## API do projeto
+A consulta HTTP continua disponível. Quando ela é recusada, o site pode usar **VJ CLASSIC Reader**, extensão para Chrome e Edge distribuída em `classic-reader.zip`. A instalação é única e manual: extrair a pasta, carregar sem compactação em `chrome://extensions` ou `edge://extensions`, recarregar o VJ e conectar o leitor. O build empacota automaticamente os cinco arquivos da extensão.
 
-- `GET /api/classic/references?title=...&page=1`: exemplares confirmados ou diagnóstico de acesso.
-- `GET /api/classic/references/gallery?title=...&url=...`: galeria pública do exemplar confirmado.
-- `POST /api/classic/references/zip`: JSON com `galleryId` e `ids`, ou `galleryId` e `all: true`.
+O leitor abre uma aba temporária ativa, lê o conteúdo público e percorre os controles da galeria ampliada. A aba é fechada ao terminar ou cancelar. Só atua no VJ, na busca e nas páginas públicas de exemplares do CLASSIC.COM. Não solicita permissões de cookies, histórico ou credenciais; não consulta endpoints privados nem resolve verificações. Caso a fonte exija uma verificação manual ou acesso restrito, o site informa a limitação.
 
-## Dependência para ativação
+A extensão envia metadados ao projeto. O servidor valida novamente endereço, identidade do veículo e domínio das fotos, e emite os IDs usados no ZIP. A presença da extensão não promete disponibilidade de todas as galerias do catálogo.
 
-A API oficial é GraphQL e atende parceiros autorizados por integração. Sua documentação pública descreve `image_url` como **imagem principal do anúncio**; não documenta a obtenção da galeria inteira. Ainda precisamos de um meio de acesso que funcione e confirmação de quais fotografias podem ser exibidas e disponibilizadas para download no VJ. As consultas GraphQL não foram inventadas nem apresentadas como configuradas.
+## Identidade e limites
 
-Fontes verificadas:
+- A identidade é verificada tanto na busca quanto ao abrir o exemplar. Um título relacionado não confirma outra geração ou versão.
+- Busca com paginação publicada, iniciada em 1; a segunda página é `page=2`. Até cinco páginas sob demanda e 24 exemplares por página.
+- Até 200 fotos por galeria; a interface informa quantas foram carregadas e quantas foram publicadas quando esse total é conhecido.
+- Páginas e redirecionamentos restritos ao CLASSIC.COM. Fotos e redirecionamentos restritos a `https://images.classic.com/vehicles/`.
+- Até 12 MB por foto, 64 MB de imagens por ZIP, prazo de 90 segundos. Tipos, assinaturas e tamanhos são validados. Falhas não geram silenciosamente um ZIP incompleto.
+- Um ZIP por vez, até dois pendentes e três downloads de foto em paralelo. A ordem de seleção é preservada no arquivo.
+- Consultas HTTP: duas ativas, até oito pendentes, HTML de até 4 MB e dez segundos por página. Cache de até 60 entradas por conjunto, com validade padrão de 15 minutos e pausa de um minuto após recusa.
+- Extensão: uma leitura por vez, até quatro tarefas contando a ativa; até 60 segundos de navegação na galeria. Cancelamento fecha somente a aba criada pelo leitor.
+- Trocar o modelo, exemplar ou fechar os detalhes cancela a operação anterior. Respostas antigas não substituem a galeria atual.
+- Os direitos das fotos continuam pertencendo aos titulares. O ZIP inclui a origem e não atribui licença aberta.
 
-- https://support.classic.com/classic.com-api
-- https://www.classic.com/insights/classic-com-third-party-api-documentation/
-- https://www.classic.com/about/terms-conditions/
+## Rotas
 
-Contato oficial para integrações: `datasupport@classic.com`. Nenhum contato externo foi enviado nesta tarefa.
+- `GET /api/classic/references?title=...&page=1`
+- `GET /api/classic/references/gallery?title=...&url=...`
+- `POST /api/classic/references/browser-import`, com identidade, tipo e metadados limitados da página pública.
+- `POST /api/classic/references/zip`, somente com `galleryId` e IDs emitidos pelo servidor, ou `all: true`.
 
-## Validação do código
+## Validação automatizada
 
-- 13 testes do leitor e rotas: identidade, escopo das imagens, resolução publicada, paginação, restrição de acesso, cache, IDs de seleção, ZIP, expiração, tamanho, tipos de arquivo, redirecionamentos e fila limitada.
-- 5 testes novos de interface: carregamento ao abrir o carro, ZIP selecionado e completo, bloqueio explícito, capa sem galeria, erros de identidade/expiração, teclado/celular e troca de exemplar durante uma resposta pendente.
-- Revisão visual em 320 px com imagens de teste, sem apresentar essas imagens como fotografias reais da fonte.
-- Verificação de tipos, build e testes existentes executados. A disponibilidade externa continua pendente, independentemente desses resultados.
+Há testes para identidade, escopo, resolução publicada, paginação, recusa de acesso, cache, seleção, ZIP, expiração, limites, tipos, redirecionamentos e concorrência. O leitor tem testes de origem permitida, prontidão antecipada da aba e rejeição de destinos externos ou privados. A interface verifica seleção e ZIP, bloqueio explícito, celular/teclado, cancelamento e conexão entre VJ e leitor. As páginas de teste são identificadas como simulações; a prova com 110 fotografias reais é registrada separadamente acima.
+
+A API oficial atende parceiros autorizados. A documentação pública descreve a imagem principal, sem documentar a galeria completa. Nenhuma chave, cookie de conta ou consulta GraphQL privada foi configurada. Documentação consultada: https://support.classic.com/classic.com-api e https://www.classic.com/insights/classic-com-third-party-api-documentation/ . Nenhum contato externo foi enviado.

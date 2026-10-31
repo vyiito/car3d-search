@@ -74,7 +74,7 @@ function extractListings(html, identity, base) {
       const url = pageUrl($(node).attr('href'), base), current = new URL(base)
       const nextPage = Number(url.searchParams.get('page'))
       return url.pathname === '/search/' && (!url.searchParams.has('q') || url.searchParams.get('q') === current.searchParams.get('q'))
-        && (/next/i.test($(node).attr('rel') || '') || (url.searchParams.has('page') && nextPage > Number(current.searchParams.get('page') || 0)))
+        && (/next/i.test($(node).attr('rel') || '') || (url.searchParams.has('page') && nextPage > Number(current.searchParams.get('page') || 1)))
     } catch { return false }
   })
   return { listings: [...found.values()].slice(0, 24), hasMore: next }
@@ -203,7 +203,7 @@ export function createClassicReferences({ fetchImpl = fetch, now = Date.now, cac
       if (!identity.primaryModel || !identity.brand) throw problem('Informe a marca e o modelo do veículo.', 400)
       if (!Number.isInteger(page) || page < 1 || page > 5) throw problem('Página inválida. Consulte até 5 páginas por busca.', 400)
       const base = { query: identity.canonical, searchUrl, listings: [], page, hasMore: false }
-      const url = pageUrl(searchUrl); if (page > 1) url.searchParams.set('page', String(page - 1))
+      const url = pageUrl(searchUrl); if (page > 1) url.searchParams.set('page', String(page))
       return cached(`search:${url}`, base, 'search', signal, async () => {
         const html = await request(url.href, false, signal), parsed = extractListings(html, identity, url.href)
         return { ...base, ...parsed, status: parsed.listings.length ? 'ok' : 'empty', limited: page === 5 && parsed.hasMore,
@@ -220,6 +220,40 @@ export function createClassicReferences({ fetchImpl = fetch, now = Date.now, cac
         return pack
       })
     },
+    importBrowser(asset, kind, document) {
+      const identity = canonicalizeVehicleIdentity(asset)
+      if (!document || typeof document !== 'object' || typeof document.url !== 'string' || document.url.length > 2000) throw problem('O leitor retornou uma página inválida.', 400)
+      if (kind === 'search') {
+        const url = pageUrl(document.url), page = Number(url.searchParams.get('page') || 1)
+        if (!/^\/search\/?$/.test(url.pathname) || !Number.isInteger(page) || page < 1 || page > 5 || normal(url.searchParams.get('q')) !== normal(identity.canonical) || !Array.isArray(document.listings) || document.listings.length > 48) throw problem('A busca retornada pelo leitor não corresponde ao veículo.', 400)
+        const found = new Map()
+        for (const item of document.listings) {
+          if (!item || typeof item.title !== 'string' || item.title.length > 200 || typeof item.url !== 'string' || item.url.length > 2000) throw problem('O leitor retornou um exemplar inválido.', 400)
+          const source = listingUrl(item.url), evidence = `${item.title} ${new URL(source).pathname.replace(/[-/]/g, ' ')}`
+          if (matches(identity, evidence)) found.set(source, { id: idFor(source), title: clean(item.title), url: source, imageUrl: imageUrl(item.imageUrl) })
+        }
+        let hasMore = false
+        if (document.nextUrl) {
+          const next = pageUrl(document.nextUrl)
+          hasMore = /^\/search\/?$/.test(next.pathname) && Number(next.searchParams.get('page')) === page + 1 && normal(next.searchParams.get('q')) === normal(identity.canonical)
+        }
+        const listings = [...found.values()].slice(0, 24)
+        return { query: identity.canonical, searchUrl: url.href, listings, page, hasMore, limited: page === 5 && hasMore, transport: 'browser', status: listings.length ? 'ok' : 'empty', message: listings.length ? 'Exemplares confirmados na página pública do CLASSIC.COM pelo seu navegador.' : 'Nenhum exemplar do mesmo veículo foi confirmado nesta página.' }
+      }
+      if (kind !== 'gallery' || typeof document.title !== 'string' || document.title.length > 200 || !Array.isArray(document.images) || document.images.length > MAX_PHOTOS) throw problem('O leitor retornou uma galeria inválida.', 400)
+      const url = listingUrl(document.url), title = clean(document.title), base = { query: identity.canonical, searchUrl: searchUrlFor(identity), sourceUrl: url, title, maxPhotos: MAX_PHOTOS, maxZipBytes: MAX_ZIP_BYTES, transport: 'browser' }
+      if (!matches(identity, `${title} ${String(document.identityEvidence || '').slice(0, 600)}`)) return { ...base, status: 'mismatch', images: [], message: 'A página não confirma o mesmo ano, geração e versão do veículo pesquisado.' }
+      const images = new Map()
+      for (const item of document.images) {
+        const source = typeof item?.url === 'string' && item.url.length <= 2000 ? imageUrl(item.url) : null
+        if (!source) throw problem('A galeria contém um endereço de foto não permitido.', 400)
+        images.set(new URL(source).pathname, { id: idFor(source), url: source, caption: clean(item.caption).slice(0, 200) || title, sourceUrl: url })
+      }
+      const rows = [...images.values()], totalAvailable = Number.isSafeInteger(document.totalAvailable) && document.totalAvailable >= rows.length ? Math.min(document.totalAvailable, 100000) : rows.length
+      const pack = { ...base, id: randomBytes(18).toString('hex'), status: rows.length ? 'ok' : 'empty', kind: 'public-gallery', images: rows, totalAvailable, limited: totalAvailable > rows.length, resolution: document.resolution === 'published-full' ? 'published-full' : 'published-preview', expiresAt: new Date(now() + cacheTtlMs).toISOString(), message: 'Fotos públicas do exemplar carregadas pelo seu navegador no CLASSIC.COM.' }
+      if (rows.length) remember(packs, pack.id, { pack, until: now() + cacheTtlMs })
+      return pack
+    },
     zip(galleryId, selection = {}, { signal } = {}) {
       if (zipLimit.pendingCount >= 2) return Promise.reject(problem('Há outros ZIPs sendo preparados. Tente novamente em instantes.', 429))
       return zipLimit(async () => {
@@ -228,16 +262,19 @@ export function createClassicReferences({ fetchImpl = fetch, now = Date.now, cac
         const pack = entry.pack, ids = selection.ids
         if (selection.all !== true && (!Array.isArray(ids) || !ids.length || ids.length > MAX_PHOTOS || ids.some(id => typeof id !== 'string' || !pack.images.some(image => image.id === id)))) throw problem('A seleção de fotos é inválida.', 400)
         const wanted = new Set(Array.isArray(ids) ? ids : []), images = selection.all === true ? pack.images : pack.images.filter(image => wanted.has(image.id))
-        const deadline = AbortSignal.timeout(90000), combined = signal ? AbortSignal.any([signal, deadline]) : deadline
-        const files = [], manifest = []; let bytes = 0
-        for (const [index, image] of images.entries()) {
+        const deadline = AbortSignal.timeout(90000), failureAbort = new AbortController()
+        const combined = AbortSignal.any([deadline, failureAbort.signal, ...(signal ? [signal] : [])]), photoLimit = pLimit(3)
+        const files = new Array(images.length), manifest = new Array(images.length); let bytes = 0
+        const tasks = images.map((image, index) => photoLimit(async () => {
           combined.throwIfAborted()
           const fetched = await request(image.url, true, combined)
           bytes += fetched.buffer.length
           if (bytes > MAX_ZIP_BYTES) throw problem('As fotos ultrapassam 64 MB por ZIP. Selecione um grupo menor.', 413)
           const name = `${String(index + 1).padStart(3, '0')}_${safeName(pack.title)}.${fetched.extension}`
-          files.push({ name, data: fetched.buffer }); manifest.push({ file: name, caption: image.caption, originalImage: image.url, sourcePage: image.sourceUrl })
-        }
+          files[index] = { name, data: fetched.buffer }; manifest[index] = { file: name, caption: image.caption, originalImage: image.url, sourcePage: image.sourceUrl }
+        }))
+        try { await Promise.all(tasks) }
+        catch (error) { failureAbort.abort(); await Promise.allSettled(tasks); throw error }
         files.push({ name: 'sources.txt', data: Buffer.from(`CLASSIC.COM — referências de ${pack.title}\nFonte: ${pack.sourceUrl}\nGerado: ${new Date(now()).toISOString()}\nFotos: ${images.length}\n\nOs direitos das fotografias pertencem aos respectivos titulares. A disponibilidade pública não transfere esses direitos.\n\n${JSON.stringify(manifest, null, 2)}`, 'utf8') })
         return { buffer: makeZip(files), count: images.length, filename: `${safeName(pack.title)}_CLASSIC_referencias.zip` }
       })
@@ -269,5 +306,9 @@ export function registerClassicReferenceRoutes(app, service = createClassicRefer
     if (typeof req.body?.galleryId !== 'string' || req.body.galleryId.length > 80) throw problem('A galeria é inválida.', 400)
     const zip = await service.zip(req.body.galleryId, { ids: req.body.ids, all: req.body.all }, { signal })
     if (!res.destroyed) res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${zip.filename}"`, 'Content-Length': zip.buffer.length, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }).send(zip.buffer)
+  }))
+  app.post('/api/classic/references/browser-import', handler(async (req, res) => {
+    const result = service.importBrowser(assetFrom(req.body || {}), req.body?.kind, req.body?.document)
+    if (!res.destroyed) res.set('Cache-Control', 'no-store').json(result)
   }))
 }

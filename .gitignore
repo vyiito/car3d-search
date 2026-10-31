@@ -1,4 +1,5 @@
 node_modules/
+public/classic-reader.zip
 dist/
 .env
 .env.*
